@@ -83,6 +83,12 @@
     <ClInclude Include="ImGui\imstb_truetype.h">
       <Filter>ImGui</Filter>
     </ClInclude>
+    <ClInclude Include="MarchingCubes.h">
+      <Filter>.h</Filter>
+    </ClInclude>
+    <ClInclude Include="MarchingCubesTable.h">
+      <Filter>.h</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Appearance.cpp">
@@ -135,6 +141,12 @@
     </ClCompile>
     <ClCompile Include="ImGui\imgui_widgets.cpp">
       <Filter>ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="MarchingCubes.cpp">
+      <Filter>.cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="MarchingCubesTable.cpp">
+      <Filter>.cpp</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

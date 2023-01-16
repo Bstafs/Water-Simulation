@@ -696,6 +696,10 @@ void Application::Cleanup()
 			gameObject = nullptr;
 		}
 	}
+
+	ImGui_ImplDX11_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 }
 
 void Application::moveForward(int objectNumber)
@@ -818,8 +822,6 @@ void Application::Update()
 
 	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
 	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
-	_camera->GetView();
-	_camera->GetProjection();
 
 	_camera->Update();
 
