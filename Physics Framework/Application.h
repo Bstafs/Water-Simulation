@@ -27,6 +27,10 @@
 */
 #include "GameObject.h"
 
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_impl_win32.h"
+#include "ImGui/imgui_impl_dx11.h"
+
 #define NUMBER_OF_CUBES 6
 #define FPS_60 1.0f/ 60.0f
 using namespace DirectX;
@@ -111,18 +115,13 @@ private:
 	vector<GameObject*> m_gameObjects;
 
 	Camera* _camera = nullptr;
-	float _cameraOrbitRadius = 7.0f;
-	float _cameraOrbitRadiusMin = 2.0f;
-	float _cameraOrbitRadiusMax = 50.0f;
-	float _cameraOrbitAngleXZ = -90.0f;
-	float _cameraSpeed = 2.0f;
 
-	UINT _WindowHeight;
-	UINT _WindowWidth;
+	UINT _WindowWidth = 1920;
+	UINT _WindowHeight = 1080;
 
 	// Render dimensions - Change here to alter screen resolution
-	UINT _renderHeight = 1080;
-	UINT _renderWidth = 1920;
+	UINT _renderWidth = _WindowWidth;
+	UINT _renderHeight = _WindowHeight;
 
 	float currentPosZ = 0.0f;
 	float currentPosX = 0.0f;
@@ -147,6 +146,8 @@ private:
 	HRESULT InitShadersAndInputLayout();
 	HRESULT InitVertexBuffer();
 	HRESULT InitIndexBuffer();
+
+	void ImGui();
 
 	void moveForward(int objectNumber);
 	void moveBackward(int objectNumber);

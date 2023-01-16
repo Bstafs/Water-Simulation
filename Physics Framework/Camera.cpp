@@ -14,8 +14,8 @@ void Camera::Update()
 {
     // Initialize the view matrix
 
-	XMFLOAT4 eye = XMFLOAT4(_eye.x, _eye.y, _eye.z, 1.0f);
-	XMFLOAT4 at = XMFLOAT4(_at.x, _at.y, _at.z, 1.0f);
+	XMFLOAT4 eye = XMFLOAT4(_eye.x, _eye.y, _eye.z, 0.0f);
+	XMFLOAT4 at = XMFLOAT4(_at.x, _at.y, _at.z, 0.0f);
 	XMFLOAT4 up = XMFLOAT4(_up.x, _up.y, _up.z, 0.0f);
 
 	XMVECTOR EyeVector = XMLoadFloat4(&eye);
@@ -25,7 +25,7 @@ void Camera::Update()
 	XMStoreFloat4x4(&_view, XMMatrixLookAtLH(EyeVector, AtVector, UpVector));
 
     // Initialize the projection matrix
-	XMStoreFloat4x4(&_projection, XMMatrixPerspectiveFovLH(0.25f * XM_PI, _windowWidth / _windowHeight, _nearDepth, _farDepth));
+	XMStoreFloat4x4(&_projection, XMMatrixPerspectiveFovLH(XM_PIDIV2, (FLOAT)_windowWidth / (FLOAT)_windowHeight, _nearDepth, _farDepth));
 }
 
 void Camera::Reshape(FLOAT windowWidth, FLOAT windowHeight, FLOAT nearDepth, FLOAT farDepth)

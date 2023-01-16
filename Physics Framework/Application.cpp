@@ -1,7 +1,14 @@
 #include "Application.h"
 
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+	{
+		return true;
+	}
+
 	PAINTSTRUCT ps;
 	HDC hdc;
 
@@ -25,52 +32,44 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 bool Application::HandleKeyboard(MSG msg)
 {
-	XMFLOAT3 cameraPosition = _camera->GetPosition();
-	float mCameraSpeed = 0.2f;
-	switch (msg.wParam)
+	float mCameraSpeed = 0.22f;
+
+	// Forward
+	if (GetAsyncKeyState('W'))
 	{
-	case 0x57: // W
 		currentPosZ += mCameraSpeed * cos(rotationX);
 		currentPosX += mCameraSpeed * sin(rotationX);
 		currentPosY += mCameraSpeed * sin(rotationY);
-		return true;
-		break;
-
-	case 0x53: // S
+	}
+	// Backwards
+	if (GetAsyncKeyState('S'))
+	{
 		currentPosZ -= mCameraSpeed * cos(rotationX);
 		currentPosX -= mCameraSpeed * sin(rotationX);
 		currentPosY += mCameraSpeed * sin(rotationY);
-		return true;
-		break;
-
-	case 0x44: // D
-		rotationX += mCameraSpeed * cos(rotationX);
-		return true;
-		break;
-
-	case 0x41: // A
-		rotationX -= mCameraSpeed * cos(rotationX);;
-		return true;
-		break;
-	case 0x51: // Q
-		rotationY -= mCameraSpeed * cos(rotationY);
-		return true;
-		break;
-	case 0x45: // E
-		rotationY += mCameraSpeed * cos(rotationY);
-		return true;
-		break;
 	}
 
+	// Right
+	if (GetAsyncKeyState('D'))
+	{
+		rotationX += mCameraSpeed;
+	}
+	// Left
+	if (GetAsyncKeyState('A'))
+	{
+		rotationX -= mCameraSpeed;
+	}
 
-	//if (rotationY > 1.5f)
-	//{
-	//	rotationY = 1.5f;
-	//}
-	//if (rotationY < -1.5f)
-	//{
-	//	rotationY = -1.5f;
-	//}
+	// Up
+	if (GetAsyncKeyState('E'))
+	{
+		rotationY += mCameraSpeed * cos(rotationY);
+	}
+	// Down
+	if (GetAsyncKeyState('Q'))
+	{
+		rotationY -= mCameraSpeed * cos(rotationY);
+	}
 
 	return false;
 }
@@ -203,6 +202,15 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetTransform()->SetPosition(-4.0f, 0.5f, 10.0f);
 	gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 	//m_gameObjects.push_back(gameObject);
+
+	// Setup Imgui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplWin32_Init(_hWnd);
+	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
+	ImGui::StyleColorsDark();
+
 	return S_OK;
 }
 
@@ -449,7 +457,7 @@ HRESULT Application::InitWindow(HINSTANCE hInstance, int nCmdShow)
 
 	// Create window
 	_hInst = hInstance;
-	RECT rc = { 0, 0, 960, 540 };
+	RECT rc = { 0, 0, _renderWidth, _renderHeight };
 	AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
 	_hWnd = CreateWindow(L"TutorialWindowClass", L"FGGC Semester 2 Framework", WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance,
@@ -810,6 +818,9 @@ void Application::Update()
 
 	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
 	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
+	_camera->GetView();
+	_camera->GetProjection();
+
 	_camera->Update();
 
 
@@ -824,6 +835,36 @@ void Application::Update()
 	dwTimeStart = dwTimeCur;
 
 	deltaTime = deltaTime - FPS_60;
+}
+
+void Application::ImGui()
+{
+	
+		// IMGUI
+		ImGui_ImplDX11_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
+		ImGui::Begin("Debug Window");
+
+		ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
+
+		if (ImGui::CollapsingHeader("Camera"))
+		{
+			ImGui::Text("Camera Position");
+			ImGui::DragFloat("Camera Pos X", &currentPosX, 0.05f);
+			ImGui::DragFloat("Camera Pos Y", &currentPosY, 0.05f);
+			ImGui::DragFloat("Camera Pos Z", &currentPosZ, 0.05f);
+			ImGui::Text("Camera Rotation");
+			ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
+			ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
+		}
+
+		ImGui::End();
+
+		ImGui::Render();
+
+		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	
 }
 
 void Application::Draw()
@@ -895,6 +936,8 @@ void Application::Draw()
 		// Draw object
 		gameObject->Draw(_pImmediateContext);
 	}
+
+	ImGui();
 
 	//
 	// Present our back buffer to our front buffer
