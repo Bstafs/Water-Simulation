@@ -29,22 +29,22 @@ bool Application::HandleKeyboard(MSG msg)
 
 	switch (msg.wParam)
 	{
-	case VK_UP:
+	case 0x57:
 		_cameraOrbitRadius = max(_cameraOrbitRadiusMin, _cameraOrbitRadius - (_cameraSpeed * 0.2f));
 		return true;
 		break;
 
-	case VK_DOWN:
+	case 0x53:
 		_cameraOrbitRadius = min(_cameraOrbitRadiusMax, _cameraOrbitRadius + (_cameraSpeed * 0.2f));
 		return true;
 		break;
 
-	case VK_RIGHT:
+	case 0x44:
 		_cameraOrbitAngleXZ -= _cameraSpeed;
 		return true;
 		break;
 
-	case VK_LEFT:
+	case 0x41:
 		_cameraOrbitAngleXZ += _cameraSpeed;
 		return true;
 		break;
@@ -103,7 +103,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
-	//CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\Hercules_COLOR.dds", nullptr, &_pHerculesTextureRV);
 
 	// Setup Camera
 	XMFLOAT3 eye = XMFLOAT3(0.0f, 2.0f, -1.0f);
@@ -157,7 +156,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
 	gameObject->GetTransform()->SetScale(15.0f, 15.0f, 15.0f);
 	gameObject->GetTransform()->SetRotation(XMConvertToRadians(90.0f), 0.0f, 0.0f);
-	gameObject->GetParticleModel()->SetCollisionRadius(0.1f);
 	gameObject->GetParticleModel()->SetMass(1.0f);
 	gameObject->GetAppearance()->SetTextureRV(_pGroundTextureRV);
 	gameObject->GetParticleModel()->SetToggleGravity(false);
@@ -170,7 +168,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
-		gameObject->GetParticleModel()->SetCollisionRadius(1.0f);
 		gameObject->GetParticleModel()->SetMass(1.0f);
 		gameObject->GetParticleModel()->SetAcceleration(0.0f, 0.0f, 0.0f);
 		gameObject->GetParticleModel()->SetNetForce(0.0f, 0.0f, 0.0f);
@@ -702,15 +699,13 @@ void Application::moveRight(int objectNumber)
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
 
-
-
 void Application::Update()
 {
 	// Update our time
 	static float deltaTime = 0.0f;
 	static DWORD dwTimeStart = 0;
 
-	DWORD dwTimeCur = GetTickCount64();
+	DWORD dwTimeCur = (DWORD)GetTickCount64();
 
 	if (dwTimeStart == 0)
 	{
@@ -807,30 +802,6 @@ void Application::Update()
 	for (auto gameObject : m_gameObjects)
 	{
 		gameObject->Update(deltaTime);
-	}
-
-	// Update Collisions
-	for (int i = 0; i < m_gameObjects.size() - 1; i++)
-	{
-		for (int j = i + 1; j < m_gameObjects.size(); j++)
-		{
-			if (ToggleCollisionsMode == true)
-			{
-				if (m_gameObjects[i]->GetParticleModel()->CheckSphereColision(m_gameObjects[j]->GetTransform()->GetPosition(), m_gameObjects[j]->GetParticleModel()->GetCollisionRadius()))
-				{
-					m_gameObjects[i]->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
-					m_gameObjects[j]->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
-				}
-			}
-			else if (ToggleCollisionsMode == false)
-			{
-				if (m_gameObjects[i]->GetParticleModel()->CheckCubeCollision(m_gameObjects[j]->GetTransform()->GetPosition(), m_gameObjects[j]->GetParticleModel()->GetCollisionRadius()))
-				{
-					m_gameObjects[i]->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
-					m_gameObjects[j]->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
-				}
-			}
-		}
 	}
 
 	m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);

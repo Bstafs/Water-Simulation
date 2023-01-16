@@ -5,11 +5,11 @@
 #include <d3d11_1.h>
 using namespace DirectX;
 using namespace std;
-class ParticleModel
+class Physics
 {
 public:
-	ParticleModel();
-	~ParticleModel();
+	Physics();
+	~Physics();
 
 	void SetTransform(Transform* tf) { m_transform = tf; }
 	Transform* GetTransform() { return m_transform; }
@@ -49,13 +49,6 @@ public:
 
 	void AddForce(Vector3 force) { m_netForce += force; }
 
-	// Collisions
-	float GetCollisionRadius() const { return m_boundSphereRadius; }
-	void SetCollisionRadius(float radius) { m_boundSphereRadius = radius; }
-
-	bool CheckSphereColision(Vector3 position, float radius);
-	bool CheckCubeCollision(Vector3 position, float radius);
-
 private:
 	void Gravity();
 	void Friction();
@@ -64,7 +57,6 @@ private:
 	void DragTurbulentFlow();
 	void Thrust(float deltaTime);
 	void UpdatePosition(const float deltaTime);
-	void CheckLevel();
 protected:
 	Vector3 m_netForce;
 	Vector3 m_velocity;
@@ -84,8 +76,6 @@ private:
 
 	bool m_hasGravity;
 	bool m_toggleGravity = true;
-
-	float m_boundSphereRadius;
 
 };
 

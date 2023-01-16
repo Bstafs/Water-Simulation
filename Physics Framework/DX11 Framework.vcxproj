@@ -377,7 +377,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="OBJLoader.cpp" />
-    <ClCompile Include="ParticleModel.cpp" />
+    <ClCompile Include="Physics.cpp" />
     <ClCompile Include="RigidBody.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="Vector3.cpp" />
@@ -395,7 +395,7 @@
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="OBJLoader.h" />
-    <ClInclude Include="ParticleModel.h" />
+    <ClInclude Include="Physics.h" />
     <ClInclude Include="Quaternion.h" />
     <CLInclude Include="resource.h" />
     <ClInclude Include="RigidBody.h" />
@@ -407,9 +407,6 @@
   <ItemGroup>
     <Image Include="Resources\floor.dds" />
     <Image Include="Resources\stone.dds" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="ClassDiagram.cd" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
