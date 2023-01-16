@@ -26,29 +26,51 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 bool Application::HandleKeyboard(MSG msg)
 {
 	XMFLOAT3 cameraPosition = _camera->GetPosition();
-
+	float mCameraSpeed = 0.2f;
 	switch (msg.wParam)
 	{
-	case 0x57:
-		_cameraOrbitRadius = max(_cameraOrbitRadiusMin, _cameraOrbitRadius - (_cameraSpeed * 0.2f));
+	case 0x57: // W
+		currentPosZ += mCameraSpeed * cos(rotationX);
+		currentPosX += mCameraSpeed * sin(rotationX);
+		currentPosY += mCameraSpeed * sin(rotationY);
 		return true;
 		break;
 
-	case 0x53:
-		_cameraOrbitRadius = min(_cameraOrbitRadiusMax, _cameraOrbitRadius + (_cameraSpeed * 0.2f));
+	case 0x53: // S
+		currentPosZ -= mCameraSpeed * cos(rotationX);
+		currentPosX -= mCameraSpeed * sin(rotationX);
+		currentPosY += mCameraSpeed * sin(rotationY);
 		return true;
 		break;
 
-	case 0x44:
-		_cameraOrbitAngleXZ -= _cameraSpeed;
+	case 0x44: // D
+		rotationX += mCameraSpeed * cos(rotationX);
 		return true;
 		break;
 
-	case 0x41:
-		_cameraOrbitAngleXZ += _cameraSpeed;
+	case 0x41: // A
+		rotationX -= mCameraSpeed * cos(rotationX);;
+		return true;
+		break;
+	case 0x51: // Q
+		rotationY -= mCameraSpeed * cos(rotationY);
+		return true;
+		break;
+	case 0x45: // E
+		rotationY += mCameraSpeed * cos(rotationY);
 		return true;
 		break;
 	}
+
+
+	//if (rotationY > 1.5f)
+	//{
+	//	rotationY = 1.5f;
+	//}
+	//if (rotationY < -1.5f)
+	//{
+	//	rotationY = -1.5f;
+	//}
 
 	return false;
 }
@@ -785,16 +807,9 @@ void Application::Update()
 	//}
 
 	// Update camera
-	float angleAroundZ = XMConvertToRadians(_cameraOrbitAngleXZ);
 
-	float x = _cameraOrbitRadius * cos(angleAroundZ);
-	float z = _cameraOrbitRadius * sin(angleAroundZ);
-
-	XMFLOAT3 cameraPos = _camera->GetPosition();
-	cameraPos.x = x;
-	cameraPos.z = z;
-
-	_camera->SetPosition(cameraPos);
+	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
+	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
 	_camera->Update();
 
 

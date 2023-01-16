@@ -28,7 +28,7 @@
 #include "GameObject.h"
 
 #define NUMBER_OF_CUBES 6
-#define FPS_60 1.0f/60.0f
+#define FPS_60 1.0f/ 60.0f
 using namespace DirectX;
 
 //struct SimpleVertex
@@ -123,6 +123,12 @@ private:
 	// Render dimensions - Change here to alter screen resolution
 	UINT _renderHeight = 1080;
 	UINT _renderWidth = 1920;
+
+	float currentPosZ = 0.0f;
+	float currentPosX = 0.0f;
+	float currentPosY = 2.0f;
+	float rotationX = 0.0f;
+	float rotationY = 0.0f;
 
 	ID3D11DepthStencilState* DSLessEqual;
 	ID3D11RasterizerState* RSCullNone;
