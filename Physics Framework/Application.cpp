@@ -450,7 +450,7 @@ HRESULT Application::InitWindow(HINSTANCE hInstance, int nCmdShow)
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszMenuName = nullptr;
-	wcex.lpszClassName = L"TutorialWindowClass";
+	wcex.lpszClassName = L"WaterSim";
 	wcex.hIconSm = LoadIcon(wcex.hInstance, (LPCTSTR)IDI_TUTORIAL1);
 	if (!RegisterClassEx(&wcex))
 		return E_FAIL;
@@ -459,7 +459,7 @@ HRESULT Application::InitWindow(HINSTANCE hInstance, int nCmdShow)
 	_hInst = hInstance;
 	RECT rc = { 0, 0, _renderWidth, _renderHeight };
 	AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
-	_hWnd = CreateWindow(L"TutorialWindowClass", L"FGGC Semester 2 Framework", WS_OVERLAPPEDWINDOW,
+	_hWnd = CreateWindow(L"WaterSim", L"Water Simulation Marching Cubes & SPH", WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance,
 		nullptr);
 	if (!_hWnd)
@@ -848,7 +848,7 @@ void Application::Update()
 		gameObject->Update(deltaTime);
 	}
 
-	m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);
+	//m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);
 }
 
 void Application::ImGui()

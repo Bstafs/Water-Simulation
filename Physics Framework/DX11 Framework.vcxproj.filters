@@ -21,6 +21,12 @@
     <Filter Include="ImGui">
       <UniqueIdentifier>{1ff2c2bb-0e22-4c4f-b637-485f455568de}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MarchingCubes">
+      <UniqueIdentifier>{c3abb355-676f-477b-8329-34e177893a00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SPH">
+      <UniqueIdentifier>{b21342b4-54c2-4015-9dee-d273b123be09}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Vector3.h">
@@ -84,7 +90,16 @@
       <Filter>ImGui</Filter>
     </ClInclude>
     <ClInclude Include="MarchingCubes.h">
-      <Filter>.h</Filter>
+      <Filter>MarchingCubes</Filter>
+    </ClInclude>
+    <ClInclude Include="SPH.h">
+      <Filter>SPH</Filter>
+    </ClInclude>
+    <ClInclude Include="Particle.h">
+      <Filter>SPH</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector3D.h">
+      <Filter>SPH</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -140,7 +155,13 @@
       <Filter>ImGui</Filter>
     </ClCompile>
     <ClCompile Include="MarchingCubes.cpp">
-      <Filter>.cpp</Filter>
+      <Filter>MarchingCubes</Filter>
+    </ClCompile>
+    <ClCompile Include="SPH.cpp">
+      <Filter>SPH</Filter>
+    </ClCompile>
+    <ClCompile Include="Particle.cpp">
+      <Filter>SPH</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
