@@ -749,7 +749,7 @@ float Application::CalculateDeltaTime60FPS()
 
 	// cap the framerate at 60 fps 
 	cummulativeTime += deltaTime;
-	if (cummulativeTime >= FPS60) 
+	if (cummulativeTime >= FPS60)
 	{
 		cummulativeTime = cummulativeTime - FPS60;
 	}
@@ -853,32 +853,29 @@ void Application::Update()
 
 void Application::ImGui()
 {
-	
-		// IMGUI
-		ImGui_ImplDX11_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
-		ImGui::Begin("Debug Window");
 
-		ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
+	// IMGUI
+	ImGui_ImplDX11_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+	ImGui::Begin("Debug Window");
 
-		if (ImGui::CollapsingHeader("Camera"))
-		{
-			ImGui::Text("Camera Position");
-			ImGui::DragFloat("Camera Pos X", &currentPosX, 0.05f);
-			ImGui::DragFloat("Camera Pos Y", &currentPosY, 0.05f);
-			ImGui::DragFloat("Camera Pos Z", &currentPosZ, 0.05f);
-			ImGui::Text("Camera Rotation");
-			ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
-			ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
-		}
+	ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
 
-		ImGui::End();
+	if (ImGui::CollapsingHeader("Camera"))
+	{
+		ImGui::Text("Camera Position");
+		ImGui::DragFloat("Camera Pos X", &currentPosX, 0.05f);
+		ImGui::DragFloat("Camera Pos Y", &currentPosY, 0.05f);
+		ImGui::DragFloat("Camera Pos Z", &currentPosZ, 0.05f);
+		ImGui::Text("Camera Rotation");
+		ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
+		ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
+	}
 
-		ImGui::Render();
-
-		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-	
+	ImGui::End();
+	ImGui::Render();
+	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Application::Draw()
