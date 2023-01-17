@@ -86,9 +86,6 @@
     <ClInclude Include="MarchingCubes.h">
       <Filter>.h</Filter>
     </ClInclude>
-    <ClInclude Include="MarchingCubesTable.h">
-      <Filter>.h</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Appearance.cpp">
@@ -143,9 +140,6 @@
       <Filter>ImGui</Filter>
     </ClCompile>
     <ClCompile Include="MarchingCubes.cpp">
-      <Filter>.cpp</Filter>
-    </ClCompile>
-    <ClCompile Include="MarchingCubesTable.cpp">
       <Filter>.cpp</Filter>
     </ClCompile>
   </ItemGroup>

@@ -148,6 +148,7 @@ private:
 	HRESULT InitIndexBuffer();
 
 	void ImGui();
+	float CalculateDeltaTime60FPS();
 
 	void moveForward(int objectNumber);
 	void moveBackward(int objectNumber);
@@ -160,7 +161,7 @@ public:
 
 	HRESULT Initialise(HINSTANCE hInstance, int nCmdShow);
 
-	bool HandleKeyboard(MSG msg);
+	bool HandleKeyboard();
 
 	void Update();
 	void Draw();

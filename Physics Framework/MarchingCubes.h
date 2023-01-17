@@ -8,8 +8,6 @@
 #include <random>
 #include <functional>
 
-#include "MarchingCubesTable.h"
-
 using namespace DirectX;
 using namespace std;
 

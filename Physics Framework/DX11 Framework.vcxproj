@@ -383,7 +383,6 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="MarchingCubes.cpp" />
-    <ClCompile Include="MarchingCubesTable.cpp" />
     <ClCompile Include="OBJLoader.cpp" />
     <ClCompile Include="Physics.cpp" />
     <ClCompile Include="RigidBody.cpp" />
@@ -411,7 +410,6 @@
     <ClInclude Include="ImGui\imstb_textedit.h" />
     <ClInclude Include="ImGui\imstb_truetype.h" />
     <ClInclude Include="MarchingCubes.h" />
-    <ClInclude Include="MarchingCubesTable.h" />
     <ClInclude Include="OBJLoader.h" />
     <ClInclude Include="Physics.h" />
     <ClInclude Include="Quaternion.h" />

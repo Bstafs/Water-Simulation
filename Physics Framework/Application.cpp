@@ -30,9 +30,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-bool Application::HandleKeyboard(MSG msg)
+bool Application::HandleKeyboard()
 {
-	float mCameraSpeed = 0.22f;
+	float mCameraSpeed = 0.0008f;
 
 	// Forward
 	if (GetAsyncKeyState('W'))
@@ -733,22 +733,38 @@ void Application::moveRight(int objectNumber)
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
 
-void Application::Update()
+float Application::CalculateDeltaTime60FPS()
 {
 	// Update our time
 	static float deltaTime = 0.0f;
-	static DWORD dwTimeStart = 0;
+	static ULONGLONG timeStart = 0;
+	ULONGLONG timeCur = GetTickCount64();
+	if (timeStart == 0)
+		timeStart = timeCur;
+	deltaTime = (timeCur - timeStart) / 1000.0f;
+	timeStart = timeCur;
 
-	DWORD dwTimeCur = (DWORD)GetTickCount64();
+	float FPS60 = 1.0f / 60.0f;
+	static float cummulativeTime = 0;
 
-	if (dwTimeStart == 0)
+	// cap the framerate at 60 fps 
+	cummulativeTime += deltaTime;
+	if (cummulativeTime >= FPS60) 
 	{
-		dwTimeStart = dwTimeCur;
+		cummulativeTime = cummulativeTime - FPS60;
+	}
+	else
+	{
+		return 0;
 	}
 
-	deltaTime = (dwTimeCur - dwTimeStart) / 1000.0f;
+	return deltaTime;
+}
 
-	if (deltaTime < FPS_60)
+void Application::Update()
+{
+	float deltaTime = CalculateDeltaTime60FPS();
+	if (deltaTime == 0)
 	{
 		return;
 	}
@@ -833,10 +849,6 @@ void Application::Update()
 	}
 
 	m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);
-
-	dwTimeStart = dwTimeCur;
-
-	deltaTime = deltaTime - FPS_60;
 }
 
 void Application::ImGui()
