@@ -704,32 +704,35 @@ void Application::Cleanup()
 
 void Application::moveForward(int objectNumber)
 {
-	Vector3 velocity = m_gameObjects[objectNumber]->GetParticleModel()->GetVelocity();
 	Vector3 accel = m_gameObjects[objectNumber]->GetParticleModel()->GetAcceleration();
-	velocity.z -= 0.2f;
-	accel.z -= 0.2f;
-	m_gameObjects[objectNumber]->GetParticleModel()->SetVelocity(velocity);
+	Vector3 velocity = m_gameObjects[objectNumber]->GetParticleModel()->GetVelocity();
+	accel.z -= 0.0002f;
+	velocity.z -= 0.0002f;
 	m_gameObjects[objectNumber]->GetParticleModel()->SetAcceleration(accel);
+	m_gameObjects[objectNumber]->GetParticleModel()->SetVelocity(velocity);
 }
 
 void Application::moveBackward(int objectNumber)
 {
+	Vector3 accel = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetAcceleration();
 	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	velocity.z += 0.2f;
+	accel.z -= 0.0002f;
+	velocity.z += 0.0002f;
+	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetAcceleration(accel);
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
 
 void Application::moveLeft(int objectNumber)
 {
 	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	velocity.x -= 0.2f;
+	velocity.x -= 0.0002f;
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
 
 void Application::moveRight(int objectNumber)
 {
 	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	velocity.x += 0.02f;
+	velocity.x += 0.0002f;
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
 
@@ -758,16 +761,16 @@ float Application::CalculateDeltaTime60FPS()
 		return 0;
 	}
 
-	return deltaTime;
+	return FPS60;
 }
 
 void Application::Update()
 {
 	float deltaTime = CalculateDeltaTime60FPS();
-	if (deltaTime == 0)
-	{
-		return;
-	}
+	//if (deltaTime == 0)
+	//{
+	//	return;
+	//}
 
 	// Move gameobject Forces
 

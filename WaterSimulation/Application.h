@@ -32,8 +32,10 @@
 #include "ImGui/imgui_impl_dx11.h"
 
 #define NUMBER_OF_CUBES 2
-#define FPS_60 1.0f/ 60.0f
+//#define FPS_60 1.0f/ 60.0f
 using namespace DirectX;
+
+constexpr double FPS_60 = 1.0 / 60.0;
 
 //struct SimpleVertex
 //{
@@ -139,6 +141,13 @@ private:
 
 	bool ToggleCollisionsMode = true;
 
+	double lastTime;
+	double timer;
+	double accumulator;
+	double nowTime;
+	int frames;
+	int updates;
+
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);
 	HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow);
@@ -166,6 +175,7 @@ public:
 	bool HandleKeyboard();
 
 	void Update();
+	void UpdatePhysics(float deltaTime);
 	void Draw();
 };
 
