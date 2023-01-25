@@ -1,14 +1,7 @@
 #include "Application.h"
 
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
-	{
-		return true;
-	}
-
 	PAINTSTRUCT ps;
 	HDC hdc;
 
@@ -139,14 +132,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	basicLight.SpecularPower = 20.0f;
 	basicLight.LightVecW = XMFLOAT3(0.0f, 1.0f, -1.0f);
 
-	Geometry herculesGeometry;
-	objMeshData = OBJLoader::Load("donut.obj", _pd3dDevice);
-	herculesGeometry.indexBuffer = objMeshData.IndexBuffer;
-	herculesGeometry.numberOfIndices = objMeshData.IndexCount;
-	herculesGeometry.vertexBuffer = objMeshData.VertexBuffer;
-	herculesGeometry.vertexBufferOffset = objMeshData.VBOffset;
-	herculesGeometry.vertexBufferStride = objMeshData.VBStride;
-
 	Geometry cubeGeometry;
 	cubeGeometry.indexBuffer = _pIndexBuffer;
 	cubeGeometry.vertexBuffer = _pVertexBuffer;
@@ -197,19 +182,14 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		//	gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
 		m_gameObjects.push_back(gameObject);
 	}
-	gameObject = new GameObject("donut", herculesGeometry, shinyMaterial);
-	gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
-	gameObject->GetTransform()->SetPosition(-4.0f, 0.5f, 10.0f);
-	gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
-	//m_gameObjects.push_back(gameObject);
 
 	// Setup Imgui
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
-	ImGui_ImplWin32_Init(_hWnd);
-	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
-	ImGui::StyleColorsDark();
+	//IMGUI_CHECKVERSION();
+	//ImGui::CreateContext();
+	//ImGuiIO& io = ImGui::GetIO();
+	//ImGui_ImplWin32_Init(_hWnd);
+	//ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
+	//ImGui::StyleColorsDark();
 
 	return S_OK;
 }
@@ -220,7 +200,7 @@ HRESULT Application::InitShadersAndInputLayout()
 
 	// Compile the vertex shader
 	ID3DBlob* pVSBlob = nullptr;
-	hr = CompileShaderFromFile(L"DX11 Framework.fx", "VS", "vs_4_0", &pVSBlob);
+	hr = CompileShaderFromFile(L"shader.fx", "VS", "vs_4_0", &pVSBlob);
 
 	if (FAILED(hr))
 	{
@@ -240,7 +220,7 @@ HRESULT Application::InitShadersAndInputLayout()
 
 	// Compile the pixel shader
 	ID3DBlob* pPSBlob = nullptr;
-	hr = CompileShaderFromFile(L"DX11 Framework.fx", "PS", "ps_4_0", &pPSBlob);
+	hr = CompileShaderFromFile(L"shader.fx", "PS", "ps_4_0", &pPSBlob);
 
 	if (FAILED(hr))
 	{
@@ -697,9 +677,9 @@ void Application::Cleanup()
 		}
 	}
 
-	ImGui_ImplDX11_Shutdown();
-	ImGui_ImplWin32_Shutdown();
-	ImGui::DestroyContext();
+	//ImGui_ImplDX11_Shutdown();
+	//ImGui_ImplWin32_Shutdown();
+	//ImGui::DestroyContext();
 }
 
 void Application::moveForward(int objectNumber)
@@ -858,27 +838,27 @@ void Application::ImGui()
 {
 
 	// IMGUI
-	ImGui_ImplDX11_NewFrame();
-	ImGui_ImplWin32_NewFrame();
-	ImGui::NewFrame();
-	ImGui::Begin("Debug Window");
+	//ImGui_ImplDX11_NewFrame();
+	//ImGui_ImplWin32_NewFrame();
+	//ImGui::NewFrame();
+	//ImGui::Begin("Debug Window");
 
-	ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
+	//ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
 
-	if (ImGui::CollapsingHeader("Camera"))
-	{
-		ImGui::Text("Camera Position");
-		ImGui::DragFloat("Camera Pos X", &currentPosX, 0.05f);
-		ImGui::DragFloat("Camera Pos Y", &currentPosY, 0.05f);
-		ImGui::DragFloat("Camera Pos Z", &currentPosZ, 0.05f);
-		ImGui::Text("Camera Rotation");
-		ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
-		ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
-	}
+	//if (ImGui::CollapsingHeader("Camera"))
+	//{
+	//	ImGui::Text("Camera Position");
+	//	ImGui::DragFloat("Camera Pos X", &currentPosX, 0.05f);
+	//	ImGui::DragFloat("Camera Pos Y", &currentPosY, 0.05f);
+	//	ImGui::DragFloat("Camera Pos Z", &currentPosZ, 0.05f);
+	//	ImGui::Text("Camera Rotation");
+	//	ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
+	//	ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
+	//}
 
-	ImGui::End();
-	ImGui::Render();
-	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	//ImGui::End();
+	//ImGui::Render();
+	//ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Application::Draw()

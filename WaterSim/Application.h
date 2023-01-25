@@ -27,10 +27,6 @@
 */
 #include "GameObject.h"
 
-#include "ImGui/imgui.h"
-#include "ImGui/imgui_impl_win32.h"
-#include "ImGui/imgui_impl_dx11.h"
-
 #define NUMBER_OF_CUBES 2
 //#define FPS_60 1.0f/ 60.0f
 using namespace DirectX;
