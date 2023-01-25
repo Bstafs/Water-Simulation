@@ -1,7 +1,14 @@
 #include "Application.h"
 
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+	{
+		return true;
+	}
+
 	PAINTSTRUCT ps;
 	HDC hdc;
 
@@ -184,12 +191,12 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	}
 
 	// Setup Imgui
-	//IMGUI_CHECKVERSION();
-	//ImGui::CreateContext();
-	//ImGuiIO& io = ImGui::GetIO();
-	//ImGui_ImplWin32_Init(_hWnd);
-	//ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
-	//ImGui::StyleColorsDark();
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplWin32_Init(_hWnd);
+	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
+	ImGui::StyleColorsDark();
 
 	return S_OK;
 }
@@ -677,9 +684,9 @@ void Application::Cleanup()
 		}
 	}
 
-	//ImGui_ImplDX11_Shutdown();
-	//ImGui_ImplWin32_Shutdown();
-	//ImGui::DestroyContext();
+	ImGui_ImplDX11_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 }
 
 void Application::moveForward(int objectNumber)
@@ -838,27 +845,29 @@ void Application::ImGui()
 {
 
 	// IMGUI
-	//ImGui_ImplDX11_NewFrame();
-	//ImGui_ImplWin32_NewFrame();
-	//ImGui::NewFrame();
-	//ImGui::Begin("Debug Window");
+	ImGui_ImplDX11_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
 
-	//ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
 
-	//if (ImGui::CollapsingHeader("Camera"))
-	//{
-	//	ImGui::Text("Camera Position");
-	//	ImGui::DragFloat("Camera Pos X", &currentPosX, 0.05f);
-	//	ImGui::DragFloat("Camera Pos Y", &currentPosY, 0.05f);
-	//	ImGui::DragFloat("Camera Pos Z", &currentPosZ, 0.05f);
-	//	ImGui::Text("Camera Rotation");
-	//	ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
-	//	ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
-	//}
+	ImGui::Begin("Debug Window");
 
-	//ImGui::End();
-	//ImGui::Render();
-	//ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
+
+	if (ImGui::CollapsingHeader("Camera"))
+	{
+		ImGui::Text("Camera Position");
+		ImGui::DragFloat("Camera Pos X", &currentPosX, 0.05f);
+		ImGui::DragFloat("Camera Pos Y", &currentPosY, 0.05f);
+		ImGui::DragFloat("Camera Pos Z", &currentPosZ, 0.05f);
+		ImGui::Text("Camera Rotation");
+		ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
+		ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
+	}
+
+	ImGui::End();
+	ImGui::Render();
+	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Application::Draw()
