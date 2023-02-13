@@ -14,7 +14,9 @@ public:
 	float mass;
 	float size;
 	float elasticity;
-
+	float density;
+	float pressure;
+	int particleID;
 	// Vector 3 Forces
 	Vector3 position;
 	Vector3 velocity;
@@ -23,8 +25,4 @@ public:
 
 	// Particle Linked List
 	Particle* nextParticle;
-	float density;
-	float pressure;
-	float particleID;
-
 };

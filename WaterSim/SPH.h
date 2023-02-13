@@ -11,7 +11,10 @@
  /* I will need a way to enter a particle amount, mass, density, gas considerations, viscosity, gravity and tension following
   * the research I have done.
   *
+  *  I will need a function to calculate Density, Pressure, Force and one to update positions of particles.
   *
+  *	 I will need a function to get each cell of a particle following matthias sph paper.
+  *	 returning pos x,y,z / core radius?
   */
 
 #include <unordered_map>

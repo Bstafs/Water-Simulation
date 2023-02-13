@@ -351,9 +351,6 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Image Include="Resources\stone.dds" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="Appearance.cpp" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Camera.cpp" />

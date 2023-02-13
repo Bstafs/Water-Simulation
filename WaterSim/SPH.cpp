@@ -30,13 +30,13 @@ SPH::SPH(unsigned int numbParticles, float mass, float density, float gasConstan
 
 	// Particle Initialization
 	initParticles();
-
-
 }
 
 SPH::~SPH()
 {
-
+	// Particle Cleanup
+	particleList.clear();
+	neighbourParticles.clear();
 }
 
 void SPH::Update(double deltaTime)
@@ -46,5 +46,9 @@ void SPH::Update(double deltaTime)
 
 void SPH::initParticles()
 {
-
+	// To Do
+	/* Loop through x, y, z number of particles
+	 * Calculate a Vector3 Particle Pos using randomized positions
+	 * Create a new Particle Base on that position
+	 */
 }

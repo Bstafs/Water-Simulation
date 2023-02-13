@@ -15,7 +15,7 @@ Particle::Particle(float particleMass, float particleSize, Vector3 particlePos, 
 	pressure = 0.0f;
 	particleID = particleCount++;
 
-	next = nullptr;
+	nextParticle = nullptr;
 }
 
 Particle::~Particle()
