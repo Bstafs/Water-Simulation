@@ -401,7 +401,6 @@
     <ClInclude Include="Structures.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="Vector3.h" />
-    <ClInclude Include="Vector3D.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shader.fx">

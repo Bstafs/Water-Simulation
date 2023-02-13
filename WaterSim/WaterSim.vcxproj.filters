@@ -1,23 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <FxCompile Include="shader.fx" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Appearance.cpp" />
     <ClCompile Include="Application.cpp" />
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="DDSTextureLoader.cpp" />
-    <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="MarchingCubes.cpp" />
-    <ClCompile Include="OBJLoader.cpp" />
-    <ClCompile Include="Particle.cpp" />
-    <ClCompile Include="Physics.cpp" />
-    <ClCompile Include="RigidBody.cpp" />
-    <ClCompile Include="SPH.cpp" />
-    <ClCompile Include="Transform.cpp" />
-    <ClCompile Include="Vector3.cpp" />
     <ClCompile Include="imgui\imgui.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
@@ -39,25 +24,45 @@
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
+    <ClCompile Include="Particle.cpp">
+      <Filter>SPH</Filter>
+    </ClCompile>
+    <ClCompile Include="SPH.cpp">
+      <Filter>SPH</Filter>
+    </ClCompile>
+    <ClCompile Include="Vector3.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Physics.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="RigidBody.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Appearance.cpp">
+      <Filter>Entity</Filter>
+    </ClCompile>
+    <ClCompile Include="OBJLoader.cpp">
+      <Filter>Entity</Filter>
+    </ClCompile>
+    <ClCompile Include="Transform.cpp">
+      <Filter>Entity</Filter>
+    </ClCompile>
+    <ClCompile Include="DDSTextureLoader.cpp">
+      <Filter>Entity</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObject.cpp">
+      <Filter>Entity</Filter>
+    </ClCompile>
+    <ClCompile Include="MarchingCubes.cpp">
+      <Filter>Marching Cubes</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Entity</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Appearance.h" />
     <ClInclude Include="Application.h" />
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="DDSTextureLoader.h" />
-    <ClInclude Include="GameObject.h" />
-    <ClInclude Include="MarchingCubes.h" />
-    <ClInclude Include="OBJLoader.h" />
-    <ClInclude Include="Particle.h" />
-    <ClInclude Include="Physics.h" />
-    <ClInclude Include="Quaternion.h" />
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="RigidBody.h" />
-    <ClInclude Include="SPH.h" />
-    <ClInclude Include="Structures.h" />
-    <ClInclude Include="Transform.h" />
-    <ClInclude Include="Vector3.h" />
-    <ClInclude Include="Vector3D.h" />
     <ClInclude Include="imgui\imconfig.h">
       <Filter>imgui</Filter>
     </ClInclude>
@@ -82,13 +87,83 @@
     <ClInclude Include="imgui\imstb_truetype.h">
       <Filter>imgui</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="Resources\stone.dds" />
+    <ClInclude Include="Particle.h">
+      <Filter>SPH</Filter>
+    </ClInclude>
+    <ClInclude Include="SPH.h">
+      <Filter>SPH</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector3.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Quaternion.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Structures.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Physics.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="RigidBody.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Appearance.h">
+      <Filter>Entity</Filter>
+    </ClInclude>
+    <ClInclude Include="OBJLoader.h">
+      <Filter>Entity</Filter>
+    </ClInclude>
+    <ClInclude Include="Transform.h">
+      <Filter>Entity</Filter>
+    </ClInclude>
+    <ClInclude Include="DDSTextureLoader.h">
+      <Filter>Entity</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject.h">
+      <Filter>Entity</Filter>
+    </ClInclude>
+    <ClInclude Include="MarchingCubes.h">
+      <Filter>Marching Cubes</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Entity</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">
       <UniqueIdentifier>{2a9ab234-4d5e-486b-9528-0099ede218d9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="SPH">
+      <UniqueIdentifier>{f723db60-563d-4f66-9897-5b0a200ef149}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{f4fa7e80-b563-4905-90d4-d8f0d31742e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics">
+      <UniqueIdentifier>{cb0689c1-92a0-42a9-bf8c-0556f03bf5bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Entity">
+      <UniqueIdentifier>{a9dfd827-bb96-44e7-8281-7206c4fa787b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{b5b62b64-c7d3-45b6-8bdd-64d21958d571}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Marching Cubes">
+      <UniqueIdentifier>{47c735f9-97c8-4722-92b0-74906e7c675c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shader.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\stone.dds">
+      <Filter>Shaders</Filter>
+    </Image>
   </ItemGroup>
 </Project>
