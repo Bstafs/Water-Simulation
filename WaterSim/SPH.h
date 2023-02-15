@@ -62,7 +62,7 @@ private:
 
 	// Forces Calculations
 	void CalculatePressure();
-	void CalculateDensity(double deltaTime);
+	void CalculateDensity();
 	void CalculateForce(double deltaTime);
 	void UpdateParticles(double deltaTime);
 

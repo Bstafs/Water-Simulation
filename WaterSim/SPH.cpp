@@ -88,11 +88,23 @@ void SPH::InitParticles()
 	}
 }
 
+void SPH::CalculateDensity()
+{
+	for (int i = 0; i < particleList.size(); i++)
+	{
+		Particle* part = particleList[i];
+		float density = MASS_CONSTANT * POLY6_CONSTANT / pow(sphH, 3);
+		part->density = density;
+	}
+}
+
 void SPH::CalculatePressure()
 {
 	for (int i = 0; i < particleList.size(); i++)
 	{
 		Particle* part = particleList[i];
+
+		part->density = sphDensity + DENS_CONSTANT;
 
 		// p = k(density - rest density)
 		float pressure = GAS_CONSTANT * (part->density - sphDensity);
@@ -101,34 +113,39 @@ void SPH::CalculatePressure()
 	}
 }
 
-void SPH::CalculateDensity(double deltaTime)
+void SPH::CalculateForce(double deltaTime)
 {
 	for (int i = 0; i < particleList.size(); i++)
 	{
 		Particle* part = particleList[i];
+
+
+
 	}
-}
-
-void SPH::CalculateForce(double deltaTime)
-{
-
 }
 
 void SPH::UpdateParticles(double deltaTime)
 {
+	for (int i = 0; i < particleList.size(); i++)
+	{
+		Particle* part = particleList[i];
 
+		// acceleration = particle force / particle density
+		Vector3 acceleration = part->force / part->density;
+		part->velocity += acceleration * deltaTime;
+		part->position += part->velocity * deltaTime;
+	}
 }
 
 void SPH::Update(const SPH& sph, double deltaTime)
 {
+	CalculateDensity();
 	CalculatePressure();
+	CalculateForce(deltaTime);
+	UpdateParticles(deltaTime);
 }
 
 void SPH::Draw()
 {
 
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		Vector3 position = Vector3{ particleList[i]->position };
-	}
 }
