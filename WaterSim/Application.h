@@ -133,7 +133,7 @@ private:
 
 	// SPH
 
-	 SPH* sph;
+	 SPH* sph = nullptr;
 
 	// Particle Variables for ImGui
 	int numbParticles;

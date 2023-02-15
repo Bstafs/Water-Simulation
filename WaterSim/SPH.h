@@ -58,7 +58,7 @@ public:
 
 private:
 	// Particle Initialization
-	void initParticles();
+	void InitParticles();
 
 	// Forces Calculations
 	void CalculatePressure();

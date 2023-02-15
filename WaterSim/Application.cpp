@@ -97,7 +97,7 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	 numbParticles = 50;
+	 numbParticles = 15;
 	 mass = 0.02f;
 	 density = 1000.0f;
 	 gasConstant = 1.0f;
@@ -920,6 +920,8 @@ void Application::Draw()
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
+	sph->Draw();
+
 	ConstantBuffer cb;
 
 	XMFLOAT4X4 viewAsFloats = _camera->GetView();
@@ -966,7 +968,6 @@ void Application::Draw()
 		// Draw object
 		gameObject->Draw(_pImmediateContext);
 	}
-	//	sph->Draw();
 
 	ImGui();
 

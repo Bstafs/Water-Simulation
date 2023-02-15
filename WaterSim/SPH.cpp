@@ -29,7 +29,7 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	particleList.resize(particleResize);
 
 	// Particle Initialization
-	initParticles();
+	InitParticles();
 }
 
 SPH::~SPH()
@@ -54,7 +54,7 @@ SPH::~SPH()
 	newParticle = nullptr;
 }
 
-void SPH::initParticles()
+void SPH::InitParticles()
 {
 	/* Loop through x, y, z number of particles
 	 * Calculate a Vector3 Particle Pos using randomized positions
@@ -94,7 +94,7 @@ void SPH::CalculatePressure()
 	{
 		Particle* part = particleList[i];
 
-		// p = k(pressure - rest density)
+		// p = k(density - rest density)
 		float pressure = GAS_CONSTANT * (part->density - sphDensity);
 
 		part->pressure = pressure;
