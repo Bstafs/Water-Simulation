@@ -96,6 +96,17 @@ Application::Application()
 	RSCullNone = nullptr;
 	_WindowHeight = 0;
 	_WindowWidth = 0;
+
+	 numbParticles = 50;
+	 mass = 0.02f;
+	 density = 1000.0f;
+	 gasConstant = 1.0f;
+	 viscosity = 1.04f;
+	 h = 0.15f;
+	 g = -9.807f;
+	 tension = 0.2f;
+
+	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension);
 }
 
 Application::~Application()
@@ -121,6 +132,14 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 
 		return E_FAIL;
 	}
+
+	// Setup Imgui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplWin32_Init(_hWnd);
+	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
+	ImGui::StyleColorsDark();
 
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
@@ -189,14 +208,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		//	gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
 		m_gameObjects.push_back(gameObject);
 	}
-
-	// Setup Imgui
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
-	ImGui_ImplWin32_Init(_hWnd);
-	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
-	ImGui::StyleColorsDark();
 
 	return S_OK;
 }
@@ -684,6 +695,9 @@ void Application::Cleanup()
 		}
 	}
 
+	delete sph;
+	sph = nullptr;
+
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
@@ -754,10 +768,10 @@ float Application::CalculateDeltaTime60FPS()
 void Application::Update()
 {
 	float deltaTime = CalculateDeltaTime60FPS();
-	//if (deltaTime == 0)
-	//{
-	//	return;
-	//}
+	if (deltaTime == 0)
+	{
+		return;
+	}
 
 	// Move gameobject Forces
 
@@ -839,6 +853,8 @@ void Application::Update()
 	}
 
 	//m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);
+
+	sph->Update(*sph, deltaTime);
 }
 
 void Application::ImGui()
@@ -847,8 +863,8 @@ void Application::ImGui()
 	// IMGUI
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
-	ImGui::NewFrame();
 
+	ImGui::NewFrame();
 
 	ImGui::Begin("Debug Window");
 
@@ -863,6 +879,17 @@ void Application::ImGui()
 		ImGui::Text("Camera Rotation");
 		ImGui::DragFloat("Rotate on the X Axis", &rotationX, 0.05f);
 		ImGui::DragFloat("Rotate on the Y Axis", &rotationY, 0.05f);
+	}
+	if (ImGui::CollapsingHeader("SPH"))
+	{
+		ImGui::DragInt("Number Of Particles", &numbParticles);
+		ImGui::DragFloat("Mass", &mass);
+		ImGui::DragFloat("Density", &density);
+		ImGui::DragFloat("Gas Constant", &gasConstant);
+		ImGui::DragFloat("Viscosity", &viscosity);
+		ImGui::DragFloat("Core Radius", &h);
+		ImGui::DragFloat("Gravity", &g);
+		ImGui::DragFloat("Tension", &tension);
 	}
 
 	ImGui::End();
@@ -939,6 +966,7 @@ void Application::Draw()
 		// Draw object
 		gameObject->Draw(_pImmediateContext);
 	}
+	//	sph->Draw();
 
 	ImGui();
 

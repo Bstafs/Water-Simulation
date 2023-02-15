@@ -14,6 +14,8 @@
 #include "Quaternion.h"
 #include "GameObject.h"
 
+#include "SPH.h"
+
 #include"imgui/imgui.h"
 #include"imgui/imgui_impl_dx11.h"
 #include"imgui/imgui_impl_win32.h"
@@ -128,6 +130,20 @@ private:
 	double nowTime;
 	int frames;
 	int updates;
+
+	// SPH
+
+	 SPH* sph;
+
+	// Particle Variables for ImGui
+	int numbParticles;
+	float mass;
+	float density;
+	float gasConstant;
+	float viscosity;
+	float h;
+	float g;
+	float tension;
 
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);

@@ -20,21 +20,22 @@
 #include <unordered_map>
 #include <vector>
 #include "Particle.h"
+#include "Structures.h"
 
 class SPH
 {
 public:
-	SPH(unsigned int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension);
+	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension);
 	~SPH();
-
-	void Update(double deltaTime);
-
+	void Update(const SPH& sph, double deltaTime);
+	void Draw();
 	// Particle Variables
 	float sphViscosity;
-	float sphDensity;
-	float sphTension;
+	float sphDensity; // Rest Density of water is 1000kg/m^3
+	float sphTension; // 72 at room temp
+	int numberOfParticles;
 
-	// External force density field 
+	// External force density field aka gravity
 	float sphG;
 
 	// Core Radius 
@@ -59,14 +60,26 @@ private:
 	// Particle Initialization
 	void initParticles();
 
+	// Forces Calculations
+	void CalculatePressure();
+	void CalculateDensity(double deltaTime);
+	void CalculateForce(double deltaTime);
+	void UpdateParticles(double deltaTime);
+
 	// Particle Data
-	unsigned int numberOfParticles;
+
+	Particle* newParticle;
 
 	// 2D vector to traverse and access each particle to check each neighbour
 	// https://www.geeksforgeeks.org/vector-of-vectors-in-c-stl-with-examples/ - Current Resource 
 	std::vector<std::vector<Particle*>> neighbourParticles;
 
-	// TO DO: not sure what to do yet, will find other ideas later
+	// TO DO: not sure what to do yet, will figure out later
 	std::unordered_map<Particle*, Particle*> particleLinkedListMap;
+
+	ID3D11Buffer* _pVertexBuffer;
+	ID3D11Buffer* _pIndexBuffer;
+
+	ID3D11ShaderResourceView* _pTextureRV = nullptr;
 };
 
