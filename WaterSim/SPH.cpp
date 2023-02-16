@@ -15,7 +15,10 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	// Kernel Smoothing Constants Initialization
 	POLY6_CONSTANT = 315.0f / (64.0f * PI * pow(sphH, 9));
 	SPIKY_CONSTANT = 15.0f / (PI * pow(sphH, 6));
+
+	// A bit lost on this one todo figure this out.
 	VISC_CONSTANT = 45.0f / (PI * pow(sphH, 6)) * (sphH - sphDensity);
+//	VISC_CONSTANT = 15.0f / (PI * pow(sphH, 6));
 
 	// Particle Constant Initialization
 	MASS_CONSTANT = mass;
@@ -23,7 +26,7 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	H2_CONSTANT = sphH * sphH;
 	DENS_CONSTANT = MASS_CONSTANT * POLY6_CONSTANT * pow(sphH, 6);
 
-	// Particle Resize
+	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
 	int particleResize = numberOfParticles * numberOfParticles * numberOfParticles;
 	neighbourParticles.resize(particleResize);
 	particleList.resize(particleResize);
@@ -78,7 +81,12 @@ void SPH::InitParticles()
 				float particleRandomPositionY = (float(rand()) / float((RAND_MAX)) * 0.5f - 1) * sphH / 10;
 				float particleRandomPositionZ = (float(rand()) / float((RAND_MAX)) * 0.5f - 1) * sphH / 10;
 
-				Vector3 particlePosition = Vector3{ i * particleSpacing + particleRandomPositionX - 1.5f, j * particleSpacing + particleRandomPositionY + sphH + 0.1f, k * particleSpacing + particleRandomPositionZ - 1.5f };
+				Vector3 particlePosition = Vector3
+				{
+					i * particleSpacing + particleRandomPositionX - 1.5f,
+					j * particleSpacing + particleRandomPositionY + sphH + 0.1f,
+					k * particleSpacing + particleRandomPositionZ - 1.5f
+				};
 				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, Vector3(0, 0, 0));
 
 				// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
@@ -93,6 +101,7 @@ void SPH::CalculateDensity()
 	for (int i = 0; i < particleList.size(); i++)
 	{
 		Particle* part = particleList[i];
+		// Density = mass * POLY6 / h^3
 		float density = MASS_CONSTANT * POLY6_CONSTANT / pow(sphH, 3);
 		part->density = density;
 	}
@@ -119,7 +128,7 @@ void SPH::CalculateForce(double deltaTime)
 	{
 		Particle* part = particleList[i];
 
-
+		// Apply Viscosity
 
 	}
 }
@@ -130,7 +139,7 @@ void SPH::UpdateParticles(double deltaTime)
 	{
 		Particle* part = particleList[i];
 
-		// acceleration = particle force / particle density
+		// acceleration = particle force / particle mass
 		Vector3 acceleration = part->force / part->density;
 		part->velocity += acceleration * deltaTime;
 		part->position += part->velocity * deltaTime;

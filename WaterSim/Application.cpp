@@ -81,7 +81,7 @@ Application::Application()
 	_driverType = D3D_DRIVER_TYPE_NULL;
 	_featureLevel = D3D_FEATURE_LEVEL_11_0;
 	_pd3dDevice = nullptr;
-	_pImmediateContext = nullptr;
+	_pImmediateContext = nullptr; 
 	_pSwapChain = nullptr;
 	_pRenderTargetView = nullptr;
 	_pVertexShader = nullptr;
