@@ -16,7 +16,7 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	POLY6_CONSTANT = 315.0f / (64.0f * PI * pow(sphH, 9));
 	SPIKY_CONSTANT = 15.0f / (PI * pow(sphH, 6));
 
-	// A bit lost on this one todo figure this out.
+	// A bit lost on this one todo figure this equation out.
 	VISC_CONSTANT = 45.0f / (PI * pow(sphH, 6)) * (sphH - sphDensity);
 //	VISC_CONSTANT = 15.0f / (PI * pow(sphH, 6));
 
@@ -128,7 +128,7 @@ void SPH::CalculateForce(double deltaTime)
 	{
 		Particle* part = particleList[i];
 
-		// Apply Viscosity
+		// Apply Viscosity and some other stuff
 
 	}
 }

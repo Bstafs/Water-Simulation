@@ -920,8 +920,6 @@ void Application::Draw()
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
-	sph->Draw();
-
 	ConstantBuffer cb;
 
 	XMFLOAT4X4 viewAsFloats = _camera->GetView();
@@ -970,6 +968,8 @@ void Application::Draw()
 	}
 
 	ImGui();
+
+	sph->Draw();
 
 	//
 	// Present our back buffer to our front buffer
