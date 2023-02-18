@@ -56,6 +56,8 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
+	Vector3 GetPosition();
+
 private:
 	// Particle Initialization
 	void InitParticles();

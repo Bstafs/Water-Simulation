@@ -2,11 +2,9 @@
 
 #include <directxmath.h>
 #include <d3d11_1.h>
-
-#include <iostream>
-#include <vector>
-#include <random>
 #include <functional>
+
+#include "MarchingCubeTable.h"
 
 using namespace DirectX;
 using namespace std;

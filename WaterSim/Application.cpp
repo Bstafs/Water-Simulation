@@ -32,7 +32,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 bool Application::HandleKeyboard()
 {
-	float mCameraSpeed = 0.0008f;
+	float mCameraSpeed = 0.010f;
 
 	// Forward
 	if (GetAsyncKeyState('W'))
@@ -193,11 +193,12 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetParticleModel()->SetToggleGravity(false);
 	m_gameObjects.push_back(gameObject);
 
-	for (auto i = 0; i < NUMBER_OF_CUBES; i++)
+	for (int i = 0; i < NUMBER_OF_CUBES; i++)
 	{
 		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
 		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
+		//gameObject->GetTransform()->SetPosition(sph->GetPosition().x, sph->GetPosition().y, sph->GetPosition().z);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
 		gameObject->GetParticleModel()->SetMass(1.0f);
@@ -833,6 +834,8 @@ void Application::Update()
 		ToggleCollisionsMode = false;
 	}
 
+	sph->Update(*sph, deltaTime);
+
 	//if (GetAsyncKeyState('5') && 0x8000)
 	//{
 	//	Debug::GetInstance().DebugWrite("KeyPressed\n");
@@ -854,7 +857,6 @@ void Application::Update()
 
 	//m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);
 
-	sph->Update(*sph, deltaTime);
 }
 
 void Application::ImGui()

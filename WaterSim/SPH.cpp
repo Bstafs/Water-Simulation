@@ -127,8 +127,19 @@ void SPH::CalculateForce(double deltaTime)
 	for (int i = 0; i < particleList.size(); i++)
 	{
 		Particle* part = particleList[i];
-
 		// Apply Viscosity and some other stuff
+		part->force = Vector3(0, 0, 0);
+
+		float distX = part->position.x;
+		float distY = part->position.y;
+		float distZ = part->position.z;
+		float dist = distX + distY + distZ;
+
+		Vector3 vosc;
+		vosc.x = sphViscosity * MASS_CONSTANT * (part->velocity.x / part->density) * SPIKY_CONSTANT * (sphH - dist);
+		vosc.y = sphViscosity * MASS_CONSTANT * (part->velocity.y / part->density) * SPIKY_CONSTANT * (sphH - dist);
+		vosc.z = sphViscosity * MASS_CONSTANT * (part->velocity.z / part->density) * SPIKY_CONSTANT * (sphH - dist);
+		part->force += vosc;
 
 	}
 }
@@ -152,6 +163,14 @@ void SPH::Update(const SPH& sph, double deltaTime)
 	CalculatePressure();
 	CalculateForce(deltaTime);
 	UpdateParticles(deltaTime);
+}
+
+Vector3 SPH::GetPosition()
+{
+	for (int i =0; i < particleList.size(); i++)
+	{
+		return particleList[i]->position;
+	}
 }
 
 void SPH::Draw()
