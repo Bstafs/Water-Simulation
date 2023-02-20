@@ -18,7 +18,7 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 
 	// A bit lost on this one todo figure this equation out.
 	VISC_CONSTANT = 45.0f / (PI * pow(sphH, 6)) * (sphH - sphDensity);
-//	VISC_CONSTANT = 15.0f / (PI * pow(sphH, 6));
+	//	VISC_CONSTANT = 15.0f / (PI * pow(sphH, 6));
 
 	// Particle Constant Initialization
 	MASS_CONSTANT = mass;
@@ -28,7 +28,7 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 
 	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
 	int particleResize = numberOfParticles * numberOfParticles * numberOfParticles;
-	neighbourParticles.resize(particleResize);
+//	neighbourParticles.resize(particleResize);
 	particleList.resize(particleResize);
 
 	// Particle Initialization
@@ -48,10 +48,16 @@ SPH::~SPH()
 		}
 	}
 
-	if (!neighbourParticles.empty())
-	{
-		neighbourParticles.clear();
-	}
+	//if (!neighbourParticles.empty())
+	//{
+	//	neighbourParticles.clear();
+
+	//	for (int i = 0; i < neighbourParticles.size(); i++)
+	//	{
+	//		delete neighbourParticles[i][i];
+	//		neighbourParticles[i][i] = nullptr;
+	//	}
+	//}
 
 	delete newParticle;
 	newParticle = nullptr;
@@ -65,7 +71,7 @@ void SPH::InitParticles()
 	 * Add the particles to the particle list
 	 */
 
-	std::srand(512);
+	std::srand(1024);
 
 	float particleSpacing = sphH + 0.01f;
 
@@ -87,46 +93,47 @@ void SPH::InitParticles()
 					j * particleSpacing + particleRandomPositionY + sphH + 0.1f,
 					k * particleSpacing + particleRandomPositionZ - 1.5f
 				};
-				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, Vector3(0, 0, 0));
+				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, Vector3(1.0f, 1.0f, 1.0f));
 
 				// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
+				newParticle->elasticity = 2.0f;
 				particleList[i + (j + numberOfParticles * k) * numberOfParticles] = newParticle;
 			}
 		}
 	}
 }
 
-void SPH::CalculateDensity()
+void CalculateDensity(const SPH& sph)
 {
-	for (int i = 0; i < particleList.size(); i++)
+	for (int i = 0; i < sph.particleList.size(); i++)
 	{
-		Particle* part = particleList[i];
+		Particle* part = sph.particleList[i];
 		// Density = mass * POLY6 / h^3
-		float density = MASS_CONSTANT * POLY6_CONSTANT / pow(sphH, 3);
-		part->density = density;
+		float density = sph.MASS_CONSTANT * sph.POLY6_CONSTANT / pow(sph.sphH, 3);
+		part->density += density;
 	}
 }
 
-void SPH::CalculatePressure()
+void CalculatePressure(const SPH& sph)
 {
-	for (int i = 0; i < particleList.size(); i++)
+	for (int i = 0; i < sph.particleList.size(); i++)
 	{
-		Particle* part = particleList[i];
+		Particle* part = sph.particleList[i];
 
-		part->density = sphDensity + DENS_CONSTANT;
+		part->density = sph.sphDensity + sph.DENS_CONSTANT;
 
 		// p = k(density - rest density)
-		float pressure = GAS_CONSTANT * (part->density - sphDensity);
+		float pressure = sph.GAS_CONSTANT * (part->density - sph.sphDensity);
 
-		part->pressure = pressure;
+		part->pressure += pressure;
 	}
 }
 
-void SPH::CalculateForce(double deltaTime)
+void CalculateForce(const SPH& sph)
 {
-	for (int i = 0; i < particleList.size(); i++)
+	for (int i = 0; i < sph.particleList.size(); i++)
 	{
-		Particle* part = particleList[i];
+		Particle* part = sph.particleList[i];
 		// Apply Viscosity and some other stuff
 		part->force = Vector3(0, 0, 0);
 
@@ -136,38 +143,74 @@ void SPH::CalculateForce(double deltaTime)
 		float dist = distX + distY + distZ;
 
 		Vector3 vosc;
-		vosc.x = sphViscosity * MASS_CONSTANT * (part->velocity.x / part->density) * SPIKY_CONSTANT * (sphH - dist);
-		vosc.y = sphViscosity * MASS_CONSTANT * (part->velocity.y / part->density) * SPIKY_CONSTANT * (sphH - dist);
-		vosc.z = sphViscosity * MASS_CONSTANT * (part->velocity.z / part->density) * SPIKY_CONSTANT * (sphH - dist);
+		vosc.x = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.x / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
+		vosc.y = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.y / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
+		vosc.z = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.z / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
 		part->force += vosc;
 
 	}
 }
 
-void SPH::UpdateParticles(double deltaTime)
+void UpdateParticles(double deltaTime, const SPH& sph)
 {
-	for (int i = 0; i < particleList.size(); i++)
+	for (int i = 0; i < sph.particleList.size(); i++)
 	{
-		Particle* part = particleList[i];
+		Particle* part = sph.particleList[i];
 
 		// acceleration = particle force / particle mass
-		Vector3 acceleration = part->force / part->density;
+		Vector3 acceleration = part->force / part->density + Vector3(0, sph.sphG, 0);;
 		part->velocity += acceleration * deltaTime;
 		part->position += part->velocity * deltaTime;
+
+		// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
+		float collisionBoxSize = 5.0f;
+
+		// Collision on the y Axis
+		if (part->position.y < part->size)
+		{
+		    part->position.y = -part->position.y + 2 * part->size + 0.0001f;
+			part->velocity.y = -part->velocity.y * part->elasticity;
+		}
+
+		// Collision on the X Axis
+		if (part->position.x < part->size - collisionBoxSize) 
+		{
+			part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize) + 0.0001f;
+			part->velocity.x = -part->velocity.x * part->elasticity;
+		}
+
+		if (part->position.x > -part->size + collisionBoxSize)
+		{
+			part->position.x = -part->position.x + 2 * -(part->size - collisionBoxSize) - 0.0001f;
+			part->velocity.x = -part->velocity.x * part->elasticity;
+		}
+
+		// Collision on the Z Axis
+		if (part->position.z < part->size - collisionBoxSize) 
+		{
+			part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize) + 0.0001f;
+			part->velocity.z = -part->velocity.z * part->elasticity;
+		}
+
+		if (part->position.z > -part->size + collisionBoxSize) 
+		{
+			part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize) - 0.0001f;
+			part->velocity.z = -part->velocity.z * part->elasticity;
+		}
 	}
 }
 
 void SPH::Update(const SPH& sph, double deltaTime)
 {
-	CalculateDensity();
-	CalculatePressure();
-	CalculateForce(deltaTime);
-	UpdateParticles(deltaTime);
+	CalculateDensity(sph);
+	CalculatePressure(sph);
+	CalculateForce(sph);
+	UpdateParticles(deltaTime, sph);
 }
 
 Vector3 SPH::GetPosition()
 {
-	for (int i =0; i < particleList.size(); i++)
+	for (int i = 0; i < particleList.size(); i++)
 	{
 		return particleList[i]->position;
 	}

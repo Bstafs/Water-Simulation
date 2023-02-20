@@ -60,7 +60,6 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Entity</Filter>
     </ClCompile>
-    <ClCompile Include="Timestep.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -133,7 +132,6 @@
     <ClInclude Include="Camera.h">
       <Filter>Entity</Filter>
     </ClInclude>
-    <ClInclude Include="Timestep.h" />
     <ClInclude Include="MarchingCubeTable.h">
       <Filter>Marching Cubes</Filter>
     </ClInclude>

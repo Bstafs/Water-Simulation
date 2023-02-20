@@ -32,7 +32,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 bool Application::HandleKeyboard()
 {
-	float mCameraSpeed = 0.010f;
+	float mCameraSpeed = 0.008f;
 
 	// Forward
 	if (GetAsyncKeyState('W'))
@@ -97,7 +97,7 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	 numbParticles = 15;
+	 numbParticles = 5;
 	 mass = 0.02f;
 	 density = 1000.0f;
 	 gasConstant = 1.0f;
@@ -193,12 +193,12 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetParticleModel()->SetToggleGravity(false);
 	m_gameObjects.push_back(gameObject);
 
-	for (int i = 0; i < NUMBER_OF_CUBES; i++)
+	for (int i = 0; i < sph->particleList.size(); i++)
 	{
 		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
-		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
-		//gameObject->GetTransform()->SetPosition(sph->GetPosition().x, sph->GetPosition().y, sph->GetPosition().z);
+	//	gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
+		gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
 		gameObject->GetParticleModel()->SetMass(1.0f);
@@ -206,7 +206,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		gameObject->GetParticleModel()->SetNetForce(0.0f, 0.0f, 0.0f);
 		gameObject->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
 		gameObject->GetParticleModel()->SetDrag(4.0f, 4.0f, 4.0f);
-		//	gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
+		gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
 		m_gameObjects.push_back(gameObject);
 	}
 
@@ -708,8 +708,8 @@ void Application::moveForward(int objectNumber)
 {
 	Vector3 accel = m_gameObjects[objectNumber]->GetParticleModel()->GetAcceleration();
 	Vector3 velocity = m_gameObjects[objectNumber]->GetParticleModel()->GetVelocity();
-	accel.z -= 0.0002f;
-	velocity.z -= 0.0002f;
+	accel.z -= 0.02f;
+	velocity.z -= 0.02f;
 	m_gameObjects[objectNumber]->GetParticleModel()->SetAcceleration(accel);
 	m_gameObjects[objectNumber]->GetParticleModel()->SetVelocity(velocity);
 }
@@ -718,8 +718,8 @@ void Application::moveBackward(int objectNumber)
 {
 	Vector3 accel = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetAcceleration();
 	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	accel.z -= 0.0002f;
-	velocity.z += 0.0002f;
+	accel.z -= 0.02f;
+	velocity.z += 0.02f;
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetAcceleration(accel);
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
@@ -727,14 +727,14 @@ void Application::moveBackward(int objectNumber)
 void Application::moveLeft(int objectNumber)
 {
 	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	velocity.x -= 0.0002f;
+	velocity.x -= 0.02f;
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
 
 void Application::moveRight(int objectNumber)
 {
 	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	velocity.x += 0.0002f;
+	velocity.x += 0.02f;
 	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
 }
 
@@ -772,6 +772,19 @@ void Application::Update()
 	if (deltaTime == 0)
 	{
 		return;
+	}
+
+	for (auto gameObject : m_gameObjects)
+	{
+		gameObject->Update(deltaTime);
+	}
+
+	for (int i = 0; i < sph->particleList.size(); i++)
+	{
+		for (auto go : m_gameObjects)
+		{
+			go->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
+		}
 	}
 
 	// Move gameobject Forces
@@ -850,13 +863,8 @@ void Application::Update()
 
 
 	// Update objects
-	for (auto gameObject : m_gameObjects)
-	{
-		gameObject->Update(deltaTime);
-	}
 
 	//m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);
-
 }
 
 void Application::ImGui()

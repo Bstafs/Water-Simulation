@@ -62,19 +62,13 @@ private:
 	// Particle Initialization
 	void InitParticles();
 
-	// Forces Calculations
-	void CalculatePressure();
-	void CalculateDensity();
-	void CalculateForce(double deltaTime);
-	void UpdateParticles(double deltaTime);
-
 	// Particle Data
 
 	Particle* newParticle;
 
 	// 2D vector to traverse and access each particle to check each neighbour
 	// https://www.geeksforgeeks.org/vector-of-vectors-in-c-stl-with-examples/ - Current Resource 
-	std::vector<std::vector<Particle*>> neighbourParticles;
+	//std::vector<std::vector<Particle*>> neighbourParticles;
 
 	// TO DO: not sure what to do yet, will figure out later
 	std::unordered_map<Particle*, Particle*> particleLinkedListMap;

@@ -370,7 +370,6 @@
     <ClCompile Include="Physics.cpp" />
     <ClCompile Include="RigidBody.cpp" />
     <ClCompile Include="SPH.cpp" />
-    <ClCompile Include="Timestep.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="Vector3.cpp" />
   </ItemGroup>
@@ -398,7 +397,6 @@
     <ClInclude Include="RigidBody.h" />
     <ClInclude Include="SPH.h" />
     <ClInclude Include="Structures.h" />
-    <ClInclude Include="Timestep.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="Vector3.h" />
   </ItemGroup>

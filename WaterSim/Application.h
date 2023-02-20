@@ -14,7 +14,6 @@
 #include "Quaternion.h"
 #include "GameObject.h"
 
-#include "Timestep.h"
 #include "SPH.h"
 
 #include"imgui/imgui.h"
@@ -22,7 +21,7 @@
 #include"imgui/imgui_impl_win32.h"
 
 #define NUMBER_OF_CUBES 2
-
+#define FPS_60 1.0f/60.0f
 using namespace DirectX;
 
 struct SurfaceInfo
