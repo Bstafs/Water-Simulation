@@ -25,7 +25,7 @@
 class SPH
 {
 public:
-	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension);
+	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity);
 	~SPH();
 	void Update(const SPH& sph, double deltaTime);
 	void Draw();
@@ -34,6 +34,7 @@ public:
 	float sphDensity; // Rest Density of water is 1000kg/m^3
 	float sphTension; // 72 at room temp
 	int numberOfParticles;
+	float sphElasticity;
 
 	// External force density field aka gravity
 	float sphG;

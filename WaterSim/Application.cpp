@@ -105,8 +105,8 @@ Application::Application()
 	 h = 0.15f;
 	 g = -9.807f;
 	 tension = 0.2f;
-
-	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension);
+	 elastisicty = 2.0f;
+	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty);
 }
 
 Application::~Application()
@@ -201,12 +201,12 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
-		gameObject->GetParticleModel()->SetMass(1.0f);
-		gameObject->GetParticleModel()->SetAcceleration(0.0f, 0.0f, 0.0f);
-		gameObject->GetParticleModel()->SetNetForce(0.0f, 0.0f, 0.0f);
-		gameObject->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
-		gameObject->GetParticleModel()->SetDrag(4.0f, 4.0f, 4.0f);
-		gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
+		//gameObject->GetParticleModel()->SetMass(1.0f);
+		//gameObject->GetParticleModel()->SetAcceleration(0.0f, 0.0f, 0.0f);
+		//gameObject->GetParticleModel()->SetNetForce(0.0f, 0.0f, 0.0f);
+		//gameObject->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
+		//gameObject->GetParticleModel()->SetDrag(4.0f, 4.0f, 4.0f);
+		//gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
 		m_gameObjects.push_back(gameObject);
 	}
 
@@ -781,7 +781,7 @@ void Application::Update()
 
 	for (int i = 0; i < sph->particleList.size(); i++)
 	{
-		for (auto go : m_gameObjects)
+		for ( GameObject* go : m_gameObjects)
 		{
 			go->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
 		}

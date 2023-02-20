@@ -140,6 +140,7 @@ private:
 	float h;
 	float g;
 	float tension;
+	float elastisicty;
 
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);

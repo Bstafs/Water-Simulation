@@ -2,7 +2,7 @@
 
 #define PI 3.14159265359f
 
-SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension)
+SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity)
 {
 	// Variable Initialization
 	numberOfParticles = numbParticles;
@@ -11,6 +11,7 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	sphH = h;
 	sphG = g;
 	sphTension = tension;
+	sphElasticity = elasticity;
 
 	// Kernel Smoothing Constants Initialization
 	POLY6_CONSTANT = 315.0f / (64.0f * PI * pow(sphH, 9));
@@ -96,7 +97,7 @@ void SPH::InitParticles()
 				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, Vector3(1.0f, 1.0f, 1.0f));
 
 				// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
-				newParticle->elasticity = 2.0f;
+				newParticle->elasticity = sphElasticity;
 				particleList[i + (j + numberOfParticles * k) * numberOfParticles] = newParticle;
 			}
 		}
@@ -147,33 +148,27 @@ void CalculateForce(const SPH& sph)
 		vosc.y = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.y / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
 		vosc.z = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.z / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
 		part->force += vosc;
-
 	}
 }
 
-void UpdateParticles(double deltaTime, const SPH& sph)
+void ParticleBoxCollision(const SPH& sph)
 {
-	for (int i = 0; i < sph.particleList.size(); i++)
+	for (int i = 0; i < sph.particleList.size(); ++i)
 	{
 		Particle* part = sph.particleList[i];
 
-		// acceleration = particle force / particle mass
-		Vector3 acceleration = part->force / part->density + Vector3(0, sph.sphG, 0);;
-		part->velocity += acceleration * deltaTime;
-		part->position += part->velocity * deltaTime;
-
 		// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
-		float collisionBoxSize = 5.0f;
+		float collisionBoxSize = 4.0f;
 
 		// Collision on the y Axis
 		if (part->position.y < part->size)
 		{
-		    part->position.y = -part->position.y + 2 * part->size + 0.0001f;
+			part->position.y = -part->position.y + 2 * part->size + 0.0001f;
 			part->velocity.y = -part->velocity.y * part->elasticity;
 		}
 
 		// Collision on the X Axis
-		if (part->position.x < part->size - collisionBoxSize) 
+		if (part->position.x < part->size - collisionBoxSize)
 		{
 			part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize) + 0.0001f;
 			part->velocity.x = -part->velocity.x * part->elasticity;
@@ -186,17 +181,33 @@ void UpdateParticles(double deltaTime, const SPH& sph)
 		}
 
 		// Collision on the Z Axis
-		if (part->position.z < part->size - collisionBoxSize) 
+		if (part->position.z < part->size - collisionBoxSize)
 		{
 			part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize) + 0.0001f;
 			part->velocity.z = -part->velocity.z * part->elasticity;
 		}
 
-		if (part->position.z > -part->size + collisionBoxSize) 
+		if (part->position.z > -part->size + collisionBoxSize)
 		{
 			part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize) - 0.0001f;
 			part->velocity.z = -part->velocity.z * part->elasticity;
 		}
+	}
+}
+
+void UpdateParticles(double deltaTime, const SPH& sph)
+{
+	for (int i = 0; i < sph.particleList.size(); i++)
+	{
+		Particle* part = sph.particleList[i];
+
+		// acceleration = particle force / particle mass
+		Vector3 acceleration = part->force / part->density;
+	//	Vector3 acceleration = part->force / part->density + Vector3(0, sph.sphG, 0);
+		part->velocity += acceleration * deltaTime;
+		part->position += part->velocity * deltaTime;
+		part = part->nextParticle;
+
 	}
 }
 
@@ -206,6 +217,7 @@ void SPH::Update(const SPH& sph, double deltaTime)
 	CalculatePressure(sph);
 	CalculateForce(sph);
 	UpdateParticles(deltaTime, sph);
+	ParticleBoxCollision(sph);
 }
 
 Vector3 SPH::GetPosition()
