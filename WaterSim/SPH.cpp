@@ -149,7 +149,7 @@ void CalculateForce(const SPH& sph)
 		vosc.z = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.z / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
 		part->force += vosc;
 
-		// Dynamic Viscosity = Smoothing Length * Velocity Difference Between Particles * dot (separation distance) / (separation distance^2 + 0.01 * smoothing length^2)
+		// Dynamic Viscosity Coefficient = Smoothing Length * Velocity Difference Between Particles * dot product (separation distance) / (separation distance^2 + 0.01 * smoothing length^2)
 
 		// Viscous Tensor = -viscosity * Speed of Sound * Dynamic Viscosity Coefficient + viscosity * speed of sound ^ 2 * density
 
