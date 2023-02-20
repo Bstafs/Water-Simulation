@@ -99,7 +99,7 @@ Application::Application()
 
 	 numbParticles = 5;
 	 mass = 0.02f;
-	 density = 1000.0f;
+	 density = 997.0f;
 	 gasConstant = 1.0f;
 	 viscosity = 1.04f;
 	 h = 0.15f;

@@ -47,6 +47,7 @@ public:
 	float MASS_CONSTANT;
 	float H2_CONSTANT; // h^2
 	float DENS_CONSTANT;
+	float SpeedOfSoundInWaterParticles = 1480.0f; // m/s
 
 	// The 3 Kernel Smoothing Constants from Realtime Particle-Based Fluid Simulation
 	float POLY6_CONSTANT;

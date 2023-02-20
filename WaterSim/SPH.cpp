@@ -148,6 +148,11 @@ void CalculateForce(const SPH& sph)
 		vosc.y = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.y / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
 		vosc.z = sph.sphViscosity * sph.MASS_CONSTANT * (part->velocity.z / part->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
 		part->force += vosc;
+
+		// Dynamic Viscosity = Smoothing Length * Velocity Difference Between Particles * dot (separation distance) / (separation distance^2 + 0.01 * smoothing length^2)
+
+		// Viscous Tensor = -viscosity * Speed of Sound * Dynamic Viscosity Coefficient + viscosity * speed of sound ^ 2 * density
+
 	}
 }
 
@@ -202,8 +207,8 @@ void UpdateParticles(double deltaTime, const SPH& sph)
 		Particle* part = sph.particleList[i];
 
 		// acceleration = particle force / particle mass
-		Vector3 acceleration = part->force / part->density;
-	//	Vector3 acceleration = part->force / part->density + Vector3(0, sph.sphG, 0);
+	//	Vector3 acceleration = part->force / part->density;
+		Vector3 acceleration = part->force / part->density + Vector3(0, sph.sphG, 0);
 		part->velocity += acceleration * deltaTime;
 		part->position += part->velocity * deltaTime;
 		part = part->nextParticle;
