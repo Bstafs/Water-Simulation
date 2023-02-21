@@ -97,7 +97,7 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	 numbParticles = 4;
+	 numbParticles = 1;
 	 mass = 0.02f;
 	 density = 997.0f;
 	 gasConstant = 1.0f;
@@ -255,6 +255,28 @@ HRESULT Application::InitShadersAndInputLayout()
 	if (FAILED(hr))
 		return hr;
 
+	// Compile Compute Shader
+	ID3DBlob* csBlob = nullptr;
+	hr = CompileComputeShader(L"shader.fx", "CSMain", _pd3dDevice, &csBlob);
+	if(FAILED(hr))
+	{
+		_pd3dDevice->Release();
+		printf("Failed compiling shader %08X\n", hr);
+		return -1;
+	}
+
+	// Create Compute Shader
+	hr = _pd3dDevice->CreateComputeShader(csBlob->GetBufferPointer(), csBlob->GetBufferSize(), nullptr, &_pComputeShader);
+	csBlob->Release();
+
+	if(FAILED(hr))
+	{
+		_pd3dDevice->Release();
+		return hr;
+	}
+
+	OutputDebugStringA("Success");
+
 	// Define the input layout
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
@@ -366,6 +388,9 @@ HRESULT Application::InitVertexBuffer()
 
 	if (FAILED(hr))
 		return hr;
+
+
+
 
 	return S_OK;
 }
@@ -501,6 +526,54 @@ HRESULT Application::CompileShaderFromFile(const WCHAR* szFileName, LPCSTR szEnt
 	return S_OK;
 }
 
+HRESULT Application::CompileComputeShader(LPCWSTR fileName, LPCSTR entryPoint, ID3D11Device* device, ID3DBlob** blob)
+{
+	if(!fileName || !entryPoint || !device || !blob)
+	{
+		return E_INVALIDARG;
+	}
+
+	*blob = nullptr;
+
+	UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
+#if defined (DEBUG) || defined (_DEBUG)
+	flags |= D3DCOMPILE_DEBUG;
+#endif
+
+	LPCSTR profile = (device->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
+
+	const D3D_SHADER_MACRO define[] =
+	{
+		"DEFINE:", "1",
+		NULL, NULL
+	};
+
+	ID3DBlob* shaderBlob = nullptr;
+	ID3DBlob* errorBlob = nullptr;
+
+	HRESULT hr = D3DCompileFromFile(fileName, define, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint, profile, flags, 0, &shaderBlob, &errorBlob);
+
+	if(FAILED(hr))
+	{
+		if(FAILED(errorBlob))
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
+
+		if(shaderBlob)
+		{
+			shaderBlob->Release();
+		}
+
+		return hr;
+	}
+
+	*blob = shaderBlob;
+
+	return hr;
+}
+
 HRESULT Application::InitDevice()
 {
 	HRESULT hr = S_OK;
@@ -557,6 +630,18 @@ HRESULT Application::InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+	if(_pd3dDevice->GetFeatureLevel() < D3D_FEATURE_LEVEL_11_0)
+	{
+		D3D11_FEATURE_DATA_D3D10_X_HARDWARE_OPTIONS hwopts = { 0 };
+		(void)_pd3dDevice->CheckFeatureSupport(D3D11_FEATURE_D3D10_X_HARDWARE_OPTIONS, &hwopts, sizeof(hwopts));
+		if(!hwopts.ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x)
+		{
+			_pd3dDevice->Release();
+			printf("Direct Compute is Not Supported");
+			return -1;
+		}
+	}
+
 	// Create a render target view
 	ID3D11Texture2D* pBackBuffer = nullptr;
 	hr = _pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
@@ -600,6 +685,29 @@ HRESULT Application::InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+	// Create Structured Buffer
+	D3D11_BUFFER_DESC sbDesc;
+	sbDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	sbDesc.CPUAccessFlags = 0;
+	sbDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	sbDesc.StructureByteStride = sizeof(BufferStruct);
+	sbDesc.ByteWidth = sizeof(BufferStruct) * THREAD_COUNT;
+	sbDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	D3D11_SUBRESOURCE_DATA InitData;
+	ZeroMemory(&InitData, sizeof(InitData));
+	InitData.pSysMem = NULL;
+	hr = _pd3dDevice->CreateBuffer(&sbDesc, NULL, &_pStructureBuffer);
+
+	// Create Structure Buffer View
+	D3D11_UNORDERED_ACCESS_VIEW_DESC sbUAVDesc;
+	sbUAVDesc.Buffer.FirstElement = 0;
+	sbUAVDesc.Buffer.Flags = 0;
+	sbUAVDesc.Buffer.NumElements = THREAD_COUNT
+	sbUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	sbUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	hr = _pd3dDevice->CreateUnorderedAccessView(_pStructureBuffer, &sbUAVDesc, &_pUAV);
+
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
 
 	depthStencilDesc.Width = _renderWidth;
@@ -616,6 +724,33 @@ HRESULT Application::InitDevice()
 
 	_pd3dDevice->CreateTexture2D(&depthStencilDesc, nullptr, &_depthStencilBuffer);
 	_pd3dDevice->CreateDepthStencilView(_depthStencilBuffer, nullptr, &_depthStencilView);
+
+	D3D11_TEXTURE2D_DESC textureDesc;
+	ZeroMemory(&textureDesc, sizeof(textureDesc));
+
+	textureDesc.Width = _renderWidth;
+	textureDesc.Height = _renderHeight;
+	textureDesc.MipLevels = 1;
+	textureDesc.ArraySize = 1;
+	textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	textureDesc.SampleDesc.Count = sampleCount;
+	textureDesc.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	textureDesc.CPUAccessFlags = 0;
+	textureDesc.MiscFlags = 0;
+
+	hr = _pd3dDevice->CreateTexture2D(&textureDesc, nullptr, &_computeTexture);
+	if (FAILED(hr))
+		return hr;
+
+	// Create Shader Resource View
+	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
+	shaderResourceViewDesc.Format = depthStencilDesc.Format;
+	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+	shaderResourceViewDesc.Texture2D.MipLevels = 1;
+
+	hr = _pd3dDevice->CreateShaderResourceView(_computeTexture, &shaderResourceViewDesc, &_pSRV);
 
 	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
 
@@ -668,6 +803,7 @@ void Application::Cleanup()
 	if (_pVertexLayout) _pVertexLayout->Release();
 	if (_pVertexShader) _pVertexShader->Release();
 	if (_pPixelShader) _pPixelShader->Release();
+	if (_pComputeShader) _pComputeShader->Release();
 	if (_pRenderTargetView) _pRenderTargetView->Release();
 	if (_pSwapChain) _pSwapChain->Release();
 	if (_pImmediateContext) _pImmediateContext->Release();
@@ -786,6 +922,8 @@ void Application::Update()
 			go->GetTransform()->SetPosition(sph->particleList[0]->position.x, sph->particleList[0]->position.y, sph->particleList[0]->position.z);
 		}
 	}
+
+
 
 	// Move gameobject Forces
 
@@ -930,10 +1068,25 @@ void Application::Draw()
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
 
 	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
-	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
-
 	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
+
+	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
+
+	// Set Compute Shader
+	_pImmediateContext->CSSetShader(_pComputeShader, nullptr, 0);
+	_pImmediateContext->CSSetShaderResources(0, 1, &_pSRV);
+	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, &_pUAV, nullptr);
+	// Dispatch Shader
+	_pImmediateContext->Dispatch(1, 1, 1);
+	// Set Shader to Null
+	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
+	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
+	_pImmediateContext->CSSetShaderResources(0, 2, _ppSRVNULL);
+
+	// todo
+	// Setup Input Data Types to shaders (Structure Buffers)
+
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
 	ConstantBuffer cb;

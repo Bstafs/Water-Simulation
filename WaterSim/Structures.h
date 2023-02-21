@@ -37,6 +37,11 @@ struct SimpleVertex
 	};
 };
 
+struct BufferStruct
+{
+	UINT color;
+};
+
 //struct ConstantBuffer
 //{
 //	XMMATRIX mWorld;

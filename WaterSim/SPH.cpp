@@ -100,21 +100,32 @@ void SPH::InitParticles()
 
 void CalculateDensityPressureMass(const SPH& sph)
 {
-	float massPoly6 = sph.MASS_CONSTANT * sph.POLY6_CONSTANT;
+	const float sphH2 = sph.H2_CONSTANT;
+	const float massPoly6 = sph.MASS_CONSTANT * sph.POLY6_CONSTANT;
+
+	float tempDensity = 0.0f;
+	float dist = 0.0f;
+
+	Particle* particleOne = nullptr;
+	Particle* particleTwo = nullptr;
 
 	for (int i = 0; i < sph.particleList.size(); i++)
 	{
-		Particle* particleOne = sph.particleList[i];
-
-		float tempDensity = 0.0f;
+		particleOne = sph.particleList[i];
 
 		for (int j = 0; j < sph.particleList.size(); j++)
 		{
-			Particle* particleTwo = sph.particleList[j];
+			particleTwo = sph.particleList[j];
 
-			float dist = particleOne->Distance(particleTwo);
+			dist = particleOne->Distance(particleTwo);
 
-			tempDensity += massPoly6 * pow(sph.H2_CONSTANT - dist, 3);
+				//float tempCalc = massPoly6 * powf(sphH2 - dist, 3);
+			    float sphDist = sphH2 - dist;
+
+				float tempCalc = massPoly6 * sphDist * sphDist * sphDist;
+
+				tempDensity += tempCalc;
+				
 		}
 		particleOne->SetDensity(tempDensity + sph.DENS_CONSTANT);
 
@@ -122,7 +133,7 @@ void CalculateDensityPressureMass(const SPH& sph)
 		particleOne->SetPressure(pressure);
 
 		float vol = 4.0f / 3.0f * PI * pow(sph.sphH, 3);
-		particleOne->SetMass(sph.sphDensity * vol);
+		particleOne->SetMass(sph.sphDensity * sph.VISC_CONSTANT);
 	}
 }
 

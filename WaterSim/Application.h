@@ -22,6 +22,7 @@
 
 #define NUMBER_OF_CUBES 2
 #define FPS_60 1.0f/60.0f
+#define THREAD_COUNT 8;
 using namespace DirectX;
 
 struct SurfaceInfo
@@ -69,6 +70,18 @@ private:
 	ID3D11VertexShader* _pVertexShader;
 	ID3D11PixelShader* _pPixelShader;
 	ID3D11InputLayout* _pVertexLayout;
+
+	ID3D11ComputeShader* _pComputeShader = nullptr;
+
+	ID3D11ShaderResourceView* _ppSRVNULL[2] = { nullptr, nullptr };
+	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
+
+	ID3D11UnorderedAccessView* _pUAV = nullptr;
+	ID3D11ShaderResourceView* _pSRV = nullptr;
+
+	ID3D11Buffer* _pStructureBuffer = nullptr;
+
+	ID3D11Texture2D* _computeTexture = nullptr;
 
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;
@@ -148,6 +161,7 @@ private:
 	HRESULT InitDevice();
 	void Cleanup();
 	HRESULT CompileShaderFromFile(const WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut);
+	HRESULT CompileComputeShader(_In_ LPCWSTR fileName, _In_ LPCSTR entryPoint, _In_ ID3D11Device* device, _Outptr_ ID3DBlob** blob);
 	HRESULT InitShadersAndInputLayout();
 	HRESULT InitVertexBuffer();
 	HRESULT InitIndexBuffer();
