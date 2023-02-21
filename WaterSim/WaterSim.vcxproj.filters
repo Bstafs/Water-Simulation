@@ -135,6 +135,7 @@
     <ClInclude Include="MarchingCubeTable.h">
       <Filter>Marching Cubes</Filter>
     </ClInclude>
+    <ClInclude Include="Constants.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">

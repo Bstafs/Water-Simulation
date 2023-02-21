@@ -97,15 +97,15 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	 numbParticles = 5;
+	 numbParticles = 4;
 	 mass = 0.02f;
 	 density = 997.0f;
 	 gasConstant = 1.0f;
 	 viscosity = 1.04f;
-	 h = 0.15f;
+	 h = 1.0f;
 	 g = -9.807f;
 	 tension = 0.2f;
-	 elastisicty = 2.0f;
+	 elastisicty = 0.5f;
 	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty);
 }
 
@@ -193,20 +193,20 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetParticleModel()->SetToggleGravity(false);
 	m_gameObjects.push_back(gameObject);
 
-	for (int i = 0; i < sph->particleList.size(); i++)
+	for (int i = 0; i < NUMBER_OF_CUBES; i++)
 	{
 		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
-	//	gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
-		gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
+		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
+	//	gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
-		//gameObject->GetParticleModel()->SetMass(1.0f);
-		//gameObject->GetParticleModel()->SetAcceleration(0.0f, 0.0f, 0.0f);
-		//gameObject->GetParticleModel()->SetNetForce(0.0f, 0.0f, 0.0f);
-		//gameObject->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
-		//gameObject->GetParticleModel()->SetDrag(4.0f, 4.0f, 4.0f);
-		//gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
+		gameObject->GetParticleModel()->SetMass(1.0f);
+		gameObject->GetParticleModel()->SetAcceleration(0.0f, 0.0f, 0.0f);
+		gameObject->GetParticleModel()->SetNetForce(0.0f, 0.0f, 0.0f);
+		gameObject->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
+		gameObject->GetParticleModel()->SetDrag(4.0f, 4.0f, 4.0f);
+		gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
 		m_gameObjects.push_back(gameObject);
 	}
 
@@ -783,7 +783,7 @@ void Application::Update()
 	{
 		for ( GameObject* go : m_gameObjects)
 		{
-			go->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
+			go->GetTransform()->SetPosition(sph->particleList[0]->position.x, sph->particleList[0]->position.y, sph->particleList[0]->position.z);
 		}
 	}
 
@@ -892,14 +892,20 @@ void Application::ImGui()
 	}
 	if (ImGui::CollapsingHeader("SPH"))
 	{
-		ImGui::DragInt("Number Of Particles", &numbParticles);
-		ImGui::DragFloat("Mass", &mass);
-		ImGui::DragFloat("Density", &density);
-		ImGui::DragFloat("Gas Constant", &gasConstant);
-		ImGui::DragFloat("Viscosity", &viscosity);
-		ImGui::DragFloat("Core Radius", &h);
-		ImGui::DragFloat("Gravity", &g);
-		ImGui::DragFloat("Tension", &tension);
+		ImGui::Text("Initial Values");
+		ImGui::DragInt("Number Of Particles", &sph->numberOfParticles);
+		ImGui::DragFloat("Mass", &sph->MASS_CONSTANT);
+		ImGui::DragFloat("Density", &sph->sphDensity);
+		ImGui::DragFloat("Gas Constant", &sph->GAS_CONSTANT);
+		ImGui::DragFloat("Viscosity", &sph->sphViscosity);
+		ImGui::DragFloat("Core Radius", &sph->sphH);
+		ImGui::DragFloat("Gravity", &sph->sphG);
+		ImGui::DragFloat("Tension", &sph->sphTension);
+
+		ImGui::Text("Particle Values");
+		ImGui::DragFloat3("Position", &sph->particleList[0]->position.x);
+		ImGui::DragFloat3("Velocity", &sph->particleList[0]->velocity.x);
+		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size,0.01f ,0.1f, 1.0f);
 	}
 
 	ImGui::End();

@@ -31,7 +31,7 @@ public:
 	void Draw();
 	// Particle Variables
 	float sphViscosity;
-	float sphDensity; // Rest Density of water is 1000kg/m^3
+	float sphDensity; // Rest Density of water is 997kg/m^3
 	float sphTension; // 72 at room temp
 	int numberOfParticles;
 	float sphElasticity;
@@ -39,7 +39,7 @@ public:
 	// External force density field aka gravity
 	float sphG;
 
-	// Core Radius 
+	// Core Radius  aka Smoothing Length
 	float sphH;
 
 	// Fluid Constants
@@ -47,37 +47,21 @@ public:
 	float MASS_CONSTANT;
 	float H2_CONSTANT; // h^2
 	float DENS_CONSTANT;
-	float SpeedOfSoundInWaterParticles = 1480.0f; // m/s
 
 	// The 3 Kernel Smoothing Constants from Realtime Particle-Based Fluid Simulation
 	float POLY6_CONSTANT;
 	float SPIKY_CONSTANT;
+	float SPIKYGRAD_CONSTANT;
 	float VISC_CONSTANT;
 
 
 	// Particle List
 	std::vector <Particle*> particleList;
-
+	Particle* newParticle;
 	Vector3 GetPosition();
 
 private:
 	// Particle Initialization
 	void InitParticles();
-
-	// Particle Data
-
-	Particle* newParticle;
-
-	// 2D vector to traverse and access each particle to check each neighbour
-	// https://www.geeksforgeeks.org/vector-of-vectors-in-c-stl-with-examples/ - Current Resource 
-	//std::vector<std::vector<Particle*>> neighbourParticles;
-
-	// TO DO: not sure what to do yet, will figure out later
-	std::unordered_map<Particle*, Particle*> particleLinkedListMap;
-
-	ID3D11Buffer* _pVertexBuffer;
-	ID3D11Buffer* _pIndexBuffer;
-
-	ID3D11ShaderResourceView* _pTextureRV = nullptr;
 };
 
