@@ -22,7 +22,7 @@
 
 #define NUMBER_OF_CUBES 2
 #define FPS_60 1.0f/60.0f
-#define THREAD_COUNT 8;
+#define THREAD_COUNT 32;
 using namespace DirectX;
 
 struct SurfaceInfo
@@ -56,6 +56,18 @@ struct ConstantBuffer
 	float HasTexture;
 };
 
+struct ConstantParticleData
+{
+	XMFLOAT3 position;
+	XMFLOAT3 velocity;
+};
+
+struct ParticleData
+{
+	XMFLOAT3 position;
+	XMFLOAT3 velocity;
+};
+
 class Application
 {
 private:
@@ -71,18 +83,26 @@ private:
 	ID3D11PixelShader* _pPixelShader;
 	ID3D11InputLayout* _pVertexLayout;
 
+	// Compute Shaders
 	ID3D11ComputeShader* _pComputeShader = nullptr;
 
 	ID3D11ShaderResourceView* _ppSRVNULL[2] = { nullptr, nullptr };
 	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
 
-	ID3D11UnorderedAccessView* _pUAV = nullptr;
-	ID3D11ShaderResourceView* _pSRV = nullptr;
+	ID3D11UnorderedAccessView* _pOutputUAV = nullptr;
+	ID3D11ShaderResourceView* _pInputSRV = nullptr;
 
-	ID3D11Buffer* _pStructureBuffer = nullptr;
+	ID3D11Buffer* _pInputComputeBuffer = nullptr;
+	ID3D11Buffer* _pOutputComputeBuffer = nullptr;
+	ID3D11Buffer* _pOutputResultComputeBuffer = nullptr;
+
+	XMFLOAT3 tempPositionValue;
+	XMFLOAT3 tempVelocityValue;
+
 
 	ID3D11Texture2D* _computeTexture = nullptr;
 
+	// Vertex Buffers
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;
 

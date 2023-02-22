@@ -257,7 +257,7 @@ HRESULT Application::InitShadersAndInputLayout()
 
 	// Compile Compute Shader
 	ID3DBlob* csBlob = nullptr;
-	hr = CompileComputeShader(L"shader.fx", "CSMain", _pd3dDevice, &csBlob);
+	hr = CompileComputeShader(L"SPHComputeShader.hlsl", "CSMain", _pd3dDevice, &csBlob);
 	if(FAILED(hr))
 	{
 		_pd3dDevice->Release();
@@ -685,29 +685,60 @@ HRESULT Application::InitDevice()
 	if (FAILED(hr))
 		return hr;
 
-	// Create Structured Buffer
-	D3D11_BUFFER_DESC sbDesc;
-	sbDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-	sbDesc.CPUAccessFlags = 0;
-	sbDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	sbDesc.StructureByteStride = sizeof(BufferStruct);
-	sbDesc.ByteWidth = sizeof(BufferStruct) * THREAD_COUNT;
-	sbDesc.Usage = D3D11_USAGE_DEFAULT;
+	// COMPUTE SHADERS
 
-	D3D11_SUBRESOURCE_DATA InitData;
-	ZeroMemory(&InitData, sizeof(InitData));
-	InitData.pSysMem = NULL;
-	hr = _pd3dDevice->CreateBuffer(&sbDesc, NULL, &_pStructureBuffer);
+	// Input Buffer
 
-	// Create Structure Buffer View
-	D3D11_UNORDERED_ACCESS_VIEW_DESC sbUAVDesc;
-	sbUAVDesc.Buffer.FirstElement = 0;
-	sbUAVDesc.Buffer.Flags = 0;
-	sbUAVDesc.Buffer.NumElements = THREAD_COUNT
-	sbUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
-	sbUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-	hr = _pd3dDevice->CreateUnorderedAccessView(_pStructureBuffer, &sbUAVDesc, &_pUAV);
+	// Create Input Buffer
+	D3D11_BUFFER_DESC constantDataDesc;
+	constantDataDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	constantDataDesc.CPUAccessFlags = 0;
+	constantDataDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	constantDataDesc.StructureByteStride = sizeof(ConstantParticleData);
+	constantDataDesc.ByteWidth = sizeof(ConstantParticleData) * sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	constantDataDesc.Usage = D3D11_USAGE_DEFAULT;
+	hr = _pd3dDevice->CreateBuffer(&constantDataDesc, nullptr, &_pInputComputeBuffer);
 
+	// Create Shader Resource View
+	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
+	shaderResourceViewDesc.Format = DXGI_FORMAT_UNKNOWN;
+	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	shaderResourceViewDesc.BufferEx.FirstElement = 0;
+	shaderResourceViewDesc.BufferEx.Flags = 0;
+	shaderResourceViewDesc.BufferEx.NumElements = sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	hr = _pd3dDevice->CreateShaderResourceView(_pInputComputeBuffer, &shaderResourceViewDesc, &_pInputSRV);
+
+	// Output Buffer
+	D3D11_BUFFER_DESC outputDesc;
+	outputDesc.Usage = D3D11_USAGE_DEFAULT;
+	outputDesc.ByteWidth = sizeof(ParticleData) * sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	outputDesc.CPUAccessFlags = 0;
+	outputDesc.StructureByteStride = sizeof(ParticleData);
+	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	hr = _pd3dDevice->CreateBuffer(&outputDesc, nullptr, &_pOutputComputeBuffer);
+
+	// System Memory Version to read results
+	outputDesc.Usage = D3D11_USAGE_STAGING;
+	outputDesc.BindFlags = 0;
+	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	hr = _pd3dDevice->CreateBuffer(&outputDesc, nullptr, &_pOutputResultComputeBuffer);
+
+	// Create UAV
+	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.Flags = 0;
+	uavDesc.Buffer.NumElements = sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	hr = _pd3dDevice->CreateUnorderedAccessView(_pOutputComputeBuffer, &uavDesc, &_pOutputUAV);
+
+
+
+
+
+
+	// Depth Stencil Stuff
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
 
 	depthStencilDesc.Width = _renderWidth;
@@ -742,15 +773,6 @@ HRESULT Application::InitDevice()
 	hr = _pd3dDevice->CreateTexture2D(&textureDesc, nullptr, &_computeTexture);
 	if (FAILED(hr))
 		return hr;
-
-	// Create Shader Resource View
-	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
-	shaderResourceViewDesc.Format = depthStencilDesc.Format;
-	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
-	shaderResourceViewDesc.Texture2D.MipLevels = 1;
-
-	hr = _pd3dDevice->CreateShaderResourceView(_computeTexture, &shaderResourceViewDesc, &_pSRV);
 
 	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
 
@@ -1073,21 +1095,38 @@ void Application::Draw()
 	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
 
+	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
+
+	ConstantParticleData pd;
+	pd.position = {10.0f, 10.0f, 10.0f};
+	pd.velocity = { 100.0f, 100.0f, 100.0f };
+	_pImmediateContext->UpdateSubresource(_pInputComputeBuffer, 0, nullptr, &pd, 0, 0);
+
 	// Set Compute Shader
 	_pImmediateContext->CSSetShader(_pComputeShader, nullptr, 0);
-	_pImmediateContext->CSSetShaderResources(0, 1, &_pSRV);
-	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, &_pUAV, nullptr);
+	_pImmediateContext->CSSetShaderResources(0, 1, &_pInputSRV);
+	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, &_pOutputUAV, nullptr);
 	// Dispatch Shader
 	_pImmediateContext->Dispatch(1, 1, 1);
 	// Set Shader to Null
-	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
-	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
 	_pImmediateContext->CSSetShaderResources(0, 2, _ppSRVNULL);
+	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
+	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
+	// Copy Results
+	_pImmediateContext->CopyResource(_pOutputResultComputeBuffer, _pOutputComputeBuffer);
 
-	// todo
-	// Setup Input Data Types to shaders (Structure Buffers)
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	HRESULT hr = _pImmediateContext->Map(_pOutputResultComputeBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
 
-	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
+	if(SUCCEEDED(hr))
+	{
+		ParticleData* dataView = reinterpret_cast<ParticleData*>(mappedResource.pData);
+
+		tempPositionValue = dataView->position;
+		tempVelocityValue = dataView->velocity;
+
+		_pImmediateContext->Unmap(_pOutputResultComputeBuffer, 0);
+	}
 
 	ConstantBuffer cb;
 

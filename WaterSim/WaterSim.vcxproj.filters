@@ -164,5 +164,8 @@
     <FxCompile Include="shader.fx">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="SPHComputeShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
