@@ -81,7 +81,7 @@ Application::Application()
 	_driverType = D3D_DRIVER_TYPE_NULL;
 	_featureLevel = D3D_FEATURE_LEVEL_11_0;
 	_pd3dDevice = nullptr;
-	_pImmediateContext = nullptr; 
+	_pImmediateContext = nullptr;
 	_pSwapChain = nullptr;
 	_pRenderTargetView = nullptr;
 	_pVertexShader = nullptr;
@@ -97,15 +97,15 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	 numbParticles = 10;
-	 mass = 0.02f;
-	 density = 997.0f;
-	 gasConstant = 1.0f;
-	 viscosity = 1.04f;
-	 h = 1.0f;
-	 g = -9.807f;
-	 tension = 0.2f;
-	 elastisicty = 0.5f;
+	numbParticles = 10;
+	mass = 0.02f;
+	density = 997.0f;
+	gasConstant = 1.0f;
+	viscosity = 1.04f;
+	h = 1.0f;
+	g = -9.807f;
+	tension = 0.2f;
+	elastisicty = 0.5f;
 	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty);
 }
 
@@ -198,7 +198,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
 		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
-	//	gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
+		//	gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
 		gameObject->GetParticleModel()->SetMass(1.0f);
@@ -258,7 +258,7 @@ HRESULT Application::InitShadersAndInputLayout()
 	// Compile Compute Shader
 	ID3DBlob* csBlob = nullptr;
 	hr = CompileComputeShader(L"SPHComputeShader.hlsl", "CSMain", _pd3dDevice, &csBlob);
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
 		_pd3dDevice->Release();
 		printf("Failed compiling shader %08X\n", hr);
@@ -269,7 +269,7 @@ HRESULT Application::InitShadersAndInputLayout()
 	hr = _pd3dDevice->CreateComputeShader(csBlob->GetBufferPointer(), csBlob->GetBufferSize(), nullptr, &_pComputeShader);
 	csBlob->Release();
 
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
 		_pd3dDevice->Release();
 		return hr;
@@ -528,7 +528,7 @@ HRESULT Application::CompileShaderFromFile(const WCHAR* szFileName, LPCSTR szEnt
 
 HRESULT Application::CompileComputeShader(LPCWSTR fileName, LPCSTR entryPoint, ID3D11Device* device, ID3DBlob** blob)
 {
-	if(!fileName || !entryPoint || !device || !blob)
+	if (!fileName || !entryPoint || !device || !blob)
 	{
 		return E_INVALIDARG;
 	}
@@ -553,15 +553,15 @@ HRESULT Application::CompileComputeShader(LPCWSTR fileName, LPCSTR entryPoint, I
 
 	HRESULT hr = D3DCompileFromFile(fileName, define, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint, profile, flags, 0, &shaderBlob, &errorBlob);
 
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
-		if(FAILED(errorBlob))
+		if (FAILED(errorBlob))
 		{
 			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 			errorBlob->Release();
 		}
 
-		if(shaderBlob)
+		if (shaderBlob)
 		{
 			shaderBlob->Release();
 		}
@@ -630,11 +630,11 @@ HRESULT Application::InitDevice()
 	if (FAILED(hr))
 		return hr;
 
-	if(_pd3dDevice->GetFeatureLevel() < D3D_FEATURE_LEVEL_11_0)
+	if (_pd3dDevice->GetFeatureLevel() < D3D_FEATURE_LEVEL_11_0)
 	{
 		D3D11_FEATURE_DATA_D3D10_X_HARDWARE_OPTIONS hwopts = { 0 };
 		(void)_pd3dDevice->CheckFeatureSupport(D3D11_FEATURE_D3D10_X_HARDWARE_OPTIONS, &hwopts, sizeof(hwopts));
-		if(!hwopts.ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x)
+		if (!hwopts.ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x)
 		{
 			_pd3dDevice->Release();
 			printf("Direct Compute is Not Supported");
@@ -691,18 +691,18 @@ HRESULT Application::InitDevice()
 
 	// Create Input Buffer
 	D3D11_BUFFER_DESC constantDataDesc;
-	constantDataDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-	constantDataDesc.CPUAccessFlags = 0;
-	constantDataDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	constantDataDesc.StructureByteStride = sizeof(ConstantParticleData);
+	constantDataDesc.Usage = D3D11_USAGE_DYNAMIC;
 	constantDataDesc.ByteWidth = sizeof(ConstantParticleData) * numbParticles;
-	constantDataDesc.Usage = D3D11_USAGE_DEFAULT;
+	constantDataDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	constantDataDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	constantDataDesc.StructureByteStride = sizeof(ConstantParticleData);
+	constantDataDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 	hr = _pd3dDevice->CreateBuffer(&constantDataDesc, nullptr, &_pInputComputeBuffer);
 
 	// Create Shader Resource View
 	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
 	shaderResourceViewDesc.Format = DXGI_FORMAT_UNKNOWN;
-	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
 	shaderResourceViewDesc.BufferEx.FirstElement = 0;
 	shaderResourceViewDesc.BufferEx.Flags = 0;
 	shaderResourceViewDesc.BufferEx.NumElements = numbParticles;
@@ -732,11 +732,6 @@ HRESULT Application::InitDevice()
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 	hr = _pd3dDevice->CreateUnorderedAccessView(_pOutputComputeBuffer, &uavDesc, &_pOutputUAV);
-
-
-
-
-
 
 	// Depth Stencil Stuff
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
@@ -928,7 +923,7 @@ void Application::Update()
 
 	for (int i = 0; i < sph->particleList.size(); i++)
 	{
-		for ( GameObject* go : m_gameObjects)
+		for (GameObject* go : m_gameObjects)
 		{
 			go->GetTransform()->SetPosition(sph->particleList[0]->position.x, sph->particleList[0]->position.y, sph->particleList[0]->position.z);
 		}
@@ -1054,7 +1049,7 @@ void Application::ImGui()
 		ImGui::Text("Particle Values");
 		ImGui::DragFloat3("Position", &sph->particleList[0]->position.x);
 		ImGui::DragFloat3("Velocity", &sph->particleList[0]->velocity.x);
-		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size,0.01f ,0.1f, 1.0f);
+		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size, 0.01f, 0.1f, 1.0f);
 	}
 
 	ImGui::End();
@@ -1086,29 +1081,38 @@ void Application::Draw()
 
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
+	// Compute Shader Input Buffer
 	ConstantParticleData pd;
-	pd.position = {10.0f, 10.0f, 10.0f};
+	pd.position = { 10.0f, 10.0f, 10.0f };
 	pd.velocity = { 100.0f, 100.0f, 100.0f };
-	_pImmediateContext->UpdateSubresource(_pInputComputeBuffer, 0, nullptr, &pd, 0, 0);
+
+	// Map Values using the Input Buffer
+	D3D11_MAPPED_SUBRESOURCE ms;
+	size_t test = sizeof(ConstantParticleData);
+	_pImmediateContext->Map(_pInputComputeBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &ms);
+	memcpy(ms.pData, &pd, sizeof(ConstantParticleData));
+	_pImmediateContext->Unmap(_pInputComputeBuffer, 0);
 
 	// Set Compute Shader
 	_pImmediateContext->CSSetShader(_pComputeShader, nullptr, 0);
 	_pImmediateContext->CSSetShaderResources(0, 1, &_pInputSRV);
 	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, &_pOutputUAV, nullptr);
+	// Set Buffer Sending over data
 	_pImmediateContext->CSSetConstantBuffers(0, 1, &_pInputComputeBuffer);
 	// Dispatch Shader
-	_pImmediateContext->Dispatch(1, 1, 1);
+	_pImmediateContext->Dispatch(32, 1, 1);
 	// Set Shader to Null
-	_pImmediateContext->CSSetShaderResources(0, 2, _ppSRVNULL);
-	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
 	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
-	// Copy Results
+	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
+	_pImmediateContext->CSSetShaderResources(0, 2, _ppSRVNULL);
+	// Copy Results of Output Buffer
 	_pImmediateContext->CopyResource(_pOutputResultComputeBuffer, _pOutputComputeBuffer);
 
+	// Map the Output Buffer
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	HRESULT hr = _pImmediateContext->Map(_pOutputResultComputeBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
 
-	if(SUCCEEDED(hr))
+	if (SUCCEEDED(hr))
 	{
 		ParticleData* dataView = reinterpret_cast<ParticleData*>(mappedResource.pData);
 
