@@ -99,9 +99,6 @@ private:
 	XMFLOAT3 tempPositionValue;
 	XMFLOAT3 tempVelocityValue;
 
-
-	ID3D11Texture2D* _computeTexture = nullptr;
-
 	// Vertex Buffers
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;

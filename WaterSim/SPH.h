@@ -57,7 +57,7 @@ public:
 
 	// Particle List
 	std::vector <Particle*> particleList;
-	Particle* newParticle;
+	Particle* newParticle = nullptr;
 	Vector3 GetPosition();
 
 private:

@@ -97,7 +97,7 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	 numbParticles = 1;
+	 numbParticles = 10;
 	 mass = 0.02f;
 	 density = 997.0f;
 	 gasConstant = 1.0f;
@@ -695,7 +695,7 @@ HRESULT Application::InitDevice()
 	constantDataDesc.CPUAccessFlags = 0;
 	constantDataDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 	constantDataDesc.StructureByteStride = sizeof(ConstantParticleData);
-	constantDataDesc.ByteWidth = sizeof(ConstantParticleData) * sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	constantDataDesc.ByteWidth = sizeof(ConstantParticleData) * numbParticles;
 	constantDataDesc.Usage = D3D11_USAGE_DEFAULT;
 	hr = _pd3dDevice->CreateBuffer(&constantDataDesc, nullptr, &_pInputComputeBuffer);
 
@@ -705,13 +705,13 @@ HRESULT Application::InitDevice()
 	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	shaderResourceViewDesc.BufferEx.FirstElement = 0;
 	shaderResourceViewDesc.BufferEx.Flags = 0;
-	shaderResourceViewDesc.BufferEx.NumElements = sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	shaderResourceViewDesc.BufferEx.NumElements = numbParticles;
 	hr = _pd3dDevice->CreateShaderResourceView(_pInputComputeBuffer, &shaderResourceViewDesc, &_pInputSRV);
 
 	// Output Buffer
 	D3D11_BUFFER_DESC outputDesc;
 	outputDesc.Usage = D3D11_USAGE_DEFAULT;
-	outputDesc.ByteWidth = sizeof(ParticleData) * sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	outputDesc.ByteWidth = sizeof(ParticleData) * numbParticles;
 	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
 	outputDesc.CPUAccessFlags = 0;
 	outputDesc.StructureByteStride = sizeof(ParticleData);
@@ -728,7 +728,7 @@ HRESULT Application::InitDevice()
 	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
 	uavDesc.Buffer.FirstElement = 0;
 	uavDesc.Buffer.Flags = 0;
-	uavDesc.Buffer.NumElements = sph->numberOfParticles * sph->numberOfParticles * sph->numberOfParticles;
+	uavDesc.Buffer.NumElements = numbParticles;
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 	hr = _pd3dDevice->CreateUnorderedAccessView(_pOutputComputeBuffer, &uavDesc, &_pOutputUAV);
@@ -755,24 +755,6 @@ HRESULT Application::InitDevice()
 
 	_pd3dDevice->CreateTexture2D(&depthStencilDesc, nullptr, &_depthStencilBuffer);
 	_pd3dDevice->CreateDepthStencilView(_depthStencilBuffer, nullptr, &_depthStencilView);
-
-	D3D11_TEXTURE2D_DESC textureDesc;
-	ZeroMemory(&textureDesc, sizeof(textureDesc));
-
-	textureDesc.Width = _renderWidth;
-	textureDesc.Height = _renderHeight;
-	textureDesc.MipLevels = 1;
-	textureDesc.ArraySize = 1;
-	textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	textureDesc.SampleDesc.Count = sampleCount;
-	textureDesc.Usage = D3D11_USAGE_DEFAULT;
-	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-	textureDesc.CPUAccessFlags = 0;
-	textureDesc.MiscFlags = 0;
-
-	hr = _pd3dDevice->CreateTexture2D(&textureDesc, nullptr, &_computeTexture);
-	if (FAILED(hr))
-		return hr;
 
 	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
 
@@ -825,7 +807,14 @@ void Application::Cleanup()
 	if (_pVertexLayout) _pVertexLayout->Release();
 	if (_pVertexShader) _pVertexShader->Release();
 	if (_pPixelShader) _pPixelShader->Release();
+
 	if (_pComputeShader) _pComputeShader->Release();
+	if (_pOutputUAV) _pOutputUAV->Release();
+	if (_pInputSRV) _pInputSRV->Release();
+	if (_pInputComputeBuffer) _pInputComputeBuffer->Release();
+	if (_pOutputComputeBuffer)_pOutputComputeBuffer->Release();
+	if (_pOutputResultComputeBuffer) _pOutputResultComputeBuffer->Release();
+
 	if (_pRenderTargetView) _pRenderTargetView->Release();
 	if (_pSwapChain) _pSwapChain->Release();
 	if (_pImmediateContext) _pImmediateContext->Release();
@@ -1106,6 +1095,7 @@ void Application::Draw()
 	_pImmediateContext->CSSetShader(_pComputeShader, nullptr, 0);
 	_pImmediateContext->CSSetShaderResources(0, 1, &_pInputSRV);
 	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, &_pOutputUAV, nullptr);
+	_pImmediateContext->CSSetConstantBuffers(0, 1, &_pInputComputeBuffer);
 	// Dispatch Shader
 	_pImmediateContext->Dispatch(1, 1, 1);
 	// Set Shader to Null

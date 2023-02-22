@@ -40,22 +40,6 @@ cbuffer ConstantBuffer : register(b0)
     float HasTexture;
 }
 
-// Compute Shader Buffers
-struct ConstantParticleData
-{
-    float3 position;
-    float3 velocity;
-};
-
-struct ParticleData
-{
-    float3 position;
-    float3 velocity;
-};
-
-StructuredBuffer<ConstantParticleData> inputConstantParticleData : register(t0);
-RWStructuredBuffer<ParticleData> outputParticleData : register(u0);
-
 struct VS_INPUT
 {
     float4 PosL : POSITION;
@@ -72,21 +56,6 @@ struct VS_OUTPUT
     float3 PosW : POSITION;
     float2 Tex : TEXCOORD0;
 };
-//--------------------------------------------------------------------------------------
-// Compute Shader
-//--------------------------------------------------------------------------------------
-[numthreads(32, 1, 1)]
-void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
-{
-    float3 position = inputConstantParticleData[dispatchThreadID.x].position;
-    float3 velocity = inputConstantParticleData[dispatchThreadID.x].velocity;
-
-    position.x += 1000.0f;
-    velocity += 100.0f;
-
-    outputParticleData[dispatchThreadID.x].position = position;
-    outputParticleData[dispatchThreadID.x].velocity = velocity;
-}
 
 //--------------------------------------------------------------------------------------
 // Vertex Shader

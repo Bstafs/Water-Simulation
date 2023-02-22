@@ -43,6 +43,7 @@ SPH::~SPH()
 	if (!particleList.empty())
 	{
 		particleList.clear();
+		particleList.shrink_to_fit();
 		for (auto particlesL : particleList)
 		{
 			delete particlesL;
