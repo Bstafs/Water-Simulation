@@ -60,6 +60,7 @@ public:
 	XMFLOAT3 tempForceValue;
 	float tempPressureValue;
 	float tempDensityValue;
+	float deltaTimeValue;
 
 	// Particle List
 	std::vector <Particle*> particleList;

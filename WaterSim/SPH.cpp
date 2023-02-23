@@ -89,11 +89,7 @@ void SPH::InitParticles()
 					k * particleSpacing + particleRandomPositionZ - 1.5f
 				};
 
-				MASS_CONSTANT = (sphDensity * (4.0f / 3.0f * PI * pow(sphH, 3))) + DENS_CONSTANT;
-
 				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, XMFLOAT3(1.0f, 1.0f, 1.0f));
-
-				newParticle->elasticity = sphElasticity;
 
 				// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
 				particleList[i + (j + numberOfParticles * k) * numberOfParticles] = newParticle;
@@ -112,10 +108,11 @@ void SPH::CalculateDensityPressureMass()
 
 		particleOne->SetDensity(tempDensityValue + DENS_CONSTANT);
 
-		particleOne->SetPressure(tempPressureValue);
+		float pressure = GAS_CONSTANT * (particleOne->density - tempPressureValue);
+		particleOne->SetPressure(pressure);
 
 		float vol = 4.0f / 3.0f * PI * pow(sphH, 3);
-		particleOne->SetMass(sphDensity * VISC_CONSTANT);
+		particleOne->SetMass(MASS_CONSTANT);
 	}
 }
 
@@ -187,9 +184,9 @@ void SPH::UpdateParticles()
 	{
 		Particle* part = particleList[i];
 
-		part->position.x += tempPositionValue.x;
-		part->position.y += tempPositionValue.y;
-		part->position.z += tempPositionValue.z;
+		part->position.x += tempPositionValue.x * MASS_CONSTANT;
+		part->position.y += tempPositionValue.y * MASS_CONSTANT;
+		part->position.z += tempPositionValue.z * MASS_CONSTANT;
 	}
 }
 

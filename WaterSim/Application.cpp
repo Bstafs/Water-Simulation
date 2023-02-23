@@ -97,15 +97,15 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	numbParticles = 17;
-	mass = 0.02f;
+	numbParticles = 10;
+	mass = 0.001f;
 	density = 997.0f;
 	gasConstant = 1.0f;
-	viscosity = 1.04f;
-	h = 1.0f;
+	viscosity = 0.1f;
+	h = 0.012f;
 	g = -9.807f;
 	tension = 0.2f;
-	elastisicty = 0.5f;
+	elastisicty = 0.05f;
 	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty, 200.0f);
 }
 
@@ -193,12 +193,14 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetParticleModel()->SetToggleGravity(false);
 	m_gameObjects.push_back(gameObject);
 
-	for (int i = 0; i < NUMBER_OF_CUBES; i++)
+	for (int i = 0; i < sph->particleList.size(); i++)
 	{
+		Particle* part = sph->particleList[i];
+
 		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
-		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
-		//	gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
+		//gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
+		gameObject->GetTransform()->SetPosition(part->position.x, part->position.y, part->position.z);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
 		gameObject->GetParticleModel()->SetMass(1.0f);
@@ -939,9 +941,11 @@ void Application::Update()
 
 	for (int i = 0; i < sph->particleList.size(); i++)
 	{
+		Particle* part = sph->particleList[i];
+
 		for (GameObject* go : m_gameObjects)
 		{
-			go->GetTransform()->SetPosition(sph->particleList[0]->position.x, sph->particleList[0]->position.y, sph->particleList[0]->position.z);
+			go->GetTransform()->SetPosition(part->position.x, part->position.y, part->position.z);
 		}
 	}
 
@@ -1021,6 +1025,9 @@ void Application::Update()
 
 	_camera->Update();
 
+	sph->deltaTimeValue = deltaTime;
+
+	sph->tempVelocityValue;
 
 	// Update objects
 
@@ -1054,7 +1061,7 @@ void Application::ImGui()
 	{
 		ImGui::Text("Initial Values");
 		ImGui::DragInt("Number Of Particles", &sph->numberOfParticles);
-		ImGui::DragFloat("Mass", &sph->MASS_CONSTANT);
+		ImGui::DragFloat("Mass", &sph->MASS_CONSTANT, 0.01f, 0, 100);
 		ImGui::DragFloat("Density", &sph->sphDensity);
 		ImGui::DragFloat("Gas Constant", &sph->GAS_CONSTANT);
 		ImGui::DragFloat("Viscosity", &sph->sphViscosity);

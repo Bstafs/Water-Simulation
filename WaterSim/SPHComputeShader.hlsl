@@ -99,7 +99,7 @@ float CalculatePressure(float density)
 // Spiky Grad Smoothing Kernel
 // W_spiky(r, h) = 15 / (pi * h^6) * (h - r)^3
 // GRAD( W_spikey(r, h) ) = -45 / (pi * h^6) * (h - r)^2
-// g_fGradPressureCoef = fParticleMass * -45.0f / (PI * fSmoothlen^6)
+// GradPressureCoef = fParticleMass * -45.0f / (PI * fSmoothlen^6)
 float3 CalculateGradPressure(float r, float pPressure, float nPressure, float nDesnity, float3 velDiff)
 {
     const float h = smoothingLength;
@@ -110,9 +110,9 @@ float3 CalculateGradPressure(float r, float pPressure, float nPressure, float nD
 }
 
 // Viscosity Smoothing Kernel
-// W_viscosity(r, h) = 15 / (2 * pi * h^3) * (-r^3 / (2 * h^3) + r^2 / h^2 + h / (2 * r) - 1)
+// viscosity(r, h) = 15 / (2 * pi * h^3) * (-r^3 / (2 * h^3) + r^2 / h^2 + h / (2 * r) - 1)
 // LAPLACIAN( W_viscosity(r, h) ) = 45 / (pi * h^6) * (h - r)
-// g_fLapViscosityCoef = fParticleMass * fViscosity * 45.0f / (PI * smoothingLength^6)
+// LapViscosityCoef = fParticleMass * fViscosity * 45.0f / (PI * smoothingLength^6)
 float3 CalculateLapVelocity(float r, float3 pVelocity, float3 nVelocity, float nDesnity)
 {
     const float h = smoothingLength;
@@ -178,7 +178,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     pressure += CalculatePressure(density);
     force += CalculateForce(dispatchThreadID);
 
-    acceleration = force / density;
+    acceleration = force / density - (acceleration.y - gravity);
     velocity += acceleration * deltaTime;
     position += velocity * deltaTime;
 
