@@ -102,7 +102,7 @@ Application::Application()
 	density = 997.0f;
 	gasConstant = 1.0f;
 	viscosity = 0.1f;
-	h = 0.012f;
+	h = 0.30f;
 	g = -9.807f;
 	tension = 0.2f;
 	elastisicty = 0.05f;
@@ -1067,7 +1067,7 @@ void Application::ImGui()
 		ImGui::DragFloat("Density", &sph->sphDensity);
 		ImGui::DragFloat("Gas Constant", &sph->GAS_CONSTANT);
 		ImGui::DragFloat("Viscosity", &sph->sphViscosity);
-		ImGui::DragFloat("Smoothing Length", &sph->sphH);
+		ImGui::DragFloat("Smoothing Length", &sph->sphH, 0.001f, 0, 1.0f);
 		ImGui::DragFloat("Gravity", &sph->sphG);
 
 		ImGui::Text("Particle Values");
@@ -1075,7 +1075,6 @@ void Application::ImGui()
 		ImGui::DragFloat3("Velocity", &sph->tempVelocityValue.x);
 		ImGui::DragFloat("Density", &sph->tempDensityValue);
 		ImGui::DragFloat("Pressure", &sph->tempPressureValue);
-		ImGui::DragFloat3("Force", &sph->tempForceValue.x);
 		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size, 0.01f, 0.1f, 1.0f);
 	}
 
@@ -1111,7 +1110,7 @@ void Application::Draw()
 	pcb.particleCount = sph->particleList.size();
 	pcb.padding00 = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	pcb.deltaTime = 1.0f / 60.0f;
-	pcb.smoothingLength = h;
+	pcb.smoothingLength = sph->sphH;
 	pcb.pressure = 200.0f;
 	pcb.restDensity = density;
 	pcb.densityCoef = sph->POLY6_CONSTANT;
@@ -1125,7 +1124,7 @@ void Application::Draw()
 	pd.position = sph->GetPosition();
 	pd.pressure= 200.0f;
 	pd.velocity = sph->GetVelocity();
-	pd.density = density;
+	pd.density = sph->sphDensity;
 	pd.force = XMFLOAT3(10.0f, 10.0f, 10.f);
 	pd.padding01 = 0.0f;
 	pd.acceleration = sph->GetAccel();
@@ -1145,7 +1144,7 @@ void Application::Draw()
 	_pImmediateContext->CSSetConstantBuffers(1, 1, &_pParticleConstantBuffer);
 	_pImmediateContext->CSSetConstantBuffers(0, 1, &_pInputComputeBuffer);
 	// Dispatch Shader
-	_pImmediateContext->Dispatch(256, 1, 1);
+	_pImmediateContext->Dispatch(sph->particleList.size() / 256, 1, 1);
 	// Set Shader to Null
 	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
 	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
@@ -1165,7 +1164,6 @@ void Application::Draw()
 		sph->tempPositionValue = dataView->position;
 		sph->tempVelocityValue = dataView->velocity;
 		sph->tempDensityValue = dataView->density;
-		sph->tempForceValue = dataView->force;
 		sph->tempPressureValue = dataView->pressure;
 
 		_pImmediateContext->Unmap(_pOutputResultComputeBuffer, 0);

@@ -100,33 +100,6 @@ void SPH::InitParticles()
 	}
 }
 
-void SPH::CalculateDensityPressureMass()
-{
-	Particle* particleOne = nullptr;
-
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		particleOne = particleList[i];
-
-		particleOne->density = tempDensityValue + DENS_CONSTANT;
-
-		float pressure = GAS_CONSTANT * (particleOne->density - tempPressureValue);
-		particleOne->pressure += pressure;
-
-		particleOne->mass = MASS_CONSTANT;
-	}
-}
-
-void SPH::CalculateForce()
-{
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		Particle* particleOne = particleList[i];
-
-		particleOne->force = tempForceValue;
-	}
-}
-
 void SPH::ParticleBoxCollision()
 {
 	for (int i = 0; i < particleList.size(); ++i)
@@ -134,7 +107,7 @@ void SPH::ParticleBoxCollision()
 		Particle* part = particleList[i];
 
 		// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
-		float collisionBoxSize = 5.0f;
+		float collisionBoxSize = 1.0f;
 
 		// Collision on the y Axis
 		if (part->position.y < part->size - collisionBoxSize)
@@ -189,8 +162,6 @@ void SPH::UpdateParticles()
 
 void SPH::Update(const SPH& sph, double deltaTime)
 {
-	CalculateDensityPressureMass();
-	CalculateForce();
 	UpdateParticles();
 	ParticleBoxCollision();
 }

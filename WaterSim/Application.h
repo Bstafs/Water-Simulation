@@ -94,9 +94,6 @@ struct ParticleData
 
 	XMFLOAT3 velocity;
 	float density;
-
-	XMFLOAT3 force;
-	float padding01;
 };
 
 class Application

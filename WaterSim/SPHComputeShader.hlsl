@@ -38,9 +38,6 @@ struct ParticleData
 
     float3 velocity;
     float density;
-
-    float3 force;
-    float padding01;
 };
 
 StructuredBuffer<ConstantParticleData> InputParticleData : register(t0); // Input
@@ -176,11 +173,11 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     density += CalculateDensity(dispatchThreadID);
     pressure += CalculatePressure(density);
-    force = CalculateForce(dispatchThreadID);
+    force += CalculateForce(threadID);
 
     acceleration = force / density;
 
-    acceleration += gravity;
+    acceleration.y -= gravity;
 
     velocity += acceleration * deltaTime;
     position += velocity * deltaTime;
@@ -188,7 +185,6 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     OutputParticleData[threadID].position = position;
     OutputParticleData[threadID].velocity = velocity;
     OutputParticleData[threadID].density = density;
-    OutputParticleData[threadID].force = force;
     OutputParticleData[threadID].pressure = pressure;
     
 }

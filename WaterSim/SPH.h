@@ -57,7 +57,6 @@ public:
 
 	XMFLOAT3 tempPositionValue;
 	XMFLOAT3 tempVelocityValue;
-	XMFLOAT3 tempForceValue;
 	float tempPressureValue;
 	float tempDensityValue;
 	float deltaTimeValue;
@@ -74,8 +73,6 @@ public:
 private:
 	// Particle Initialization
 	void InitParticles();
-	void CalculateDensityPressureMass();
-	void CalculateForce();
 	void UpdateParticles();
 	void ParticleBoxCollision();
 };
