@@ -107,7 +107,7 @@ void SPH::ParticleBoxCollision()
 		Particle* part = particleList[i];
 
 		// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
-		float collisionBoxSize = 1.0f;
+		float collisionBoxSize = 2.0f;
 
 		// Collision on the y Axis
 		if (part->position.y < part->size - collisionBoxSize)

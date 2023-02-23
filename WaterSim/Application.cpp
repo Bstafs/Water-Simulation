@@ -1071,7 +1071,7 @@ void Application::ImGui()
 		ImGui::DragFloat("Gravity", &sph->sphG);
 
 		ImGui::Text("Particle Values");
-		ImGui::DragFloat3("Position", &sph->tempPositionValue.x);
+		ImGui::DragFloat3("Position", &sph->tempPositionValue.x, 0.001f);
 		ImGui::DragFloat3("Velocity", &sph->tempVelocityValue.x);
 		ImGui::DragFloat("Density", &sph->tempDensityValue);
 		ImGui::DragFloat("Pressure", &sph->tempPressureValue);
