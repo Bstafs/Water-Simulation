@@ -2,15 +2,15 @@
 
 int Particle::particleCount = 0;
 
-Particle::Particle(float particleMass, float particleSize, Vector3 particlePos, Vector3 particleVelocity)
+Particle::Particle(float particleMass, float particleSize, XMFLOAT3 particlePos, XMFLOAT3 particleVelocity)
 {
 	mass = particleMass;
 	size = particleSize;
 	position = particlePos;
 	velocity = particleVelocity;
 
-	force = Vector3(0,0,0);
-	acceleration = Vector3(0, 0, 0);
+	force = XMFLOAT3(0,0,0);
+	acceleration = XMFLOAT3(0, 0, 0);
 	density = 0.0f;
 	pressure = 0.0f;
 	particleID = particleCount++;
@@ -46,10 +46,10 @@ float Particle::SmoothingKernel(Particle* other)
 	}
 }
 
-Vector3 Particle::GradientKernel(Particle* other)
+XMFLOAT3 Particle::GradientKernel(Particle* other)
 {
 	float radius = Distance(other);
-	Vector3 gradient = { 0,0,0 };
+	XMFLOAT3 gradient = { 0,0,0 };
 
 	if (radius >= 0 && radius <= size)
 	{

@@ -6,7 +6,7 @@
 class Particle 
 {
 public:
-	Particle(float particleMass, float particleSize, Vector3 particlePos, Vector3 particleVelocity);
+	Particle(float particleMass, float particleSize, XMFLOAT3 particlePos, XMFLOAT3 particleVelocity);
 	~Particle();
 private:
 	static int particleCount;
@@ -19,10 +19,10 @@ public:
 	float pressure = 0.0f;
 	int particleID = 0;
 	// Vector 3 Forces
-	Vector3 position = {0,0,0};
-	Vector3 velocity = { 0,0,0 };
-	Vector3 acceleration = { 0,0,0 };
-	Vector3 force = { 0,0,0 };
+	XMFLOAT3 position = {0,0,0};
+	XMFLOAT3 velocity = { 0,0,0 };
+	XMFLOAT3 acceleration = { 0,0,0 };
+	XMFLOAT3 force = { 0,0,0 };
 
 	// Particle Linked List
 	Particle* nextParticle;
@@ -34,7 +34,7 @@ public:
 	float SmoothingKernel(Particle* other);
 
 	// Calculate Gradient of Each Particle
-	Vector3 GradientKernel(Particle* other);
+	XMFLOAT3 GradientKernel(Particle* other);
 
 	// Getters and Setters for Particle Variables
 	float GetDensity() { return density; }

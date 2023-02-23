@@ -162,3 +162,8 @@ XMFLOAT3 Vector3::Vector3ToXMFLOAT3()
 {
 	return XMFLOAT3(x, y, z);
 }
+
+Vector3 Vector3::XMFLOAT3ToVector3()
+{
+	return Vector3(x, y, z);
+}

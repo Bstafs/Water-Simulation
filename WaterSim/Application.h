@@ -56,16 +56,47 @@ struct ConstantBuffer
 	float HasTexture;
 };
 
+struct ParticleConstantBuffer
+{
+	int particleCount;
+	XMFLOAT3 padding00;
+
+	float deltaTime;
+	float smoothingLength;
+	float pressure;
+	float restDensity;
+
+	float densityCoef;
+	float GradPressureCoef;
+	float LapViscosityCoef;
+	float gravity;
+};
+
 struct ConstantParticleData
 {
 	XMFLOAT3 position;
+	float pressure;
+
 	XMFLOAT3 velocity;
+	float density;
+
+	XMFLOAT3 force;
+	float padding01;
+
+	XMFLOAT3 acceleration;
+	float padding02;
 };
 
 struct ParticleData
 {
 	XMFLOAT3 position;
+	float pressure;
+
 	XMFLOAT3 velocity;
+	float density;
+
+	XMFLOAT3 force;
+	float padding01;
 };
 
 class Application
@@ -92,12 +123,10 @@ private:
 	ID3D11UnorderedAccessView* _pOutputUAV = nullptr;
 	ID3D11ShaderResourceView* _pInputSRV = nullptr;
 
+	ID3D11Buffer* _pParticleConstantBuffer = nullptr;
 	ID3D11Buffer* _pInputComputeBuffer = nullptr;
 	ID3D11Buffer* _pOutputComputeBuffer = nullptr;
 	ID3D11Buffer* _pOutputResultComputeBuffer = nullptr;
-
-	XMFLOAT3 tempPositionValue;
-	XMFLOAT3 tempVelocityValue;
 
 	// Vertex Buffers
 	ID3D11Buffer* _pVertexBuffer;
@@ -118,6 +147,8 @@ private:
 	ID3D11ShaderResourceView* _pHerculesTextureRV = nullptr;
 
 	ID3D11SamplerState* _pSamplerLinear = nullptr;
+
+	ParticleConstantBuffer pcb;
 
 	MeshData objMeshData;
 
@@ -168,7 +199,7 @@ private:
 	float gasConstant;
 	float viscosity;
 	float h;
-	float g;
+	float g = 9.0f;
 	float tension;
 	float elastisicty;
 

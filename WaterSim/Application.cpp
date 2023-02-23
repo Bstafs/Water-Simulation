@@ -97,7 +97,7 @@ Application::Application()
 	_WindowHeight = 0;
 	_WindowWidth = 0;
 
-	numbParticles = 10;
+	numbParticles = 17;
 	mass = 0.02f;
 	density = 997.0f;
 	gasConstant = 1.0f;
@@ -106,7 +106,7 @@ Application::Application()
 	g = -9.807f;
 	tension = 0.2f;
 	elastisicty = 0.5f;
-	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty);
+	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty, 200.0f);
 }
 
 Application::~Application()
@@ -685,6 +685,22 @@ HRESULT Application::InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+	// Create the constant buffer
+	D3D11_BUFFER_DESC pcbDesc;
+	ZeroMemory(&pcbDesc, sizeof(pcbDesc));
+	pcbDesc.Usage = D3D11_USAGE_DEFAULT;
+	pcbDesc.ByteWidth = sizeof(ParticleConstantBuffer);
+	pcbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	pcbDesc.CPUAccessFlags = 0;
+	pcbDesc.MiscFlags = 0;
+	D3D11_SUBRESOURCE_DATA sb = {};
+	sb.pSysMem = &pcb;
+
+	hr = _pd3dDevice->CreateBuffer(&pcbDesc, &sb, &_pParticleConstantBuffer);
+
+	if (FAILED(hr))
+		return hr;
+
 	// COMPUTE SHADERS
 
 	// Input Buffer
@@ -692,7 +708,7 @@ HRESULT Application::InitDevice()
 	// Create Input Buffer
 	D3D11_BUFFER_DESC constantDataDesc;
 	constantDataDesc.Usage = D3D11_USAGE_DYNAMIC;
-	constantDataDesc.ByteWidth = sizeof(ConstantParticleData) * numbParticles;
+	constantDataDesc.ByteWidth = sizeof(ConstantParticleData) * sph->particleList.size();
 	constantDataDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	constantDataDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	constantDataDesc.StructureByteStride = sizeof(ConstantParticleData);
@@ -705,13 +721,13 @@ HRESULT Application::InitDevice()
 	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
 	shaderResourceViewDesc.BufferEx.FirstElement = 0;
 	shaderResourceViewDesc.BufferEx.Flags = 0;
-	shaderResourceViewDesc.BufferEx.NumElements = numbParticles;
+	shaderResourceViewDesc.BufferEx.NumElements = sph->particleList.size();
 	hr = _pd3dDevice->CreateShaderResourceView(_pInputComputeBuffer, &shaderResourceViewDesc, &_pInputSRV);
 
 	// Output Buffer
 	D3D11_BUFFER_DESC outputDesc;
 	outputDesc.Usage = D3D11_USAGE_DEFAULT;
-	outputDesc.ByteWidth = sizeof(ParticleData) * numbParticles;
+	outputDesc.ByteWidth = sizeof(ParticleData) * sph->particleList.size();
 	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
 	outputDesc.CPUAccessFlags = 0;
 	outputDesc.StructureByteStride = sizeof(ParticleData);
@@ -728,7 +744,7 @@ HRESULT Application::InitDevice()
 	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
 	uavDesc.Buffer.FirstElement = 0;
 	uavDesc.Buffer.Flags = 0;
-	uavDesc.Buffer.NumElements = numbParticles;
+	uavDesc.Buffer.NumElements = sph->particleList.size();
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 	hr = _pd3dDevice->CreateUnorderedAccessView(_pOutputComputeBuffer, &uavDesc, &_pOutputUAV);
@@ -1047,8 +1063,9 @@ void Application::ImGui()
 		ImGui::DragFloat("Tension", &sph->sphTension);
 
 		ImGui::Text("Particle Values");
-		ImGui::DragFloat3("Position", &sph->particleList[0]->position.x);
-		ImGui::DragFloat3("Velocity", &sph->particleList[0]->velocity.x);
+		ImGui::DragFloat3("Position", &sph->tempPositionValue.x);
+		ImGui::DragFloat3("Velocity", &sph->tempVelocityValue.x);
+		ImGui::DragFloat("Density", &sph->tempDensityValue);
 		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size, 0.01f, 0.1f, 1.0f);
 	}
 
@@ -1081,16 +1098,33 @@ void Application::Draw()
 
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
+	pcb.particleCount = sph->particleList.size();
+	pcb.padding00 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	pcb.deltaTime = 1.0f / 60.0f;
+	pcb.smoothingLength = h;
+	pcb.pressure = 200.0f;
+	pcb.restDensity = density;
+	pcb.densityCoef = sph->POLY6_CONSTANT;
+	pcb.GradPressureCoef = sph->SPIKYGRAD_CONSTANT;
+	pcb.LapViscosityCoef = sph->VISC_CONSTANT;
+	pcb.gravity = g;
+	_pImmediateContext->UpdateSubresource(_pParticleConstantBuffer, 0, nullptr, &pcb, 0, 0);
+
 	// Compute Shader Input Buffer
 	ConstantParticleData pd;
-	pd.position = { 10.0f, 10.0f, 10.0f };
-	pd.velocity = { 100.0f, 100.0f, 100.0f };
+	pd.position = sph->GetPosition();
+	pd.pressure= 200.0f;
+	pd.velocity = sph->GetVelocity();
+	pd.density = density;
+	pd.force = sph->GetForce();
+	pd.padding01 = 0.0f;
+	pd.acceleration = sph->GetAccel();
+	pd.padding02 = 0.0f;
 
 	// Map Values using the Input Buffer
-	D3D11_MAPPED_SUBRESOURCE ms;
-	size_t test = sizeof(ConstantParticleData);
-	_pImmediateContext->Map(_pInputComputeBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &ms);
-	memcpy(ms.pData, &pd, sizeof(ConstantParticleData));
+	D3D11_MAPPED_SUBRESOURCE pdMS;
+	_pImmediateContext->Map(_pInputComputeBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pdMS);
+	memcpy(pdMS.pData, &pd, sizeof(ConstantParticleData));
 	_pImmediateContext->Unmap(_pInputComputeBuffer, 0);
 
 	// Set Compute Shader
@@ -1098,9 +1132,10 @@ void Application::Draw()
 	_pImmediateContext->CSSetShaderResources(0, 1, &_pInputSRV);
 	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, &_pOutputUAV, nullptr);
 	// Set Buffer Sending over data
+	_pImmediateContext->CSSetConstantBuffers(1, 1, &_pParticleConstantBuffer);
 	_pImmediateContext->CSSetConstantBuffers(0, 1, &_pInputComputeBuffer);
 	// Dispatch Shader
-	_pImmediateContext->Dispatch(32, 1, 1);
+	_pImmediateContext->Dispatch(256, 1, 1);
 	// Set Shader to Null
 	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
 	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
@@ -1116,8 +1151,12 @@ void Application::Draw()
 	{
 		ParticleData* dataView = reinterpret_cast<ParticleData*>(mappedResource.pData);
 
-		tempPositionValue = dataView->position;
-		tempVelocityValue = dataView->velocity;
+
+		sph->tempPositionValue = dataView->position;
+		sph->tempVelocityValue = dataView->velocity;
+		sph->tempDensityValue = dataView->density;
+		sph->tempForceValue = dataView->force;
+		sph->tempPressureValue = dataView->pressure;
 
 		_pImmediateContext->Unmap(_pOutputResultComputeBuffer, 0);
 	}

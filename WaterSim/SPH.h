@@ -25,7 +25,7 @@
 class SPH
 {
 public:
-	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity);
+	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity, float pressure);
 	~SPH();
 	void Update(const SPH& sph, double deltaTime);
 	void Draw();
@@ -35,6 +35,7 @@ public:
 	float sphTension; // 72 at room temp
 	int numberOfParticles;
 	float sphElasticity;
+	float sphPressure;
 
 	// External force density field aka gravity
 	float sphG;
@@ -54,14 +55,27 @@ public:
 	float SPIKYGRAD_CONSTANT;
 	float VISC_CONSTANT;
 
+	XMFLOAT3 tempPositionValue;
+	XMFLOAT3 tempVelocityValue;
+	XMFLOAT3 tempForceValue;
+	float tempPressureValue;
+	float tempDensityValue;
 
 	// Particle List
 	std::vector <Particle*> particleList;
 	Particle* newParticle = nullptr;
-	Vector3 GetPosition();
+
+	XMFLOAT3 GetPosition();
+	XMFLOAT3 GetVelocity();
+	XMFLOAT3 GetForce();
+	XMFLOAT3 GetAccel();
 
 private:
 	// Particle Initialization
 	void InitParticles();
+	void CalculateDensityPressureMass();
+	void CalculateForce();
+	void UpdateParticles();
+	void ParticleBoxCollision();
 };
 

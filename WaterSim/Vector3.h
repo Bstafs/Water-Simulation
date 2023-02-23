@@ -36,6 +36,7 @@ public:
 	//
 	inline double Length()const;
 	XMFLOAT3 Vector3ToXMFLOAT3();
+	Vector3 XMFLOAT3ToVector3();
 
 	//Vector operations
     inline float DotProduct(const Vector3& vec); //scalar dot_product

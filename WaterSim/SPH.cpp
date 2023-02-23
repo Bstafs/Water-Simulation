@@ -3,7 +3,7 @@
 // Speed of Sound in Water
 float SOS_CONSTANT = 1480.0f;
 
-SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity)
+SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity, float pressure)
 {
 	// Variable Initialization
 	numberOfParticles = numbParticles;
@@ -13,17 +13,20 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	sphG = g;
 	sphTension = tension;
 	sphElasticity = elasticity;
+	sphPressure = pressure;
+
+	MASS_CONSTANT = mass;
 
 	// Kernel Smoothing Constants Initialization
-	POLY6_CONSTANT = 315.0f / (64.0f * PI * pow(sphH, 9));
+	POLY6_CONSTANT = MASS_CONSTANT * 315.0f / (64.0f * PI * powf(sphH, 9));
 
-	SPIKY_CONSTANT = 15.0f / (PI * pow(sphH, 6));
-	SPIKYGRAD_CONSTANT = -15.0f / (PI * pow(h, 6));
+	SPIKY_CONSTANT = MASS_CONSTANT * 45.0f / (PI * powf(sphH, 6));
+	SPIKYGRAD_CONSTANT = MASS_CONSTANT * -45.0f / (PI * powf(sphH, 6));
 
-	VISC_CONSTANT = 15.0f / (PI * pow(sphH, 6));
+	VISC_CONSTANT = MASS_CONSTANT * sphViscosity * 45.0f / (PI * powf(sphH, 6));
 
 	// Particle Constant Initialization
-	MASS_CONSTANT = mass;
+
 	GAS_CONSTANT = gasConstant;
 	H2_CONSTANT = sphH * sphH;
 	DENS_CONSTANT = MASS_CONSTANT * POLY6_CONSTANT * pow(sphH, 6);
@@ -79,7 +82,7 @@ void SPH::InitParticles()
 				float particleRandomPositionY = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10;
 				float particleRandomPositionZ = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10;
 
-				Vector3 particlePosition = Vector3
+				XMFLOAT3 particlePosition = XMFLOAT3
 				{
 					i * particleSpacing + particleRandomPositionX - 1.5f,
 					j * particleSpacing + particleRandomPositionY + sphH + 0.1f,
@@ -88,7 +91,7 @@ void SPH::InitParticles()
 
 				MASS_CONSTANT = (sphDensity * (4.0f / 3.0f * PI * pow(sphH, 3))) + DENS_CONSTANT;
 
-				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, Vector3(1.0f, 1.0f, 1.0f));
+				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 				newParticle->elasticity = sphElasticity;
 
@@ -99,119 +102,43 @@ void SPH::InitParticles()
 	}
 }
 
-void CalculateDensityPressureMass(const SPH& sph)
+void SPH::CalculateDensityPressureMass()
 {
-	const float sphH2 = sph.H2_CONSTANT;
-	const float massPoly6 = sph.MASS_CONSTANT * sph.POLY6_CONSTANT;
-
-	float tempDensity = 0.0f;
-	float dist = 0.0f;
-
 	Particle* particleOne = nullptr;
-	Particle* particleTwo = nullptr;
 
-	for (int i = 0; i < sph.particleList.size(); i++)
+	for (int i = 0; i < particleList.size(); i++)
 	{
-		particleOne = sph.particleList[i];
+		particleOne = particleList[i];
 
-		for (int j = 0; j < sph.particleList.size(); j++)
-		{
-			particleTwo = sph.particleList[j];
+		particleOne->SetDensity(tempDensityValue + DENS_CONSTANT);
 
-			dist = particleOne->Distance(particleTwo);
+		particleOne->SetPressure(tempPressureValue);
 
-				//float tempCalc = massPoly6 * powf(sphH2 - dist, 3);
-			    float sphDist = sphH2 - dist;
-
-				float tempCalc = massPoly6 * sphDist * sphDist * sphDist;
-
-				tempDensity += tempCalc;
-				
-		}
-		particleOne->SetDensity(tempDensity + sph.DENS_CONSTANT);
-
-		float pressure = sph.GAS_CONSTANT * (particleOne->density - sph.sphDensity);
-		particleOne->SetPressure(pressure);
-
-		float vol = 4.0f / 3.0f * PI * pow(sph.sphH, 3);
-		particleOne->SetMass(sph.sphDensity * sph.VISC_CONSTANT);
+		float vol = 4.0f / 3.0f * PI * pow(sphH, 3);
+		particleOne->SetMass(sphDensity * VISC_CONSTANT);
 	}
 }
 
-// Dynamic Viscosity Coefficient = Smoothing Length * Velocity Difference Between Particles * dot product (separation distance) / (separation distance^2 + 0.01 * smoothing length^2)
-// Viscous Tensor = -viscosity * Speed of Sound * Dynamic Viscosity Coefficient + viscosity * speed of sound ^ 2 * density
-
-void CalculateForce(const SPH& sph)
+void SPH::CalculateForce()
 {
-	for (int i = 0; i < sph.particleList.size(); i++)
+	for (int i = 0; i < particleList.size(); i++)
 	{
-		Particle* particleOne = sph.particleList[i];
+		Particle* particleOne = particleList[i];
 
-		particleOne->force = { 0,0,0 };
-
-		for (int j = 0; j < sph.particleList.size(); j++)
-		{
-			Particle* particleTwo = sph.particleList[j];
-
-			// Check if each particle is next to each other or not
-			// We Grab the distance between the two particles
-			float dist2 = particleOne->Distance(particleTwo);
-
-			if (dist2 < sph.sphH && particleOne != particleTwo)
-			{
-				float dist = sqrt(dist2);
-				Vector3 dir = particleTwo->position - particleOne->position;
-				dir.Normalize();
-
-				// Calculate Pressure Force
-				Vector3 pressureForce = { 0,0,0 };
-
-				// Test 1
-				float particlePressureCoefficient = -particleOne->mass * particleTwo->mass / (2.0f * particleTwo->density) *sph.SPIKY_CONSTANT;
-
-				Vector3 gradientKernel = particleOne->GradientKernel(particleTwo);
-
-				pressureForce.x += particlePressureCoefficient * gradientKernel.x;
-				pressureForce.y += particlePressureCoefficient * gradientKernel.y;
-				pressureForce.z += particlePressureCoefficient * gradientKernel.z;
-
-				// Test 2
-				//pressureForce = (dir * -1.0f) * sph.MASS_CONSTANT * (particleOne->pressure + particleTwo->pressure) / (2 * particleTwo->density) * sph.SPIKYGRAD_CONSTANT;
-				//pressureForce *= pow(sph.sphH - dist, 2);
-
-				particleOne->force += pressureForce;
-
-				// Calculate Viscosity Force
-				Vector3 viscosityForce = { 0,0,0 };
-
-				// Test 1
-				float particleViscosityCoefficient = sph.sphViscosity * particleOne->mass * particleTwo->mass / (particleTwo->mass * (particleOne->density + particleTwo->density));
-
-				Vector3 velocityDifference = particleTwo->velocity - particleOne->velocity;
-
-				viscosityForce.x += particleViscosityCoefficient * velocityDifference.x;
-				viscosityForce.y += particleViscosityCoefficient * velocityDifference.y;
-				viscosityForce.z += particleViscosityCoefficient * velocityDifference.z;
-
-				// Test 2
-				//viscosityForce.x = sph.sphViscosity * sph.MASS_CONSTANT * (velocityDifference.x / particleTwo->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
-				//viscosityForce.y = sph.sphViscosity * sph.MASS_CONSTANT * (velocityDifference.y / particleTwo->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
-				//viscosityForce.z = sph.sphViscosity * sph.MASS_CONSTANT * (velocityDifference.z / particleTwo->density) * sph.SPIKY_CONSTANT * (sph.sphH - dist);
-				
-				particleOne->force += viscosityForce;
-			}
-		}
+		particleOne->force.x += tempForceValue.x;
+		particleOne->force.y += tempForceValue.y;
+		particleOne->force.z += tempForceValue.z;
 	}
 }
 
-void ParticleBoxCollision(const SPH& sph)
+void SPH::ParticleBoxCollision()
 {
-	for (int i = 0; i < sph.particleList.size(); ++i)
+	for (int i = 0; i < particleList.size(); ++i)
 	{
-		Particle* part = sph.particleList[i];
+		Particle* part = particleList[i];
 
 		// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
-		float collisionBoxSize = 10.0f;
+		float collisionBoxSize = 5.0f;
 
 		// Collision on the y Axis
 		if (part->position.y < part->size - collisionBoxSize)
@@ -254,35 +181,58 @@ void ParticleBoxCollision(const SPH& sph)
 	}
 }
 
-void UpdateParticles(double deltaTime, const SPH& sph)
+void SPH::UpdateParticles()
 {
-	for (int i = 0; i < sph.particleList.size(); i++)
+	for (int i = 0; i < particleList.size(); i++)
 	{
-		Particle* part = sph.particleList[i];
+		Particle* part = particleList[i];
 
-		// acceleration = particle force / particle mass
-		//Vector3 acceleration = part->force / part->density;
-		Vector3 acceleration = part->force / part->density /*+ Vector3(0, sph.sphG, 0)*/;
-		part->velocity += acceleration * deltaTime;
-		part->position += part->velocity * deltaTime;
+		part->position.x += tempPositionValue.x;
+		part->position.y += tempPositionValue.y;
+		part->position.z += tempPositionValue.z;
 	}
 }
 
 void SPH::Update(const SPH& sph, double deltaTime)
 {
-	CalculateDensityPressureMass(sph);
-	CalculateForce(sph);
-	UpdateParticles(deltaTime, sph);
-	ParticleBoxCollision(sph);
+	CalculateDensityPressureMass();
+	CalculateForce();
+	UpdateParticles();
+	ParticleBoxCollision();
 }
 
-Vector3 SPH::GetPosition()
+XMFLOAT3 SPH::GetPosition()
 {
 	for (int i = 0; i < particleList.size(); i++)
 	{
 		return particleList[i]->position;
 	}
 }
+
+XMFLOAT3 SPH::GetVelocity()
+{
+	for (int i = 0; i < particleList.size(); i++)
+	{
+		return particleList[i]->velocity;
+	}
+}
+
+XMFLOAT3 SPH::GetForce()
+{
+	for (int i = 0; i < particleList.size(); i++)
+	{
+		return particleList[i]->force;
+	}
+}
+
+XMFLOAT3 SPH::GetAccel()
+{
+	for (int i = 0; i < particleList.size(); i++)
+	{
+		return particleList[i]->acceleration;
+	}
+}
+
 
 void SPH::Draw()
 {
