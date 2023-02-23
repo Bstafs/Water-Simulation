@@ -105,7 +105,7 @@ Application::Application()
 	h = 0.30f;
 	g = -9.807f;
 	tension = 0.2f;
-	elastisicty = 0.05f;
+	elastisicty = 1.0f;
 	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty, 200.0f);
 }
 
@@ -199,8 +199,8 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 
 		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
-		//gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
-		gameObject->GetTransform()->SetPosition(part->position.x, part->position.y, part->position.z);
+		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
+		//gameObject->GetTransform()->SetPosition(part->position.x, part->position.y, part->position.z);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
 		gameObject->GetParticleModel()->SetMass(1.0f);
@@ -1027,7 +1027,7 @@ void Application::Update()
 
 	sph->deltaTimeValue = deltaTime;
 
-	sph->tempVelocityValue;
+	sph->particleVelocityValue;
 
 	// Update objects
 
@@ -1063,18 +1063,18 @@ void Application::ImGui()
 
 		ImGui::Text("Initial Values");
 		ImGui::DragInt("Number Of Particles",&particleSize);
-		ImGui::DragFloat("Mass", &sph->MASS_CONSTANT, 0.01f, 0, 100);
 		ImGui::DragFloat("Density", &sph->sphDensity);
-		ImGui::DragFloat("Gas Constant", &sph->GAS_CONSTANT);
-		ImGui::DragFloat("Viscosity", &sph->sphViscosity);
 		ImGui::DragFloat("Smoothing Length", &sph->sphH, 0.001f, 0, 1.0f);
 		ImGui::DragFloat("Gravity", &sph->sphG);
 
+		ImGui::Text("Collision Box");
+		ImGui::DragFloat("Particle Elasticity", &sph->sphElasticity, 0.01f, 0, 1.0f);
+
 		ImGui::Text("Particle Values");
-		ImGui::DragFloat3("Position", &sph->tempPositionValue.x, 0.001f);
-		ImGui::DragFloat3("Velocity", &sph->tempVelocityValue.x);
-		ImGui::DragFloat("Density", &sph->tempDensityValue);
-		ImGui::DragFloat("Pressure", &sph->tempPressureValue);
+		ImGui::DragFloat3("Position", &sph->particlePositionValue.x, 0.01f);
+		ImGui::DragFloat3("Velocity", &sph->particleVelocityValue.x, 0.01f);
+		ImGui::DragFloat("Density", &sph->particleDensityValue);
+		ImGui::DragFloat("Pressure", &sph->particlePressureValue);
 		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size, 0.01f, 0.1f, 1.0f);
 	}
 
@@ -1161,10 +1161,10 @@ void Application::Draw()
 		ParticleData* dataView = reinterpret_cast<ParticleData*>(mappedResource.pData);
 
 
-		sph->tempPositionValue = dataView->position;
-		sph->tempVelocityValue = dataView->velocity;
-		sph->tempDensityValue = dataView->density;
-		sph->tempPressureValue = dataView->pressure;
+		sph->particlePositionValue = dataView->position;
+		sph->particleVelocityValue = dataView->velocity;
+		sph->particleDensityValue = dataView->density;
+		sph->particlePressureValue = dataView->pressure;
 
 		_pImmediateContext->Unmap(_pOutputResultComputeBuffer, 0);
 	}

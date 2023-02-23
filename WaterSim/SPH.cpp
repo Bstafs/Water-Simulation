@@ -93,8 +93,6 @@ void SPH::InitParticles()
 
 				// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
 				particleList[i + (j + numberOfParticles * k) * numberOfParticles] = newParticle;
-
-
 			}
 		}
 	}
@@ -110,42 +108,51 @@ void SPH::ParticleBoxCollision()
 		float collisionBoxSize = 2.0f;
 
 		// Collision on the y Axis
+
+		// Top
 		if (part->position.y < part->size - collisionBoxSize)
 		{
 			part->position.y = -part->position.y + 2 * (part->size - collisionBoxSize) + 0.0001f;
-			part->velocity.y = -part->velocity.y * part->elasticity;
+			part->velocity.y = -part->velocity.y * sphElasticity;
 		}
 
+		// Bottom
 		if (part->position.y > -part->size + collisionBoxSize)
 		{
 			part->position.y = -part->position.y + 2 * -(part->size - collisionBoxSize) - 0.0001f;
-			part->velocity.y = -part->velocity.y * part->elasticity;
+			part->velocity.y = -part->velocity.y * sphElasticity;
 		}
 
 		// Collision on the X Axis
+
+		// Left
 		if (part->position.x < part->size - collisionBoxSize)
 		{
 			part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize) + 0.0001f;
-			part->velocity.x = -part->velocity.x * part->elasticity;
+			part->velocity.x = -part->velocity.x * sphElasticity;
 		}
 
+		// Right
 		if (part->position.x > -part->size + collisionBoxSize)
 		{
 			part->position.x = -part->position.x + 2 * -(part->size - collisionBoxSize) - 0.0001f;
-			part->velocity.x = -part->velocity.x * part->elasticity;
+			part->velocity.x = -part->velocity.x * sphElasticity;
 		}
 
 		// Collision on the Z Axis
+
+		// Back
 		if (part->position.z < part->size - collisionBoxSize)
 		{
 			part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize) + 0.0001f;
-			part->velocity.z = -part->velocity.z * part->elasticity;
+			part->velocity.z = -part->velocity.z * sphElasticity;
 		}
 
+		// Front
 		if (part->position.z > -part->size + collisionBoxSize)
 		{
 			part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize) - 0.0001f;
-			part->velocity.z = -part->velocity.z * part->elasticity;
+			part->velocity.z = -part->velocity.z * sphElasticity;
 		}
 	}
 }
@@ -156,7 +163,7 @@ void SPH::UpdateParticles()
 	{
 		Particle* part = particleList[i];
 
-		particleList[i]->position = tempPositionValue;
+		particleList[i]->position = particlePositionValue;
 	}
 }
 

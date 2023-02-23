@@ -55,10 +55,10 @@ public:
 	float SPIKYGRAD_CONSTANT;
 	float VISC_CONSTANT;
 
-	XMFLOAT3 tempPositionValue;
-	XMFLOAT3 tempVelocityValue;
-	float tempPressureValue;
-	float tempDensityValue;
+	XMFLOAT3 particlePositionValue;
+	XMFLOAT3 particleVelocityValue;
+	float particlePressureValue;
+	float particleDensityValue;
 	float deltaTimeValue;
 
 	// Particle List
