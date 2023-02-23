@@ -941,7 +941,7 @@ void Application::Update()
 
 	for (int i = 0; i < sph->particleList.size(); i++)
 	{
-		Particle* part = sph->particleList[i];
+		Particle* part = sph->particleList[1];
 
 		for (GameObject* go : m_gameObjects)
 		{
@@ -1059,20 +1059,23 @@ void Application::ImGui()
 	}
 	if (ImGui::CollapsingHeader("SPH"))
 	{
+		int particleSize = sph->particleList.size();
+
 		ImGui::Text("Initial Values");
-		ImGui::DragInt("Number Of Particles", &sph->numberOfParticles);
+		ImGui::DragInt("Number Of Particles",&particleSize);
 		ImGui::DragFloat("Mass", &sph->MASS_CONSTANT, 0.01f, 0, 100);
 		ImGui::DragFloat("Density", &sph->sphDensity);
 		ImGui::DragFloat("Gas Constant", &sph->GAS_CONSTANT);
 		ImGui::DragFloat("Viscosity", &sph->sphViscosity);
-		ImGui::DragFloat("Core Radius", &sph->sphH);
+		ImGui::DragFloat("Smoothing Length", &sph->sphH);
 		ImGui::DragFloat("Gravity", &sph->sphG);
-		ImGui::DragFloat("Tension", &sph->sphTension);
 
 		ImGui::Text("Particle Values");
 		ImGui::DragFloat3("Position", &sph->tempPositionValue.x);
 		ImGui::DragFloat3("Velocity", &sph->tempVelocityValue.x);
 		ImGui::DragFloat("Density", &sph->tempDensityValue);
+		ImGui::DragFloat("Pressure", &sph->tempPressureValue);
+		ImGui::DragFloat3("Force", &sph->tempForceValue.x);
 		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size, 0.01f, 0.1f, 1.0f);
 	}
 
@@ -1123,7 +1126,7 @@ void Application::Draw()
 	pd.pressure= 200.0f;
 	pd.velocity = sph->GetVelocity();
 	pd.density = density;
-	pd.force = sph->GetForce();
+	pd.force = XMFLOAT3(10.0f, 10.0f, 10.f);
 	pd.padding01 = 0.0f;
 	pd.acceleration = sph->GetAccel();
 	pd.padding02 = 0.0f;

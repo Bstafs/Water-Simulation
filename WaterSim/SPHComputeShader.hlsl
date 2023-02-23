@@ -44,7 +44,7 @@ struct ParticleData
 };
 
 StructuredBuffer<ConstantParticleData> InputParticleData : register(t0); // Input
-RWStructuredBuffer<ParticleData> OutputParticleData : register(u0);      // Output
+RWStructuredBuffer<ParticleData> OutputParticleData : register(u0); // Output
                                                                     
 //--------------------------------------------------------------------------------------
 // Density Calculation
@@ -113,7 +113,7 @@ float3 CalculateGradPressure(float r, float pPressure, float nPressure, float nD
 // viscosity(r, h) = 15 / (2 * pi * h^3) * (-r^3 / (2 * h^3) + r^2 / h^2 + h / (2 * r) - 1)
 // LAPLACIAN( W_viscosity(r, h) ) = 45 / (pi * h^6) * (h - r)
 // LapViscosityCoef = fParticleMass * fViscosity * 45.0f / (PI * smoothingLength^6)
-float3 CalculateLapVelocity(float r, float3 pVelocity, float3 nVelocity, float nDesnity)
+float3 CalculateLapViscosity(float r, float3 pVelocity, float3 nVelocity, float nDesnity)
 {
     const float h = smoothingLength;
     float3 velDiff = (nVelocity - pVelocity);
@@ -153,7 +153,7 @@ float3 CalculateForce(uint3 dispatchThreadID)
             force += CalculateGradPressure(r, particlePressure, nPressure, nDensity, posDiff);
 
             // Apply Viscosity
-            force += CalculateLapVelocity(r, particleVelocity, nVelocity, nDensity);
+            force += CalculateLapViscosity(r, particleVelocity, nVelocity, nDensity);
         }
     }
 
@@ -176,9 +176,12 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     density += CalculateDensity(dispatchThreadID);
     pressure += CalculatePressure(density);
-    force += CalculateForce(dispatchThreadID);
+    force = CalculateForce(dispatchThreadID);
 
-    acceleration = force / density - (acceleration.y - gravity);
+    acceleration = force / density;
+
+    acceleration += gravity;
+
     velocity += acceleration * deltaTime;
     position += velocity * deltaTime;
 
@@ -187,4 +190,5 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     OutputParticleData[threadID].density = density;
     OutputParticleData[threadID].force = force;
     OutputParticleData[threadID].pressure = pressure;
+    
 }
