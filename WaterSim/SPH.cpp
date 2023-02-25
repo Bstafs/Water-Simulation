@@ -32,7 +32,7 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	DENS_CONSTANT = MASS_CONSTANT * POLY6_CONSTANT * pow(sphH, 6);
 
 	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
-	int particleResize = numberOfParticles * numberOfParticles * numberOfParticles;
+	int particleResize = numberOfParticles;
 	//	neighbourParticles.resize(particleResize);
 	particleList.resize(particleResize);
 
@@ -46,16 +46,12 @@ SPH::~SPH()
 	if (!particleList.empty())
 	{
 		particleList.clear();
-		particleList.shrink_to_fit();
 		for (auto particlesL : particleList)
 		{
 			delete particlesL;
 			particlesL = nullptr;
 		}
 	}
-
-	delete newParticle;
-	newParticle = nullptr;
 }
 
 void SPH::InitParticles()
@@ -66,7 +62,6 @@ void SPH::InitParticles()
 	 * Add the particles to the particle list
 	 */
 
-	std::srand(1024);
 
 	float particleSpacing = sphH + 0.01f;
 
@@ -74,27 +69,31 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		for (int j = 0; j < numberOfParticles; ++j)
+		//float particleRandomPositionX = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH;
+		//float particleRandomPositionY = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH;
+		//float particleRandomPositionZ = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH;
+
+		int maxiumumSpawnRadius = collisionBoxSize - 1.5f;
+
+		int particleRandomPositionX = rand() % maxiumumSpawnRadius;
+		int particleRandomPositionY = rand() % maxiumumSpawnRadius;
+		int particleRandomPositionZ = rand() % maxiumumSpawnRadius;
+
+		XMFLOAT3 particlePosition = XMFLOAT3
 		{
-			for (int k = 0; k < numberOfParticles; ++k)
-			{
-				float particleRandomPositionX = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10;
-				float particleRandomPositionY = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10;
-				float particleRandomPositionZ = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10;
+			particleSpacing + particleRandomPositionX - 1.5f,
+			particleSpacing + particleRandomPositionY + sphH + 0.1f,
+			particleSpacing + particleRandomPositionZ - 1.5f
+		};
 
-				XMFLOAT3 particlePosition = XMFLOAT3
-				{
-					i * particleSpacing + particleRandomPositionX - 1.5f,
-					j * particleSpacing + particleRandomPositionY + sphH + 0.1f,
-					k * particleSpacing + particleRandomPositionZ - 1.5f
-				};
+		Particle* newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
-				newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, XMFLOAT3(1.0f, 1.0f, 1.0f));
+		// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
 
-				// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
-				particleList[i + (j + numberOfParticles * k) * numberOfParticles] = newParticle;
-			}
-		}
+		particleList[i] = newParticle;
+
+		newParticle->elasticity = sphElasticity;
+		newParticle->mass = MASS_CONSTANT;
 	}
 }
 
@@ -105,7 +104,6 @@ void SPH::ParticleBoxCollision()
 		Particle* part = particleList[i];
 
 		// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
-		float collisionBoxSize = 2.0f;
 
 		// Collision on the y Axis
 
@@ -113,14 +111,14 @@ void SPH::ParticleBoxCollision()
 		if (part->position.y < part->size - collisionBoxSize)
 		{
 			part->position.y = -part->position.y + 2 * (part->size - collisionBoxSize) + 0.0001f;
-			part->velocity.y = -part->velocity.y * sphElasticity;
+			part->velocity.y = -part->velocity.y * part->elasticity;
 		}
 
 		// Bottom
 		if (part->position.y > -part->size + collisionBoxSize)
 		{
 			part->position.y = -part->position.y + 2 * -(part->size - collisionBoxSize) - 0.0001f;
-			part->velocity.y = -part->velocity.y * sphElasticity;
+			part->velocity.y = -part->velocity.y * part->elasticity;
 		}
 
 		// Collision on the X Axis
@@ -129,14 +127,14 @@ void SPH::ParticleBoxCollision()
 		if (part->position.x < part->size - collisionBoxSize)
 		{
 			part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize) + 0.0001f;
-			part->velocity.x = -part->velocity.x * sphElasticity;
+			part->velocity.x = -part->velocity.x * part->elasticity;
 		}
 
 		// Right
 		if (part->position.x > -part->size + collisionBoxSize)
 		{
 			part->position.x = -part->position.x + 2 * -(part->size - collisionBoxSize) - 0.0001f;
-			part->velocity.x = -part->velocity.x * sphElasticity;
+			part->velocity.x = -part->velocity.x * part->elasticity;
 		}
 
 		// Collision on the Z Axis
@@ -145,15 +143,67 @@ void SPH::ParticleBoxCollision()
 		if (part->position.z < part->size - collisionBoxSize)
 		{
 			part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize) + 0.0001f;
-			part->velocity.z = -part->velocity.z * sphElasticity;
+			part->velocity.z = -part->velocity.z * part->elasticity;
 		}
 
 		// Front
 		if (part->position.z > -part->size + collisionBoxSize)
 		{
 			part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize) - 0.0001f;
-			part->velocity.z = -part->velocity.z * sphElasticity;
+			part->velocity.z = -part->velocity.z * part->elasticity;
 		}
+
+		//// Particle Collision
+		//for(int j =0; j < particleList.size(); j++)
+		//{
+		//	Particle* part2 = particleList[j];
+
+		//	// Top
+		//	if (part->position.y < part2->position.y)
+		//	{
+		//		part->position.y = -part->position.y + 2;
+		//		part->velocity.y = -part->velocity.y * part->elasticity;
+		//	}
+
+		//	// Bottom
+		//	if (part->position.y > -part2->position.y)
+		//	{
+		//		part->position.y = -part->position.y + 2;
+		//		part->velocity.y = -part->velocity.y * part->elasticity;
+		//	}
+
+		//	// Collision on the X Axis
+
+		//	// Left
+		//	if (part->position.x < part2->position.x)
+		//	{
+		//		part->position.x = -part->position.x + 2;
+		//		part->velocity.x = -part->velocity.x * part->elasticity;
+		//	}
+
+		//	// Right
+		//	if (part->position.x > -part2->position.x)
+		//	{
+		//		part->position.x = -part->position.x + 2;
+		//		part->velocity.x = -part->velocity.x * part->elasticity;
+		//	}
+
+		//	// Collision on the Z Axis
+
+		//	// Back
+		//	if (part->position.z < part2->position.z)
+		//	{
+		//		part->position.z = -part->position.z + 2;
+		//		part->velocity.z = -part->velocity.z * part->elasticity;
+		//	}
+
+		//	// Front
+		//	if (part->position.z > -part2->position.z)
+		//	{
+		//		part->position.z = -part->position.z + 2;
+		//		part->velocity.z = -part->velocity.z * part->elasticity;
+		//	}
+		//}
 	}
 }
 
@@ -163,11 +213,24 @@ void SPH::UpdateParticles()
 	{
 		Particle* part = particleList[i];
 
-		particleList[i]->position = particlePositionValue;
+
+		//part->position.x = particlePositionValue.x;
+		//part->position.y = particlePositionValue.y;
+		//part->position.z = particlePositionValue.z;
+
+
+		part->position.x = particlePositionValue.x + rand() % 100;
+		part->position.y = particlePositionValue.y + rand() % 100;
+		part->position.z = particlePositionValue.z + rand() % 100;
+
+		part->pressure = particlePressureValue;
+		part->density = particleDensityValue;
+		part->velocity = particleVelocityValue;
+
 	}
 }
 
-void SPH::Update(const SPH& sph, double deltaTime)
+void SPH::Update()
 {
 	UpdateParticles();
 	ParticleBoxCollision();

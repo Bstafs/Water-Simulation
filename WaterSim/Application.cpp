@@ -1,5 +1,7 @@
 #include "Application.h"
 
+#include <Effects.h>
+
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -149,7 +151,9 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	XMFLOAT3 at = XMFLOAT3(0.0f, 2.0f, 0.0f);
 	XMFLOAT3 up = XMFLOAT3(0.0f, 1.0f, 0.0f);
 
-	_camera = new Camera(eye, at, up, (float)_renderWidth, (float)_renderHeight, 0.01f, 200.0f);
+	_camera = new Camera(eye, at, up, (float)_renderWidth, (float)_renderHeight, 0.01f, 10000.0f);
+
+	m_batch = std::make_unique<PrimitiveBatch<VertexPositionColor>>(_pImmediateContext);
 
 	// Setup the scene's light
 	basicLight.AmbientLight = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
@@ -193,22 +197,13 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetParticleModel()->SetToggleGravity(false);
 	m_gameObjects.push_back(gameObject);
 
-	for (int i = 0; i < sph->particleList.size(); i++)
+	for (int i = 0; i < NUMBER_OF_CUBES; i++)
 	{
-		Particle* part = sph->particleList[i];
-
 		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
-		gameObject->GetTransform()->SetPosition(-4.0f + (i * 2.0f), 0.5f, 10.0f);
-		//gameObject->GetTransform()->SetPosition(part->position.x, part->position.y, part->position.z);
+		gameObject->GetTransform()->SetPosition(0.0f, 0.5f, 0.0);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
 		gameObject->GetParticleModel()->SetToggleGravity(false);
-		gameObject->GetParticleModel()->SetMass(1.0f);
-		gameObject->GetParticleModel()->SetAcceleration(0.0f, 0.0f, 0.0f);
-		gameObject->GetParticleModel()->SetNetForce(0.0f, 0.0f, 0.0f);
-		gameObject->GetParticleModel()->SetVelocity(0.0f, 0.0f, 0.0f);
-		gameObject->GetParticleModel()->SetDrag(4.0f, 4.0f, 4.0f);
-		gameObject->GetRigidBody()->SetAngularVelocity(0.0f, 0.0f, 0.0f);
 		m_gameObjects.push_back(gameObject);
 	}
 
@@ -934,22 +929,14 @@ void Application::Update()
 		return;
 	}
 
+	sph->deltaTimeValue = deltaTime;
+
+	sph->Update();
+
 	for (auto gameObject : m_gameObjects)
 	{
 		gameObject->Update(deltaTime);
 	}
-
-	for (int i = 0; i < sph->particleList.size(); i++)
-	{
-		Particle* part = sph->particleList[1];
-
-		for (GameObject* go : m_gameObjects)
-		{
-			go->GetTransform()->SetPosition(part->position.x, part->position.y, part->position.z);
-		}
-	}
-
-
 
 	// Move gameobject Forces
 
@@ -961,62 +948,6 @@ void Application::Update()
 	{
 		moveForward(2);
 	}
-	if (GetAsyncKeyState('3'))
-	{
-		moveBackward(3);
-	}
-	if (GetAsyncKeyState('4'))
-	{
-		moveBackward(4);
-	}
-
-	// Move Objects Collisons
-
-	if (GetAsyncKeyState('5'))
-	{
-		moveLeft(5);
-	}
-	if (GetAsyncKeyState('6'))
-	{
-		moveLeft(6);
-	}
-	if (GetAsyncKeyState('7'))
-	{
-		moveRight(5);
-	}
-	if (GetAsyncKeyState('8'))
-	{
-		moveRight(6);
-	}
-
-	if (GetAsyncKeyState('J'))
-	{
-		m_gameObjects[5]->GetRigidBody()->CalculateTorque(Vector3(0.0f, 0.0f, -1.0f), Vector3(0.5f, 0.0f, 0.0f), deltaTime); // Front Face, Left Edge
-	}
-	if (GetAsyncKeyState('K'))
-	{
-		m_gameObjects[5]->GetRigidBody()->CalculateTorque(Vector3(0.0f, 0.0f, -1.0f), Vector3(0.0f, -0.5f, 0.0f), deltaTime); //  Front Face, Top Edge
-	}
-	if (GetAsyncKeyState('L'))
-	{
-		m_gameObjects[5]->GetRigidBody()->CalculateTorque(Vector3(0.0f, 0.0f, 1.0f), Vector3(0.5f, 0.0f, 0.0f), deltaTime); //  Front Face, Right Edge
-	}
-
-	if (GetAsyncKeyState('T'))
-	{
-		ToggleCollisionsMode = true;
-	}
-	if (GetAsyncKeyState('Y'))
-	{
-		ToggleCollisionsMode = false;
-	}
-
-	sph->Update(*sph, deltaTime);
-
-	//if (GetAsyncKeyState('5') && 0x8000)
-	//{
-	//	Debug::GetInstance().DebugWrite("KeyPressed\n");
-	//}
 
 	// Update camera
 
@@ -1024,14 +955,6 @@ void Application::Update()
 	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
 
 	_camera->Update();
-
-	sph->deltaTimeValue = deltaTime;
-
-	sph->particleVelocityValue;
-
-	// Update objects
-
-	//m_gameObjects[6]->GetParticleModel()->SetToggleGravity(true);
 }
 
 void Application::ImGui()
@@ -1041,7 +964,10 @@ void Application::ImGui()
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 
+
 	ImGui::NewFrame();
+
+	//ImGui::ShowDemoWindow();
 
 	ImGui::Begin("Debug Window");
 
@@ -1061,22 +987,39 @@ void Application::ImGui()
 	{
 		int particleSize = sph->particleList.size();
 
+		ImGui::Text("Visualize");
+		ImGui::Checkbox("Visualize", &isParticleVisible);
+
 		ImGui::Text("Initial Values");
 		ImGui::DragInt("Number Of Particles",&particleSize);
-		ImGui::DragFloat("Density", &sph->sphDensity);
+		ImGui::DragFloat("Density", &sph->sphDensity, 1.0f, 0);
 		ImGui::DragFloat("Smoothing Length", &sph->sphH, 0.001f, 0, 1.0f);
 		ImGui::DragFloat("Gravity", &sph->sphG);
 
-		ImGui::Text("Collision Box");
-		ImGui::DragFloat("Particle Elasticity", &sph->sphElasticity, 0.01f, 0, 1.0f);
+		if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, particleSize * 10 * ImGui::GetTextLineHeightWithSpacing())))
+		{
+			for (auto part : sph->particleList)
 
-		ImGui::Text("Particle Values");
-		ImGui::DragFloat3("Position", &sph->particlePositionValue.x, 0.01f);
-		ImGui::DragFloat3("Velocity", &sph->particleVelocityValue.x, 0.01f);
-		ImGui::DragFloat("Density", &sph->particleDensityValue);
-		ImGui::DragFloat("Pressure", &sph->particlePressureValue);
-		ImGui::DragFloat("Particle Size", &sph->particleList[0]->size, 0.01f, 0.1f, 1.0f);
+			{
+				if (ImGui::CollapsingHeader("Particle"))
+				{
+					ImGui::Text("Collision Box");
+					ImGui::DragFloat("Collision Box Size", &sph->collisionBoxSize, 0.01f, 0.0f, 100.0f);
+					ImGui::DragFloat("Particle Elasticity", &part->elasticity, 0.01f, 0, 1.0f);
+
+					ImGui::Text("Particle Values");
+					ImGui::DragFloat3("Position", &part->position.x, 0.01f);
+					ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
+					ImGui::DragFloat("Density", &part->density, 0.01f, 0);
+					ImGui::DragFloat("Pressure", &part->pressure, 0.01f, 0);
+					ImGui::DragFloat("Particle Size", &part->size, 0.01f, 0.1f, 1.0f);
+				}
+			}
+			ImGui::EndListBox();
+		}
 	}
+
+
 
 	ImGui::End();
 	ImGui::Render();
@@ -1085,17 +1028,11 @@ void Application::ImGui()
 
 void Application::Draw()
 {
-	//
-	// Clear buffers
-	//
-
 	float ClearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f }; // red,green,blue,alpha
 	_pImmediateContext->ClearRenderTargetView(_pRenderTargetView, ClearColor);
 	_pImmediateContext->ClearDepthStencilView(_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	//
-	// Setup buffers and render scene
-	//
+	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
 
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
 
@@ -1121,6 +1058,7 @@ void Application::Draw()
 
 	// Compute Shader Input Buffer
 	ConstantParticleData pd;
+
 	pd.position = sph->GetPosition();
 	pd.pressure= 200.0f;
 	pd.velocity = sph->GetVelocity();
@@ -1144,7 +1082,7 @@ void Application::Draw()
 	_pImmediateContext->CSSetConstantBuffers(1, 1, &_pParticleConstantBuffer);
 	_pImmediateContext->CSSetConstantBuffers(0, 1, &_pInputComputeBuffer);
 	// Dispatch Shader
-	_pImmediateContext->Dispatch(sph->particleList.size() / 256, 1, 1);
+	_pImmediateContext->Dispatch(1, 1, 1);
 	// Set Shader to Null
 	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
 	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
@@ -1183,11 +1121,25 @@ void Application::Draw()
 	cb.light = basicLight;
 	cb.EyePosW = _camera->GetPosition();
 
-	// Render all scene objects
-	for (auto gameObject : m_gameObjects)
+
+	if (isParticleVisible == true)
 	{
-		// Get render material
-		Material material = gameObject->GetAppearance()->GetMaterial();
+		m_batch->Begin();
+		for (int i = 0; i < sph->particleList.size(); i++)
+		{
+			Particle* part = sph->particleList[i];
+
+			BoundingSphere sphere;
+
+			sphere.Center = part->position;
+			sphere.Radius = part->size;
+
+			DrawSphere(m_batch.get(), sphere, DirectX::Colors::White);
+
+		}
+		m_batch->End();
+
+		Material material = m_gameObjects[0]->GetAppearance()->GetMaterial();
 
 		// Copy material to shader
 		cb.surface.AmbientMtrl = material.ambient;
@@ -1195,12 +1147,12 @@ void Application::Draw()
 		cb.surface.SpecularMtrl = material.specular;
 
 		// Set world matrix
-		cb.World = XMMatrixTranspose(gameObject->GetTransform()->GetWorldMatrix());
+		cb.World = XMMatrixTranspose(m_gameObjects[0]->GetTransform()->GetWorldMatrix());
 
 		// Set texture
-		if (gameObject->GetAppearance()->HasTexture())
+		if (m_gameObjects[0]->GetAppearance()->HasTexture())
 		{
-			ID3D11ShaderResourceView* textureRV = gameObject->GetAppearance()->GetTextureRV();
+			ID3D11ShaderResourceView* textureRV = m_gameObjects[0]->GetAppearance()->GetTextureRV();
 			_pImmediateContext->PSSetShaderResources(0, 1, &textureRV);
 			cb.HasTexture = 1.0f;
 		}
@@ -1213,15 +1165,49 @@ void Application::Draw()
 		_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 		// Draw object
-		gameObject->Draw(_pImmediateContext);
+		m_gameObjects[0]->Draw(_pImmediateContext);
 	}
+	else
+	{
+		// Render all scene objects
+		for (auto gameObject : m_gameObjects)
+		{
+			// Get render material
+			Material material = gameObject->GetAppearance()->GetMaterial();
+
+			// Copy material to shader
+			cb.surface.AmbientMtrl = material.ambient;
+			cb.surface.DiffuseMtrl = material.diffuse;
+			cb.surface.SpecularMtrl = material.specular;
+
+			// Set world matrix
+			cb.World = XMMatrixTranspose(gameObject->GetTransform()->GetWorldMatrix());
+
+			// Set texture
+			if (gameObject->GetAppearance()->HasTexture())
+			{
+				ID3D11ShaderResourceView* textureRV = gameObject->GetAppearance()->GetTextureRV();
+				_pImmediateContext->PSSetShaderResources(0, 1, &textureRV);
+				cb.HasTexture = 1.0f;
+			}
+			else
+			{
+				cb.HasTexture = 0.0f;
+			}
+
+			// Update constant buffer
+			_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+			// Draw object
+			gameObject->Draw(_pImmediateContext);
+		}
+
+	}
+
 
 	ImGui();
 
-	sph->Draw();
+	//sph->Draw();
 
-	//
-	// Present our back buffer to our front buffer
-	//
 	_pSwapChain->Present(0, 0);
 }

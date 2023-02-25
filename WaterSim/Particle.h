@@ -23,26 +23,4 @@ public:
 	XMFLOAT3 velocity = { 0,0,0 };
 	XMFLOAT3 acceleration = { 0,0,0 };
 	XMFLOAT3 force = { 0,0,0 };
-
-	// Particle Linked List
-	Particle* nextParticle;
-
-	// Functions For SPH particles such as distance
-	float Distance(Particle* other);
-
-	// As mentioned in Realtime Particle-Based Fluid Simulation, Each particle needs to use different Smoothing Kernel.
-	float SmoothingKernel(Particle* other);
-
-	// Calculate Gradient of Each Particle
-	XMFLOAT3 GradientKernel(Particle* other);
-
-	// Getters and Setters for Particle Variables
-	float GetDensity() { return density; }
-	void SetDensity(float dens) { density = dens; }
-
-	float GetMass() { return mass; }
-	void SetMass(float mas) { mass = mas; }
-
-	float GetPressure() { return pressure; }
-	void SetPressure(float press) { pressure = press; }
 };

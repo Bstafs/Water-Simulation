@@ -179,8 +179,8 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     acceleration.y -= gravity;
 
-    velocity += acceleration * deltaTime;
-    position += velocity * deltaTime;
+    velocity +=  deltaTime * acceleration;
+    position += deltaTime * velocity;
 
     OutputParticleData[threadID].position = position;
     OutputParticleData[threadID].velocity = velocity;

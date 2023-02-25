@@ -27,7 +27,7 @@ class SPH
 public:
 	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity, float pressure);
 	~SPH();
-	void Update(const SPH& sph, double deltaTime);
+	void Update();
 	void Draw();
 	// Particle Variables
 	float sphViscosity;
@@ -63,13 +63,13 @@ public:
 
 	// Particle List
 	std::vector <Particle*> particleList;
-	Particle* newParticle = nullptr;
 
 	XMFLOAT3 GetPosition();
 	XMFLOAT3 GetVelocity();
 	XMFLOAT3 GetForce();
 	XMFLOAT3 GetAccel();
 
+	float collisionBoxSize = 3.0f;
 private:
 	// Particle Initialization
 	void InitParticles();

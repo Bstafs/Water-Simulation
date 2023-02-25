@@ -60,6 +60,8 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Entity</Filter>
     </ClCompile>
+    <ClCompile Include="DebugDraw.cpp" />
+    <ClCompile Include="Timestep.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -136,6 +138,8 @@
       <Filter>Marching Cubes</Filter>
     </ClInclude>
     <ClInclude Include="Constants.h" />
+    <ClInclude Include="DebugDraw.h" />
+    <ClInclude Include="Timestep.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">
@@ -167,5 +171,8 @@
     <FxCompile Include="SPHComputeShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

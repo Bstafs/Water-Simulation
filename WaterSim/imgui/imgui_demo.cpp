@@ -1158,7 +1158,7 @@ static void ShowDemoWindowWidgets()
 
         // Custom size: use all width, 5 items tall
         ImGui::Text("Full-width:");
-        if (ImGui::BeginListBox("##listbox 2", ImVec2(-FLT_MIN, 5 * ImGui::GetTextLineHeightWithSpacing())))
+        if (ImGui::BeginListBox("##listbox 2", ImVec2(-FLT_MIN, 100 * ImGui::GetTextLineHeightWithSpacing())))
         {
             for (int n = 0; n < IM_ARRAYSIZE(items); n++)
             {

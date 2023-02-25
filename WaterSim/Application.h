@@ -14,16 +14,22 @@
 #include "Quaternion.h"
 #include "GameObject.h"
 
+#include "DebugDraw.h"
 #include "SPH.h"
+#include "Timestep.h"
+
+#include <DirectXColors.h>
+#include <DirectXCollision.h>
 
 #include"imgui/imgui.h"
 #include"imgui/imgui_impl_dx11.h"
 #include"imgui/imgui_impl_win32.h"
-
-#define NUMBER_OF_CUBES 2
+#define NUMBER_OF_CUBES 1
 #define FPS_60 1.0f/60.0f
 #define THREAD_COUNT 32;
 using namespace DirectX;
+
+using VertexType = DirectX::VertexPositionColor;
 
 struct SurfaceInfo
 {
@@ -200,6 +206,10 @@ private:
 	float tension;
 	float elastisicty;
 
+	bool isParticleVisible = false;
+
+   Timestep* _timestep;
+
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);
 	HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow);
@@ -219,6 +229,7 @@ private:
 	void moveLeft(int objectNumber);
 	void moveRight(int objectNumber);
 
+	std::unique_ptr<DirectX::PrimitiveBatch<VertexType>> m_batch;
 public:
 	Application();
 	~Application();
@@ -228,7 +239,7 @@ public:
 	bool HandleKeyboard();
 
 	void Update();
-	void UpdatePhysics(float deltaTime);
+	void UpdatePhysics();
 	void Draw();
 };
 
