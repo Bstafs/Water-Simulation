@@ -56,36 +56,29 @@ SPH::~SPH()
 
 void SPH::InitParticles()
 {
-	/* Loop through x, y, z number of particles
-	 * Calculate a Vector3 Particle Pos using randomized positions
-	 * Create a new Particle Base on that position
-	 * Add the particles to the particle list
-	 */
-
-
 	float particleSpacing = 0.0045f;
 
 	// Following Realtime Particle I researched, I need to loop over every particle for x,y,z
 
-	const UINT iStartingWidth = (UINT)sqrt((FLOAT)numberOfParticles);
 
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		UINT x = i % iStartingWidth;
-		UINT y = i % numberOfParticles;
-		UINT z = i % iStartingWidth;
+		int maxiumumSpawnRadius = collisionBoxSize - 1.5f;
+
+		int particleRandomPositionX = rand() % maxiumumSpawnRadius;
+		int particleRandomPositionY = rand() % maxiumumSpawnRadius;
+		int particleRandomPositionZ = rand() % maxiumumSpawnRadius;
 
 		XMFLOAT3 particlePosition = XMFLOAT3
 		{
-			particleSpacing * (FLOAT)x,
-			particleSpacing * (FLOAT)y,
-			particleSpacing * (FLOAT)z
+			particleSpacing + particleRandomPositionX - 1.5f,
+			particleSpacing + particleRandomPositionY + sphH + 0.1f,
+			particleSpacing + particleRandomPositionZ - 1.5f
 		};
 
 		Particle* newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
-
 		newParticle->elasticity = sphElasticity;
 		newParticle->mass = MASS_CONSTANT;
 		newParticle->pressure = 200.0f;

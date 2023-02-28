@@ -17,10 +17,8 @@
   *	 returning pos x,y,z / core radius?
   */
 
-#include <unordered_map>
-#include <vector>
 #include "Particle.h"
-#include "Structures.h"
+#include "Includes.h"
 
 class SPH
 {

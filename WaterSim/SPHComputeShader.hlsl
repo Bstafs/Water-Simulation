@@ -158,7 +158,7 @@ float3 CalculateForce(uint3 dispatchThreadID)
 }
 
 
-[numthreads(10, 1, 1)]
+[numthreads(256, 1, 1)]
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     // Integrate Particle Forces
@@ -178,8 +178,8 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     acceleration = force / density - gravity;
 
-    velocity += deltaTime * acceleration;
-    position += deltaTime * velocity;
+    velocity += acceleration * deltaTime;
+    position += velocity * deltaTime;
 
     OutputParticleData[threadID].position = position;
     OutputParticleData[threadID].velocity = velocity;

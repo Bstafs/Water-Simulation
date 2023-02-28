@@ -1,28 +1,9 @@
 #pragma once
 
-#include <windows.h>
-#include <d3d11_1.h>
-#include <d3dcompiler.h>
-#include <directxmath.h>
-#include <directxcolors.h>
-#include "DDSTextureLoader.h"
-#include "resource.h"
-#include "Camera.h"
-#include "Structures.h"
-#include "OBJLoader.h"
-#include <vector>
-#include "Quaternion.h"
-#include "GameObject.h"
-
+#include "Includes.h"
 #include "SPH.h"
 #include "Timestep.h"
 
-#include <DirectXColors.h>
-#include <DirectXCollision.h>
-
-#include"imgui/imgui.h"
-#include"imgui/imgui_impl_dx11.h"
-#include"imgui/imgui_impl_win32.h"
 #define NUMBER_OF_CUBES 1
 #define FPS_60 1.0f/60.0f
 #define THREAD_COUNT 32;
@@ -214,8 +195,6 @@ private:
 	HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow);
 	HRESULT InitDevice();
 	void Cleanup();
-	HRESULT CompileShaderFromFile(const WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut);
-	HRESULT CompileComputeShader(_In_ LPCWSTR fileName, _In_ LPCSTR entryPoint, _In_ ID3D11Device* device, _Outptr_ ID3DBlob** blob);
 	HRESULT InitShadersAndInputLayout();
 	HRESULT InitVertexBuffer();
 	HRESULT InitIndexBuffer();

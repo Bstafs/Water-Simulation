@@ -64,6 +64,7 @@
     <ClCompile Include="Timestep.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="CompileShader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -144,6 +145,8 @@
     <ClInclude Include="Timestep.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="CompileShader.h" />
+    <ClInclude Include="Includes.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">
