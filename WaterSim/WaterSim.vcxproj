@@ -355,6 +355,7 @@
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CompileShader.cpp" />
+    <ClCompile Include="CreateID3D11Functions.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="DebugDraw.cpp" />
     <ClCompile Include="GameObject.cpp" />
@@ -382,6 +383,7 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CompileShader.h" />
     <ClInclude Include="Constants.h" />
+    <ClInclude Include="CreateID3D11Functions.h" />
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="DebugDraw.h" />
     <ClInclude Include="GameObject.h" />

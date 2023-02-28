@@ -214,43 +214,9 @@ HRESULT Application::InitShadersAndInputLayout()
 {
 	HRESULT hr;
 
-	// Compile the vertex shader
-	ID3DBlob* pVSBlob = nullptr;
-	hr = CompileShaderFromFile(L"shader.fx", "VS", "vs_4_0", &pVSBlob);
+	_pVertexShader = CreateVertexShader(L"shader.fx", "VS", "vs_4_0", _pd3dDevice);
 
-	if (FAILED(hr))
-	{
-		MessageBox(nullptr,
-			L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-		return hr;
-	}
-
-	// Create the vertex shader
-	hr = _pd3dDevice->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &_pVertexShader);
-
-	if (FAILED(hr))
-	{
-		pVSBlob->Release();
-		return hr;
-	}
-
-	// Compile the pixel shader
-	ID3DBlob* pPSBlob = nullptr;
-	hr = CompileShaderFromFile(L"shader.fx", "PS", "ps_4_0", &pPSBlob);
-
-	if (FAILED(hr))
-	{
-		MessageBox(nullptr,
-			L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-		return hr;
-	}
-
-	// Create the pixel shader
-	hr = _pd3dDevice->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &_pPixelShader);
-	pPSBlob->Release();
-
-	if (FAILED(hr))
-		return hr;
+	_pPixelShader = CreatePixelShader(L"shader.fx", "PS", "ps_4_0", _pd3dDevice);
 
 	// Compile Compute Shader
 	ID3DBlob* csBlob = nullptr;
@@ -272,8 +238,6 @@ HRESULT Application::InitShadersAndInputLayout()
 		return hr;
 	}
 
-	OutputDebugStringA("Success");
-
 	// Define the input layout
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
@@ -284,13 +248,7 @@ HRESULT Application::InitShadersAndInputLayout()
 
 	UINT numElements = ARRAYSIZE(layout);
 
-	// Create the input layout
-	hr = _pd3dDevice->CreateInputLayout(layout, numElements, pVSBlob->GetBufferPointer(),
-		pVSBlob->GetBufferSize(), &_pVertexLayout);
-	pVSBlob->Release();
-
-	if (FAILED(hr))
-		return hr;
+	_pVertexLayout = CreateInputLayout(layout, numElements, _pd3dDevice);
 
 	// Set the input layout
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
@@ -592,80 +550,24 @@ HRESULT Application::InitDevice()
 	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// Create the constant buffer
-	D3D11_BUFFER_DESC bd;
-	ZeroMemory(&bd, sizeof(bd));
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(ConstantBuffer);
-	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	bd.CPUAccessFlags = 0;
-	hr = _pd3dDevice->CreateBuffer(&bd, nullptr, &_pConstantBuffer);
-
-	if (FAILED(hr))
-		return hr;
-
-	// Create the constant buffer
-	D3D11_BUFFER_DESC pcbDesc;
-	ZeroMemory(&pcbDesc, sizeof(pcbDesc));
-	pcbDesc.Usage = D3D11_USAGE_DEFAULT;
-	pcbDesc.ByteWidth = sizeof(ParticleConstantBuffer);
-	pcbDesc.BindFlags = 0;
-	pcbDesc.CPUAccessFlags = 0;
-	pcbDesc.MiscFlags = 0;
-	D3D11_SUBRESOURCE_DATA sb = {};
-	sb.pSysMem = &pcb;
-
-	hr = _pd3dDevice->CreateBuffer(&pcbDesc, &sb, &_pParticleConstantBuffer);
-
-	if (FAILED(hr))
-		return hr;
+	_pConstantBuffer = CreateConstantBuffer(sizeof(ConstantBuffer), _pd3dDevice);
 
 	// COMPUTE SHADERS
+	_pParticleConstantBuffer = CreateConstantBuffer(sizeof(ParticleConstantBuffer), _pd3dDevice);
 
-	// Input Buffer
-
-	// Create Input Buffer
-	D3D11_BUFFER_DESC constantDataDesc;
-	constantDataDesc.Usage = D3D11_USAGE_DYNAMIC;
-	constantDataDesc.ByteWidth = sizeof(ConstantParticleData) * sph->particleList.size();
-	constantDataDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	constantDataDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	constantDataDesc.StructureByteStride = sizeof(ConstantParticleData);
-	constantDataDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	hr = _pd3dDevice->CreateBuffer(&constantDataDesc, nullptr, &_pInputComputeBuffer);
+	_pInputComputeBuffer = CreateStructureBuffer(sizeof(ConstantParticleData), nullptr, sph->particleList.size(), _pd3dDevice);
 
 	// Create Shader Resource View
-	D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
-	shaderResourceViewDesc.Format = DXGI_FORMAT_UNKNOWN;
-	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
-	shaderResourceViewDesc.BufferEx.FirstElement = 0;
-	shaderResourceViewDesc.BufferEx.Flags = 0;
-	shaderResourceViewDesc.BufferEx.NumElements = sph->particleList.size();
-	hr = _pd3dDevice->CreateShaderResourceView(_pInputComputeBuffer, &shaderResourceViewDesc, &_pInputSRV);
+	_pInputSRV = CreateShaderResourceView(_pInputComputeBuffer, sph->particleList.size(), _pd3dDevice);
 
 	// Output Buffer
-	D3D11_BUFFER_DESC outputDesc;
-	outputDesc.Usage = D3D11_USAGE_DEFAULT;
-	outputDesc.ByteWidth = sizeof(ParticleData) * sph->particleList.size();
-	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-	outputDesc.CPUAccessFlags = 0;
-	outputDesc.StructureByteStride = sizeof(ParticleData);
-	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	hr = _pd3dDevice->CreateBuffer(&outputDesc, nullptr, &_pOutputComputeBuffer);
+	_pOutputComputeBuffer = CreateRWStructureBuffer(sizeof(ParticleData), false, sph->particleList.size(), _pd3dDevice);
 
 	// System Memory Version to read results
-	outputDesc.Usage = D3D11_USAGE_STAGING;
-	outputDesc.BindFlags = 0;
-	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	hr = _pd3dDevice->CreateBuffer(&outputDesc, nullptr, &_pOutputResultComputeBuffer);
+	_pOutputResultComputeBuffer = CreateRWStructureBuffer(sizeof(ParticleData), true, sph->particleList.size(), _pd3dDevice);
 
 	// Create UAV
-	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.Flags = 0;
-	uavDesc.Buffer.NumElements = sph->particleList.size();
-	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-	hr = _pd3dDevice->CreateUnorderedAccessView(_pOutputComputeBuffer, &uavDesc, &_pOutputUAV);
+	_pOutputUAV = CreateUnorderedAccessView(_pOutputComputeBuffer, sph->particleList.size(), _pd3dDevice);
 
 	// Depth Stencil Stuff
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
@@ -1005,6 +907,7 @@ void Application::Draw()
 	_pImmediateContext->Map(_pInputComputeBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pdMS);
 	memcpy(pdMS.pData, &pd, sizeof(ConstantParticleData));
 	_pImmediateContext->Unmap(_pInputComputeBuffer, 0);
+
 	// Set Compute Shader
 	_pImmediateContext->CSSetShader(_pComputeShader, nullptr, 0);
 	_pImmediateContext->CSSetShaderResources(0, 1, &_pInputSRV);

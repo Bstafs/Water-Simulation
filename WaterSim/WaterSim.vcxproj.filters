@@ -65,6 +65,7 @@
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="CompileShader.cpp" />
+    <ClCompile Include="CreateID3D11Functions.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -147,6 +148,7 @@
     </ClInclude>
     <ClInclude Include="CompileShader.h" />
     <ClInclude Include="Includes.h" />
+    <ClInclude Include="CreateID3D11Functions.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">

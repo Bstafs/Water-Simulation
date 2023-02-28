@@ -2,14 +2,13 @@
 
 // DirectX
 #include <windows.h>
-#include "CompileShader.h"
 #include <directxmath.h>
 #include <directxcolors.h>
 #include "DDSTextureLoader.h"
 #include "DebugDraw.h"
 #include <DirectXColors.h>
 #include <DirectXCollision.h>
-
+#include "CreateID3D11Functions.h"
 // Camera
 #include "Camera.h"
 
