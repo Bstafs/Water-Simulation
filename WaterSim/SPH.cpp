@@ -63,37 +63,37 @@ void SPH::InitParticles()
 	 */
 
 
-	float particleSpacing = sphH + 0.01f;
+	float particleSpacing = 0.0045f;
 
 	// Following Realtime Particle I researched, I need to loop over every particle for x,y,z
 
+	const UINT iStartingWidth = (UINT)sqrt((FLOAT)numberOfParticles);
+
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		//float particleRandomPositionX = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH;
-		//float particleRandomPositionY = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH;
-		//float particleRandomPositionZ = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH;
-
-		int maxiumumSpawnRadius = collisionBoxSize - 1.5f;
-
-		int particleRandomPositionX = rand() % maxiumumSpawnRadius;
-		int particleRandomPositionY = rand() % maxiumumSpawnRadius;
-		int particleRandomPositionZ = rand() % maxiumumSpawnRadius;
+		UINT x = i % iStartingWidth;
+		UINT y = i % numberOfParticles;
+		UINT z = i % iStartingWidth;
 
 		XMFLOAT3 particlePosition = XMFLOAT3
 		{
-			particleSpacing + particleRandomPositionX - 1.5f,
-			particleSpacing + particleRandomPositionY + sphH + 0.1f,
-			particleSpacing + particleRandomPositionZ - 1.5f
+			particleSpacing * (FLOAT)x,
+			particleSpacing * (FLOAT)y,
+			particleSpacing * (FLOAT)z
 		};
 
 		Particle* newParticle = new Particle(MASS_CONSTANT, sphH, particlePosition, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		// Further Following Realtime Particle - Based Fluid Simulation, I add a random position to every particle and add it the the particle list.
 
-		particleList[i] = newParticle;
-
 		newParticle->elasticity = sphElasticity;
 		newParticle->mass = MASS_CONSTANT;
+		newParticle->pressure = 200.0f;
+		newParticle->force = XMFLOAT3(1, 1, 1);
+		newParticle->acceleration = XMFLOAT3(1, 1, 1);
+		newParticle->density = 997.0f;
+
+		particleList[i] = newParticle;
 	}
 }
 
@@ -110,14 +110,14 @@ void SPH::ParticleBoxCollision()
 		// Top
 		if (part->position.y < part->size - collisionBoxSize)
 		{
-			part->position.y = -part->position.y + 2 * (part->size - collisionBoxSize) + 0.0001f;
+			part->position.y = -part->position.y + 2 * (part->size - collisionBoxSize);
 			part->velocity.y = -part->velocity.y * part->elasticity;
 		}
 
 		// Bottom
 		if (part->position.y > -part->size + collisionBoxSize)
 		{
-			part->position.y = -part->position.y + 2 * -(part->size - collisionBoxSize) - 0.0001f;
+			part->position.y = -part->position.y + 2 * -(part->size - collisionBoxSize);
 			part->velocity.y = -part->velocity.y * part->elasticity;
 		}
 
@@ -126,14 +126,14 @@ void SPH::ParticleBoxCollision()
 		// Left
 		if (part->position.x < part->size - collisionBoxSize)
 		{
-			part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize) + 0.0001f;
+			part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize);
 			part->velocity.x = -part->velocity.x * part->elasticity;
 		}
 
 		// Right
 		if (part->position.x > -part->size + collisionBoxSize)
 		{
-			part->position.x = -part->position.x + 2 * -(part->size - collisionBoxSize) - 0.0001f;
+			part->position.x = -part->position.x + 2 * -(part->size - collisionBoxSize);
 			part->velocity.x = -part->velocity.x * part->elasticity;
 		}
 
@@ -142,68 +142,16 @@ void SPH::ParticleBoxCollision()
 		// Back
 		if (part->position.z < part->size - collisionBoxSize)
 		{
-			part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize) + 0.0001f;
+			part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize);
 			part->velocity.z = -part->velocity.z * part->elasticity;
 		}
 
 		// Front
 		if (part->position.z > -part->size + collisionBoxSize)
 		{
-			part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize) - 0.0001f;
+			part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize);
 			part->velocity.z = -part->velocity.z * part->elasticity;
 		}
-
-		//// Particle Collision
-		//for(int j =0; j < particleList.size(); j++)
-		//{
-		//	Particle* part2 = particleList[j];
-
-		//	// Top
-		//	if (part->position.y < part2->position.y)
-		//	{
-		//		part->position.y = -part->position.y + 2;
-		//		part->velocity.y = -part->velocity.y * part->elasticity;
-		//	}
-
-		//	// Bottom
-		//	if (part->position.y > -part2->position.y)
-		//	{
-		//		part->position.y = -part->position.y + 2;
-		//		part->velocity.y = -part->velocity.y * part->elasticity;
-		//	}
-
-		//	// Collision on the X Axis
-
-		//	// Left
-		//	if (part->position.x < part2->position.x)
-		//	{
-		//		part->position.x = -part->position.x + 2;
-		//		part->velocity.x = -part->velocity.x * part->elasticity;
-		//	}
-
-		//	// Right
-		//	if (part->position.x > -part2->position.x)
-		//	{
-		//		part->position.x = -part->position.x + 2;
-		//		part->velocity.x = -part->velocity.x * part->elasticity;
-		//	}
-
-		//	// Collision on the Z Axis
-
-		//	// Back
-		//	if (part->position.z < part2->position.z)
-		//	{
-		//		part->position.z = -part->position.z + 2;
-		//		part->velocity.z = -part->velocity.z * part->elasticity;
-		//	}
-
-		//	// Front
-		//	if (part->position.z > -part2->position.z)
-		//	{
-		//		part->position.z = -part->position.z + 2;
-		//		part->velocity.z = -part->velocity.z * part->elasticity;
-		//	}
-		//}
 	}
 }
 
@@ -219,55 +167,22 @@ void SPH::UpdateParticles()
 		//part->position.z = particlePositionValue.z;
 
 
-		part->position.x = particlePositionValue.x + rand() % 100;
-		part->position.y = particlePositionValue.y + rand() % 100;
-		part->position.z = particlePositionValue.z + rand() % 100;
+		//part->position.x = particlePositionValue.x + rand() % 100;
+		//part->position.y = particlePositionValue.y + rand() % 100;
+		//part->position.z = particlePositionValue.z + rand() % 100;
 
-		part->pressure = particlePressureValue;
-		part->density = particleDensityValue;
-		part->velocity = particleVelocityValue;
+		//part->pressure = particlePressureValue;
+		//part->density = particleDensityValue;
+		//part->velocity = particleVelocityValue;
 
 	}
 }
 
 void SPH::Update()
 {
-	UpdateParticles();
+	//UpdateParticles();
 	ParticleBoxCollision();
 }
-
-XMFLOAT3 SPH::GetPosition()
-{
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		return particleList[i]->position;
-	}
-}
-
-XMFLOAT3 SPH::GetVelocity()
-{
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		return particleList[i]->velocity;
-	}
-}
-
-XMFLOAT3 SPH::GetForce()
-{
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		return particleList[i]->force;
-	}
-}
-
-XMFLOAT3 SPH::GetAccel()
-{
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		return particleList[i]->acceleration;
-	}
-}
-
 
 void SPH::Draw()
 {

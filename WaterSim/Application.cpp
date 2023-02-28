@@ -104,7 +104,7 @@ Application::Application()
 	density = 997.0f;
 	gasConstant = 1.0f;
 	viscosity = 0.1f;
-	h = 0.30f;
+	h = 0.1f;
 	g = -9.807f;
 	tension = 0.2f;
 	elastisicty = 1.0f;
@@ -687,7 +687,7 @@ HRESULT Application::InitDevice()
 	ZeroMemory(&pcbDesc, sizeof(pcbDesc));
 	pcbDesc.Usage = D3D11_USAGE_DEFAULT;
 	pcbDesc.ByteWidth = sizeof(ParticleConstantBuffer);
-	pcbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	pcbDesc.BindFlags = 0;
 	pcbDesc.CPUAccessFlags = 0;
 	pcbDesc.MiscFlags = 0;
 	D3D11_SUBRESOURCE_DATA sb = {};
@@ -991,7 +991,7 @@ void Application::ImGui()
 		ImGui::Checkbox("Visualize", &isParticleVisible);
 
 		ImGui::Text("Initial Values");
-		ImGui::DragInt("Number Of Particles",&particleSize);
+		ImGui::DragInt("Number Of Particles", &particleSize);
 		ImGui::DragFloat("Density", &sph->sphDensity, 1.0f, 0);
 		ImGui::DragFloat("Smoothing Length", &sph->sphH, 0.001f, 0, 1.0f);
 		ImGui::DragFloat("Gravity", &sph->sphG);
@@ -1010,7 +1010,7 @@ void Application::ImGui()
 					ImGui::Text("Particle Values");
 					ImGui::DragFloat3("Position", &part->position.x, 0.01f);
 					ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
-					ImGui::DragFloat("Density", &part->density, 0.01f, 0);
+					ImGui::DragFloat("Density", &part->density, 1.0f, 0);
 					ImGui::DragFloat("Pressure", &part->pressure, 0.01f, 0);
 					ImGui::DragFloat("Particle Size", &part->size, 0.01f, 0.1f, 1.0f);
 				}
@@ -1044,36 +1044,46 @@ void Application::Draw()
 
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
-	pcb.particleCount = sph->particleList.size();
-	pcb.padding00 = XMFLOAT3(0.0f, 0.0f, 0.0f);
-	pcb.deltaTime = 1.0f / 60.0f;
-	pcb.smoothingLength = sph->sphH;
-	pcb.pressure = 200.0f;
-	pcb.restDensity = density;
-	pcb.densityCoef = sph->POLY6_CONSTANT;
-	pcb.GradPressureCoef = sph->SPIKYGRAD_CONSTANT;
-	pcb.LapViscosityCoef = sph->VISC_CONSTANT;
-	pcb.gravity = g;
-	_pImmediateContext->UpdateSubresource(_pParticleConstantBuffer, 0, nullptr, &pcb, 0, 0);
+
+
+	for (int i = 0; i < sph->particleList.size(); i++)
+	{
+		Particle* part = sph->particleList[i];
+		pcb.particleCount = sph->particleList.size();
+		pcb.padding00 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+		pcb.deltaTime = 1.0f / 60.0f;
+		pcb.smoothingLength = sph->sphH;
+		pcb.pressure = 200.0f;
+		pcb.restDensity = density;
+		pcb.densityCoef = sph->POLY6_CONSTANT;
+		pcb.GradPressureCoef = sph->SPIKYGRAD_CONSTANT;
+		pcb.LapViscosityCoef = sph->VISC_CONSTANT;
+		pcb.gravity = g;
+	   _pImmediateContext->UpdateSubresource(_pParticleConstantBuffer, 0, nullptr, &pcb, 0, 0);
+	}
 
 	// Compute Shader Input Buffer
 	ConstantParticleData pd;
 
-	pd.position = sph->GetPosition();
-	pd.pressure= 200.0f;
-	pd.velocity = sph->GetVelocity();
-	pd.density = sph->sphDensity;
-	pd.force = XMFLOAT3(10.0f, 10.0f, 10.f);
-	pd.padding01 = 0.0f;
-	pd.acceleration = sph->GetAccel();
-	pd.padding02 = 0.0f;
+	for (int i =0; i < sph->particleList.size(); i++)
+	{
+		Particle* part = sph->particleList[i];
+
+		pd.position = part->position;
+		pd.pressure = part->pressure;
+		pd.velocity = part->velocity;
+		pd.density = part->density;
+		pd.force = XMFLOAT3(10.0f, 10.0f, 10.f);
+		pd.padding01 = 0.0f;
+		pd.acceleration = part->acceleration;
+		pd.padding02 = 0.0f;
+	}
 
 	// Map Values using the Input Buffer
 	D3D11_MAPPED_SUBRESOURCE pdMS;
 	_pImmediateContext->Map(_pInputComputeBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pdMS);
 	memcpy(pdMS.pData, &pd, sizeof(ConstantParticleData));
 	_pImmediateContext->Unmap(_pInputComputeBuffer, 0);
-
 	// Set Compute Shader
 	_pImmediateContext->CSSetShader(_pComputeShader, nullptr, 0);
 	_pImmediateContext->CSSetShaderResources(0, 1, &_pInputSRV);
@@ -1093,17 +1103,15 @@ void Application::Draw()
 	// Map the Output Buffer
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	HRESULT hr = _pImmediateContext->Map(_pOutputResultComputeBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
+	ParticleData* dataView = reinterpret_cast<ParticleData*>(mappedResource.pData);
 
 	if (SUCCEEDED(hr))
 	{
-		ParticleData* dataView = reinterpret_cast<ParticleData*>(mappedResource.pData);
-
-
-		sph->particlePositionValue = dataView->position;
-		sph->particleVelocityValue = dataView->velocity;
-		sph->particleDensityValue = dataView->density;
-		sph->particlePressureValue = dataView->pressure;
-
+		for (Particle* part : sph->particleList)
+		{
+			part->position = dataView->position;
+			//part->velocity = dataView->velocity;
+		}
 		_pImmediateContext->Unmap(_pOutputResultComputeBuffer, 0);
 	}
 
@@ -1129,13 +1137,10 @@ void Application::Draw()
 		{
 			Particle* part = sph->particleList[i];
 
-			BoundingSphere sphere;
+			part->sphere.Center = part->position;
+			part->sphere.Radius = part->size / 2;
 
-			sphere.Center = part->position;
-			sphere.Radius = part->size;
-
-			DrawSphere(m_batch.get(), sphere, DirectX::Colors::White);
-
+			DrawSphere(m_batch.get(), part->sphere, DirectX::Colors::White);
 		}
 		m_batch->End();
 

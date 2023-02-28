@@ -61,7 +61,9 @@
       <Filter>Entity</Filter>
     </ClCompile>
     <ClCompile Include="DebugDraw.cpp" />
-    <ClCompile Include="Timestep.cpp" />
+    <ClCompile Include="Timestep.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -139,7 +141,9 @@
     </ClInclude>
     <ClInclude Include="Constants.h" />
     <ClInclude Include="DebugDraw.h" />
-    <ClInclude Include="Timestep.h" />
+    <ClInclude Include="Timestep.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">

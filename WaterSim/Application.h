@@ -14,7 +14,6 @@
 #include "Quaternion.h"
 #include "GameObject.h"
 
-#include "DebugDraw.h"
 #include "SPH.h"
 #include "Timestep.h"
 

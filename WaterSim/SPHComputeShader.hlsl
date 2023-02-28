@@ -158,11 +158,12 @@ float3 CalculateForce(uint3 dispatchThreadID)
 }
 
 
-[numthreads(256, 1, 1)]
+[numthreads(10, 1, 1)]
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     // Integrate Particle Forces
     const unsigned int threadID = dispatchThreadID;
+
 
     float3 position = InputParticleData[threadID].position;
     float3 velocity = InputParticleData[threadID].velocity;
@@ -175,16 +176,15 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     pressure += CalculatePressure(density);
     force += CalculateForce(threadID);
 
-    acceleration = force / density;
+    acceleration = force / density - gravity;
 
-    acceleration.y -= gravity;
-
-    velocity +=  deltaTime * acceleration;
+    velocity += deltaTime * acceleration;
     position += deltaTime * velocity;
 
     OutputParticleData[threadID].position = position;
     OutputParticleData[threadID].velocity = velocity;
     OutputParticleData[threadID].density = density;
     OutputParticleData[threadID].pressure = pressure;
+    
     
 }

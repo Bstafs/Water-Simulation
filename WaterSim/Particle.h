@@ -2,6 +2,7 @@
 
 #include "Vector3.h"
 #include "Constants.h"
+#include "DebugDraw.h"
 
 class Particle 
 {
@@ -23,4 +24,6 @@ public:
 	XMFLOAT3 velocity = { 0,0,0 };
 	XMFLOAT3 acceleration = { 0,0,0 };
 	XMFLOAT3 force = { 0,0,0 };
+	// Collision
+	BoundingSphere sphere;
 };

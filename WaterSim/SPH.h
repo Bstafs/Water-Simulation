@@ -64,11 +64,6 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
-	XMFLOAT3 GetPosition();
-	XMFLOAT3 GetVelocity();
-	XMFLOAT3 GetForce();
-	XMFLOAT3 GetAccel();
-
 	float collisionBoxSize = 3.0f;
 private:
 	// Particle Initialization
