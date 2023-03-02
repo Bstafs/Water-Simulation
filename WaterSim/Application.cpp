@@ -98,17 +98,6 @@ Application::Application()
 	RSCullNone = nullptr;
 	_WindowHeight = 0;
 	_WindowWidth = 0;
-
-	numbParticles = 10;
-	mass = 0.001f;
-	density = 997.0f;
-	gasConstant = 1.0f;
-	viscosity = 0.1f;
-	h = 0.1f;
-	g = -9.807f;
-	tension = 0.2f;
-	elastisicty = 1.0f;
-	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty, 200.0f);
 }
 
 Application::~Application()
@@ -207,6 +196,17 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		m_gameObjects.push_back(gameObject);
 	}
 
+	numbParticles = 100;
+	mass = 0.001f;
+	density = 997.0f;
+	gasConstant = 1.0f;
+	viscosity = 0.1f;
+	h = 0.1f;
+	g = -9.807f;
+	tension = 0.2f;
+	elastisicty = 1.0f;
+	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+
 	return S_OK;
 }
 
@@ -217,26 +217,6 @@ HRESULT Application::InitShadersAndInputLayout()
 	_pVertexShader = CreateVertexShader(L"shader.fx", "VS", "vs_4_0", _pd3dDevice);
 
 	_pPixelShader = CreatePixelShader(L"shader.fx", "PS", "ps_4_0", _pd3dDevice);
-
-	// Compile Compute Shader
-	ID3DBlob* csBlob = nullptr;
-	hr = CompileComputeShader(L"SPHComputeShader.hlsl", "CSMain", _pd3dDevice, &csBlob);
-	if (FAILED(hr))
-	{
-		_pd3dDevice->Release();
-		printf("Failed compiling shader %08X\n", hr);
-		return -1;
-	}
-
-	// Create Compute Shader
-	hr = _pd3dDevice->CreateComputeShader(csBlob->GetBufferPointer(), csBlob->GetBufferSize(), nullptr, &_pComputeShader);
-	csBlob->Release();
-
-	if (FAILED(hr))
-	{
-		_pd3dDevice->Release();
-		return hr;
-	}
 
 	// Define the input layout
 	D3D11_INPUT_ELEMENT_DESC layout[] =
@@ -550,24 +530,7 @@ HRESULT Application::InitDevice()
 	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// Create the constant buffer
-	_pConstantBuffer = CreateConstantBuffer(sizeof(ConstantBuffer), _pd3dDevice);
-
-	// COMPUTE SHADERS
-	_pParticleConstantBuffer = CreateConstantBuffer(sizeof(ParticleConstantBuffer), _pd3dDevice);
-
-	_pInputComputeBuffer = CreateStructureBuffer(sizeof(ConstantParticleData), nullptr, sph->particleList.size(), _pd3dDevice);
-
-	// Create Shader Resource View
-	_pInputSRV = CreateShaderResourceView(_pInputComputeBuffer, sph->particleList.size(), _pd3dDevice);
-
-	// Output Buffer
-	_pOutputComputeBuffer = CreateRWStructureBuffer(sizeof(ParticleData), false, sph->particleList.size(), _pd3dDevice);
-
-	// System Memory Version to read results
-	_pOutputResultComputeBuffer = CreateRWStructureBuffer(sizeof(ParticleData), true, sph->particleList.size(), _pd3dDevice);
-
-	// Create UAV
-	_pOutputUAV = CreateUnorderedAccessView(_pOutputComputeBuffer, sph->particleList.size(), _pd3dDevice);
+	_pConstantBuffer = CreateConstantBuffer(sizeof(ConstantBuffer), _pd3dDevice, false);
 
 	// Depth Stencil Stuff
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
@@ -638,13 +601,6 @@ void Application::Cleanup()
 	if (_pVertexLayout) _pVertexLayout->Release();
 	if (_pVertexShader) _pVertexShader->Release();
 	if (_pPixelShader) _pPixelShader->Release();
-
-	if (_pComputeShader) _pComputeShader->Release();
-	if (_pOutputUAV) _pOutputUAV->Release();
-	if (_pInputSRV) _pInputSRV->Release();
-	if (_pInputComputeBuffer) _pInputComputeBuffer->Release();
-	if (_pOutputComputeBuffer)_pOutputComputeBuffer->Release();
-	if (_pOutputResultComputeBuffer) _pOutputResultComputeBuffer->Release();
 
 	if (_pRenderTargetView) _pRenderTargetView->Release();
 	if (_pSwapChain) _pSwapChain->Release();
@@ -834,7 +790,6 @@ void Application::ImGui()
 					ImGui::DragFloat3("Position", &part->position.x, 0.01f);
 					ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
 					ImGui::DragFloat("Density", &part->density, 1.0f, 0);
-					ImGui::DragFloat("Pressure", &part->pressure, 0.01f, 0);
 					ImGui::DragFloat("Particle Size", &part->size, 0.01f, 0.1f, 1.0f);
 				}
 			}
@@ -867,77 +822,7 @@ void Application::Draw()
 
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
-
-
-	for (int i = 0; i < sph->particleList.size(); i++)
-	{
-		Particle* part = sph->particleList[i];
-		pcb.particleCount = sph->particleList.size();
-		pcb.padding00 = XMFLOAT3(0.0f, 0.0f, 0.0f);
-		pcb.deltaTime = 1.0f / 60.0f;
-		pcb.smoothingLength = sph->sphH;
-		pcb.pressure = 200.0f;
-		pcb.restDensity = density;
-		pcb.densityCoef = sph->POLY6_CONSTANT;
-		pcb.GradPressureCoef = sph->SPIKYGRAD_CONSTANT;
-		pcb.LapViscosityCoef = sph->VISC_CONSTANT;
-		pcb.gravity = g;
-	   _pImmediateContext->UpdateSubresource(_pParticleConstantBuffer, 0, nullptr, &pcb, 0, 0);
-	}
-
-	// Compute Shader Input Buffer
-	ConstantParticleData pd;
-
-	for (int i =0; i < sph->particleList.size(); i++)
-	{
-		Particle* part = sph->particleList[i];
-
-		pd.position = part->position;
-		pd.pressure = part->pressure;
-		pd.velocity = part->velocity;
-		pd.density = part->density;
-		pd.force = XMFLOAT3(10.0f, 10.0f, 10.f);
-		pd.padding01 = 0.0f;
-		pd.acceleration = part->acceleration;
-		pd.padding02 = 0.0f;
-	}
-
-	// Map Values using the Input Buffer
-	D3D11_MAPPED_SUBRESOURCE pdMS;
-	_pImmediateContext->Map(_pInputComputeBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pdMS);
-	memcpy(pdMS.pData, &pd, sizeof(ConstantParticleData));
-	_pImmediateContext->Unmap(_pInputComputeBuffer, 0);
-
-	// Set Compute Shader
-	_pImmediateContext->CSSetShader(_pComputeShader, nullptr, 0);
-	_pImmediateContext->CSSetShaderResources(0, 1, &_pInputSRV);
-	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, &_pOutputUAV, nullptr);
-	// Set Buffer Sending over data
-	_pImmediateContext->CSSetConstantBuffers(1, 1, &_pParticleConstantBuffer);
-	_pImmediateContext->CSSetConstantBuffers(0, 1, &_pInputComputeBuffer);
-	// Dispatch Shader
-	_pImmediateContext->Dispatch(1, 1, 1);
-	// Set Shader to Null
-	_pImmediateContext->CSSetShader(nullptr, nullptr, 0);
-	_pImmediateContext->CSSetUnorderedAccessViews(0, 1, _ppUAVViewNULL, nullptr);
-	_pImmediateContext->CSSetShaderResources(0, 2, _ppSRVNULL);
-	// Copy Results of Output Buffer
-	_pImmediateContext->CopyResource(_pOutputResultComputeBuffer, _pOutputComputeBuffer);
-
-	// Map the Output Buffer
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	HRESULT hr = _pImmediateContext->Map(_pOutputResultComputeBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
-	ParticleData* dataView = reinterpret_cast<ParticleData*>(mappedResource.pData);
-
-	if (SUCCEEDED(hr))
-	{
-		for (Particle* part : sph->particleList)
-		{
-			part->position = dataView->position;
-			//part->velocity = dataView->velocity;
-		}
-		_pImmediateContext->Unmap(_pOutputResultComputeBuffer, 0);
-	}
+	sph->Draw();
 
 	ConstantBuffer cb;
 

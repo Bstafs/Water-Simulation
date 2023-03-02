@@ -92,18 +92,30 @@ ID3D11InputLayout* CreateInputLayout(D3D11_INPUT_ELEMENT_DESC inputDesc[], UINT 
 	return inputLayout;
 }
 
-ID3D11Buffer* CreateConstantBuffer(int byteWidth, ID3D11Device* device)
+ID3D11Buffer* CreateConstantBuffer(int byteWidth, ID3D11Device* device, bool isCompute)
 {
 	D3D11_BUFFER_DESC bufferDesc;
 	ID3D11Buffer* outputBuffer;
-
 	ZeroMemory(&bufferDesc, sizeof(bufferDesc));
-	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	bufferDesc.ByteWidth = byteWidth;
-	bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	bufferDesc.CPUAccessFlags = 0;
-	bufferDesc.MiscFlags = 0;
 
+	if (isCompute)
+	{
+		bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		bufferDesc.ByteWidth = byteWidth;
+		bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		bufferDesc.MiscFlags = 0;
+		bufferDesc.StructureByteStride = 0;
+	}
+	else
+	{
+		bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		bufferDesc.ByteWidth = byteWidth;
+		bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		bufferDesc.CPUAccessFlags = 0;
+		bufferDesc.MiscFlags = 0;
+		bufferDesc.StructureByteStride = 0;
+	}
 
 	HRESULT hr = device->CreateBuffer(&bufferDesc, nullptr, &outputBuffer);
 
@@ -115,10 +127,10 @@ ID3D11Buffer* CreateStructureBuffer(int byteWidth, float* data, int vertexCount,
 	ID3D11Buffer* structureBuffer = nullptr;
 	HRESULT hr;
 	D3D11_BUFFER_DESC constantDataDesc;
-	constantDataDesc.Usage = D3D11_USAGE_DYNAMIC;
+	constantDataDesc.Usage = D3D11_USAGE_DEFAULT;
 	constantDataDesc.ByteWidth = byteWidth * vertexCount;
-	constantDataDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	constantDataDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	constantDataDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	constantDataDesc.CPUAccessFlags = 0;
 	constantDataDesc.StructureByteStride = byteWidth;
 	constantDataDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
@@ -136,65 +148,39 @@ ID3D11Buffer* CreateStructureBuffer(int byteWidth, float* data, int vertexCount,
 	return structureBuffer;
 }
 
-ID3D11Buffer* CreateRWStructureBuffer(int byteWidth, bool memory, int vertexCount, ID3D11Device* device)
+ID3D11Buffer* CreateReadableStructureBuffer(int byteWidth, float* data, ID3D11Device* device)
 {
 	ID3D11Buffer* RWBuffer = nullptr;
-	D3D11_BUFFER_DESC outputDesc;
 	HRESULT hr;
-	outputDesc.Usage = D3D11_USAGE_DEFAULT;
-	outputDesc.ByteWidth = byteWidth * vertexCount;
-	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-	outputDesc.CPUAccessFlags = 0;
-	outputDesc.StructureByteStride = byteWidth;
-	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
-	if (memory)
+	D3D11_BUFFER_DESC outputDesc;
+	ZeroMemory(&outputDesc, sizeof(outputDesc));
+	outputDesc.Usage = D3D11_USAGE_STAGING;
+	outputDesc.ByteWidth = byteWidth;
+	outputDesc.BindFlags = 0;
+	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+	if (data)
 	{
-		outputDesc.Usage = D3D11_USAGE_STAGING;
-        outputDesc.BindFlags = 0;
-        outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-		hr = device->CreateBuffer(&outputDesc, nullptr, &RWBuffer);
+		D3D11_SUBRESOURCE_DATA InitData;
+		InitData.pSysMem = data;
+		hr = device->CreateBuffer(&outputDesc, &InitData, &RWBuffer);
 	}
 	else
 	{
-		 hr = device->CreateBuffer(&outputDesc, nullptr, &RWBuffer);
+		hr = device->CreateBuffer(&outputDesc, nullptr, &RWBuffer);
 	}
-
 
 	return RWBuffer;
 }
 
-void ComputeResourceBuffer(ID3D11Buffer** pBuffer, ID3D11UnorderedAccessView** uav, 
+void ComputeResourceBuffer(ID3D11Buffer** pBuffer, ID3D11UnorderedAccessView** uav,
 	ID3D11ShaderResourceView** srv, int vertexCount, float* data, int byteWidth, ID3D11Device* device)
 {
 	*pBuffer = CreateStructureBuffer(byteWidth, data, vertexCount, device);
 	*uav = CreateUnorderedAccessView(*pBuffer, vertexCount, device);
 	*srv = CreateShaderResourceView(*pBuffer, vertexCount, device);
 
-}
-
-void UpdateBuffer(float* data, int byteWidth, ID3D11Buffer* buffer, ID3D11DeviceContext* device)
-{
-	HRESULT result;
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	float* dataPtr;
-	unsigned int bufferNumber;
-
-	// Lock the constant buffer so it can be written to.
-	result = device->Map(buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(result))
-	{
-		return;
-	}
-
-	// Get a pointer to the data in the constant buffer.
-	dataPtr = (float*)mappedResource.pData;
-
-	// Copy the matrices into the constant buffer.
-	memcpy(dataPtr, data, byteWidth);
-
-	// Unlock the constant buffer.
-	device->Unmap(buffer, 0);
 }
 
 ID3D11ShaderResourceView* CreateShaderResourceView(ID3D11Buffer* pBuffer, int vertexCount, ID3D11Device* device)
@@ -221,4 +207,40 @@ ID3D11UnorderedAccessView* CreateUnorderedAccessView(ID3D11Buffer* pBuffer, int 
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 	HRESULT hr = device->CreateUnorderedAccessView(pBuffer, &uavDesc, &UAV);
 	return UAV;
+}
+
+void UpdateBuffer(float* data, int byteWidth, ID3D11Buffer* buffer, ID3D11DeviceContext* device)
+{
+	HRESULT hr;
+	D3D11_MAPPED_SUBRESOURCE mappedData;
+
+	float* mappedPtr;
+
+	unsigned int bufferNumber;
+
+	hr = device->Map(buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
+	if(FAILED(hr))
+	{
+		return;
+	}
+
+	mappedPtr = (float*)mappedData.pData;
+
+	memcpy(mappedPtr, data, byteWidth);
+
+	device->Unmap(buffer, 0);
+
+}
+
+
+void* MapBuffer(ID3D11Buffer* buffer, ID3D11DeviceContext* device)
+{
+	D3D11_MAPPED_SUBRESOURCE mappingData;
+	device->Map(buffer, 0, D3D11_MAP_READ, 0, &mappingData);
+	return mappingData.pData;
+}
+
+void UnMapBuffer(ID3D11Buffer* buffer, ID3D11DeviceContext* device)
+{
+	device->Unmap(buffer, 0);
 }

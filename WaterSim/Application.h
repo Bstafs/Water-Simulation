@@ -42,46 +42,6 @@ struct ConstantBuffer
 	float HasTexture;
 };
 
-struct ParticleConstantBuffer
-{
-	int particleCount;
-	XMFLOAT3 padding00;
-
-	float deltaTime;
-	float smoothingLength;
-	float pressure;
-	float restDensity;
-
-	float densityCoef;
-	float GradPressureCoef;
-	float LapViscosityCoef;
-	float gravity;
-};
-
-struct ConstantParticleData
-{
-	XMFLOAT3 position;
-	float pressure;
-
-	XMFLOAT3 velocity;
-	float density;
-
-	XMFLOAT3 force;
-	float padding01;
-
-	XMFLOAT3 acceleration;
-	float padding02;
-};
-
-struct ParticleData
-{
-	XMFLOAT3 position;
-	float pressure;
-
-	XMFLOAT3 velocity;
-	float density;
-};
-
 class Application
 {
 private:
@@ -96,20 +56,6 @@ private:
 	ID3D11VertexShader* _pVertexShader;
 	ID3D11PixelShader* _pPixelShader;
 	ID3D11InputLayout* _pVertexLayout;
-
-	// Compute Shaders
-	ID3D11ComputeShader* _pComputeShader = nullptr;
-
-	ID3D11ShaderResourceView* _ppSRVNULL[2] = { nullptr, nullptr };
-	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
-
-	ID3D11UnorderedAccessView* _pOutputUAV = nullptr;
-	ID3D11ShaderResourceView* _pInputSRV = nullptr;
-
-	ID3D11Buffer* _pParticleConstantBuffer = nullptr;
-	ID3D11Buffer* _pInputComputeBuffer = nullptr;
-	ID3D11Buffer* _pOutputComputeBuffer = nullptr;
-	ID3D11Buffer* _pOutputResultComputeBuffer = nullptr;
 
 	// Vertex Buffers
 	ID3D11Buffer* _pVertexBuffer;
@@ -130,8 +76,6 @@ private:
 	ID3D11ShaderResourceView* _pHerculesTextureRV = nullptr;
 
 	ID3D11SamplerState* _pSamplerLinear = nullptr;
-
-	ParticleConstantBuffer pcb;
 
 	MeshData objMeshData;
 

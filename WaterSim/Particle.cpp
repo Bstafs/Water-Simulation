@@ -13,7 +13,6 @@ Particle::Particle(float particleMass, float particleSize, XMFLOAT3 particlePos,
 	acceleration = XMFLOAT3(0, 0, 0);
 	density = 0.0f;
 	pressure = 0.0f;
-	particleID = particleCount++;
 }
 
 Particle::~Particle()

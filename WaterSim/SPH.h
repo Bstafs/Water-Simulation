@@ -20,10 +20,48 @@
 #include "Particle.h"
 #include "Includes.h"
 
+struct ParticleConstantBuffer
+{
+	int particleCount;
+	XMFLOAT3 padding00;
+
+	float deltaTime;
+	float smoothingLength;
+	float pressure;
+	float restDensity;
+
+	float densityCoef;
+	float GradPressureCoef;
+	float LapViscosityCoef;
+	float gravity;
+};
+
+struct IntegrateParticle
+{
+	XMFLOAT3 position;
+	float padding01;
+
+	XMFLOAT3 velocity;
+	float padding02;
+};
+
+struct ParticleForces
+{
+	XMFLOAT3 acceleration;
+	float padding01;
+};
+
+struct ParticleDensity
+{
+	XMFLOAT3 padding01;
+	float density;
+};
+
+
 class SPH
 {
 public:
-	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity, float pressure);
+	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device);
 	~SPH();
 	void Update();
 	void Draw();
@@ -66,7 +104,41 @@ public:
 private:
 	// Particle Initialization
 	void InitParticles();
-	void UpdateParticles();
 	void ParticleBoxCollision();
+
+	ID3D11DeviceContext* deviceContext;
+	ID3D11Device* device;
+
+	// Compute Shaders
+
+	ParticleConstantBuffer particleConstantCPUBuffer;
+
+	ID3D11ShaderResourceView* _ppSRVNULL[2] = { nullptr, nullptr };
+	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
+
+	ID3D11Buffer* pParticleConstantBuffer = nullptr;
+
+	// Integrate
+	ID3D11ComputeShader* pParticleIntegrateCS = nullptr;
+	ID3D11Buffer* pIntegrateBuffer = nullptr;
+	ID3D11ShaderResourceView* pIntegrateSRV = nullptr;
+	ID3D11UnorderedAccessView* pIntegrateUAV = nullptr;
+
+	// Forces
+	ID3D11ComputeShader* pParticleForcesCS = nullptr;
+	ID3D11Buffer* pForcesBuffer = nullptr;
+	ID3D11ShaderResourceView* pForcesSRV = nullptr;
+	ID3D11UnorderedAccessView* pForcesUAV = nullptr;
+
+	// Density
+	ID3D11ComputeShader* pParticleDensityCS = nullptr;
+	ID3D11Buffer* pDensityBuffer = nullptr;
+	ID3D11ShaderResourceView* pDensitySRV = nullptr;
+	ID3D11UnorderedAccessView* pDensityUAV = nullptr;
+
+	//Debug
+	ID3D11Buffer* pDebugDensityBuffer = nullptr;
+	ID3D11Buffer* pDebugForceBuffer = nullptr;
+	ID3D11Buffer* pDebugPositionBuffer = nullptr;
 };
 

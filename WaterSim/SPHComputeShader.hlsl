@@ -14,34 +14,35 @@ cbuffer ParticleConstantBuffer : register(b1)
     float gravity;
 };
 
-// Input
-struct ConstantParticleData
+struct IntegrateParticle
 {
     float3 position;
-    float pressure;
-
-    float3 velocity;
-    float density;
-
-    float3 force;
     float padding01;
 
-    float3 acceleration;
+    float3 velocity;
     float padding02;
 };
 
-// Output
-struct ParticleData
+struct ParticleForces
 {
-    float3 position;
-    float pressure;
+    float3 acceleration;
+    float padding01;
+};
 
-    float3 velocity;
+struct ParticleDensity
+{
+    float3 padding01;
     float density;
 };
 
-StructuredBuffer<ConstantParticleData> InputParticleData : register(t0); // Input
-RWStructuredBuffer<ParticleData> OutputParticleData : register(u0); // Output
+StructuredBuffer<IntegrateParticle> IntegrateInput : register(t0); // Input // Shader Resource
+RWStructuredBuffer<IntegrateParticle> IntegrateOutput : register(u0); // Output // UAV
+
+StructuredBuffer<ParticleForces> ForcesInput : register(t1); // Input
+RWStructuredBuffer<ParticleForces> ForcesOutput : register(u1); // Output
+
+StructuredBuffer<ParticleDensity> DensityInput : register(t2); // Input
+RWStructuredBuffer<ParticleDensity> DensityOutput : register(u2); // Output
                                                                     
 //--------------------------------------------------------------------------------------
 // Density Calculation
@@ -55,34 +56,6 @@ float CalculateDensity(float r_sq)
     return densityCoef * (smoothingLengthSquared - r_sq) * (smoothingLengthSquared - r_sq) * (smoothingLengthSquared - r_sq);
 }
 
-
-float FinalDensity(uint3 dispatchThreadID)
-{
-    const unsigned int threadID = dispatchThreadID.x;
-
-    const float smoothingSquared = smoothingLength * smoothingLength;
-
-    float3 particlePosition = InputParticleData[threadID].position;
-
-    float density = 0.0f;
-
-    for (uint i = 0; i < particleCount; i++)
-    {
-        float3 nPosition = InputParticleData[threadID].position;
-
-        float3 posDiff = nPosition - particlePosition;
-
-        float rSquared = dot(posDiff, posDiff);
-
-        if (rSquared < smoothingSquared)
-        {
-            density += CalculateDensity(rSquared);
-        }
-    }
-
-    return density;
-}
-
 //--------------------------------------------------------------------------------------
 // Force Calculation
 //--------------------------------------------------------------------------------------
@@ -90,7 +63,7 @@ float FinalDensity(uint3 dispatchThreadID)
 // Pressure = B * ((rho / rho_0)^y  - 1)
 float CalculatePressure(float density)
 {
-    return pressure * max(pow(density / restDensity, 3) - 1, 0);
+    return pressure * max(pow(density / restDensity, 3.0f) - 1.0f, 0.0f);
 }
 
 // Spiky Grad Smoothing Kernel
@@ -118,22 +91,55 @@ float3 CalculateLapViscosity(float r, float3 pVelocity, float3 nVelocity, float 
     return LapViscosityCoef / nDesnity * (h - r) * velDiff;
 }
 
-float3 CalculateForce(uint3 dispatchThreadID)
+[numthreads(256, 1, 1)]
+void CSDensityMain(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+    const unsigned int threadID = dispatchThreadID.x;
+
+    const float smoothingSquared = smoothingLength * smoothingLength;
+
+    float3 particlePosition = IntegrateInput[threadID].position;
+
+    float density = 0.0f;
+
+    [loop]
+    for (uint i = 0; i < particleCount; i++)
+    {
+        float3 nPosition = IntegrateInput[threadID].position;
+
+        float3 posDiff = nPosition - particlePosition;
+
+        float rSquared = dot(posDiff, posDiff);
+
+        if (rSquared < smoothingSquared)
+        {
+            density += CalculateDensity(rSquared);
+        }
+    }
+
+    DensityOutput[threadID].density = density;
+    DensityOutput[threadID].padding01 = float3(0.0f, 0.0f, 0.0f);
+}
+
+
+[numthreads(256, 1, 1)]
+void CSForcesMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const unsigned int threadID = dispatchThreadID.x;
 		
-    float3 particlePosition = InputParticleData[threadID].position;
-    float3 particleVelocity = InputParticleData[threadID].velocity;
-    float particleDensity = InputParticleData[threadID].density;
+    float3 particlePosition = IntegrateInput[threadID].position;
+    float3 particleVelocity = IntegrateInput[threadID].velocity;
+    float particleDensity = DensityInput[threadID].density;
     float particlePressure = CalculatePressure(particleDensity);
 
     const float smoothingSquared = smoothingLength * smoothingLength;
 
-    float3 force = float3(0.0f, 0.0f, 0.0f);
+    float3 acceleration = float3(0.0f, 0.0f, 0.0f);
 
+    [loop]
     for (uint i = 0; i < particleCount; i++)
     {
-        float3 newPos = InputParticleData[threadID].position;
+        float3 newPos = IntegrateInput[threadID].position;
 
         float3 posDiff = newPos - particlePosition;
 
@@ -141,20 +147,21 @@ float3 CalculateForce(uint3 dispatchThreadID)
 
         if (rSquared < smoothingSquared && threadID != i)
         {
-            float3 nVelocity = InputParticleData[threadID].velocity;
-            float nDensity = InputParticleData[threadID].density;
+            float3 nVelocity = IntegrateInput[threadID].velocity;
+            float nDensity = DensityInput[threadID].density;
             float nPressure = CalculatePressure(nDensity);
             float r = sqrt(rSquared);
 
             // Apply Pressure
-            force += CalculateGradPressure(r, particlePressure, nPressure, nDensity, posDiff);
+            acceleration += CalculateGradPressure(r, particlePressure, nPressure, nDensity, posDiff);
 
             // Apply Viscosity
-            force += CalculateLapViscosity(r, particleVelocity, nVelocity, nDensity);
+            acceleration += CalculateLapViscosity(r, particleVelocity, nVelocity, nDensity);
         }
     }
 
-    return force;
+    ForcesOutput[threadID].acceleration = acceleration / particleDensity;
+    ForcesOutput[threadID].padding01 = acceleration / particleDensity;
 }
 
 
@@ -162,29 +169,19 @@ float3 CalculateForce(uint3 dispatchThreadID)
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     // Integrate Particle Forces
-    const unsigned int threadID = dispatchThreadID;
+    const unsigned int threadID = dispatchThreadID.x;
 
+    float3 position = IntegrateInput[threadID].position;
+    float3 velocity = IntegrateInput[threadID].velocity;
+    float3 acceleration = ForcesInput[threadID].acceleration;
 
-    float3 position = InputParticleData[threadID].position;
-    float3 velocity = InputParticleData[threadID].velocity;
-    float density = InputParticleData[threadID].density;
-    float3 force = InputParticleData[threadID].force;
-    float3 acceleration = InputParticleData[threadID].acceleration;
-    float3 pressure = InputParticleData[threadID].pressure;
-
-    density += CalculateDensity(dispatchThreadID);
-    pressure += CalculatePressure(density);
-    force += CalculateForce(threadID);
-
-    acceleration = force / density - gravity;
+   // acceleration.y -= gravity;
 
     velocity += acceleration * deltaTime;
     position += velocity * deltaTime;
 
-    OutputParticleData[threadID].position = position;
-    OutputParticleData[threadID].velocity = velocity;
-    OutputParticleData[threadID].density = density;
-    OutputParticleData[threadID].pressure = pressure;
-    
-    
+    IntegrateOutput[threadID].position = position;
+    IntegrateOutput[threadID].velocity = velocity;
+    IntegrateOutput[threadID].padding01 = 0.0f;
+    IntegrateOutput[threadID].padding02 = 0.0f;
 }
