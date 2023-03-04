@@ -196,7 +196,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		m_gameObjects.push_back(gameObject);
 	}
 
-	numbParticles = 100;
+	numbParticles = 25;
 	mass = 0.001f;
 	density = 997.0f;
 	gasConstant = 1.0f;

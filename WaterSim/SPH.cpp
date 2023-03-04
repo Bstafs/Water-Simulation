@@ -78,12 +78,12 @@ void SPH::InitParticles()
 
 	// Following Realtime Particle I researched, I need to loop over every particle for x,y,z
 
-	const UINT startingHeight = 10;
+	const UINT startingHeight = 5;
 
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
 		UINT x = i / (startingHeight * startingHeight);
-		UINT y = (i / startingHeight) % (startingHeight);
+		UINT y = i / startingHeight % (startingHeight);
 		UINT z = i % (startingHeight);
 
 		XMFLOAT3 startingParticlePosition = XMFLOAT3((float)x * particleSpacing, (float)y * particleSpacing, (float)z * particleSpacing);
@@ -236,6 +236,8 @@ void SPH::Draw()
 	particleConstantCPUBuffer.gravity = sphG;
 
 	UpdateBuffer((float*)&particleConstantCPUBuffer, sizeof(ParticleConstantBuffer), pParticleConstantBuffer, deviceContext);
+
+
 
 	ID3D11UnorderedAccessView* nullUAV = nullptr;
 	
