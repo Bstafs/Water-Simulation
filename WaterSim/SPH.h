@@ -57,6 +57,17 @@ struct ParticleDensity
 	float density;
 };
 
+struct GridKeyStructure
+{
+	UINT gridKey;
+	UINT particleIndex;
+};
+
+struct GridBorderStructure
+{
+	UINT gridStart;
+	UINT gridEnd;
+};
 
 class SPH
 {
@@ -105,6 +116,10 @@ private:
 	// Particle Initialization
 	void InitParticles();
 	void ParticleBoxCollision();
+	void ParticleForcesSetup();
+	void SetUpParticleConstantBuffer();
+	void BuildGrid();
+	void BuildGridIndices();
 
 	ID3D11DeviceContext* deviceContext;
 	ID3D11Device* device;
@@ -136,9 +151,26 @@ private:
 	ID3D11ShaderResourceView* pDensitySRV = nullptr;
 	ID3D11UnorderedAccessView* pDensityUAV = nullptr;
 
+	// Grid
+	ID3D11ComputeShader* pParticleGridCS = nullptr;
+	ID3D11Buffer* pGridBuffer = nullptr;
+	ID3D11ShaderResourceView* pGridSRV = nullptr;
+	ID3D11UnorderedAccessView* pGridUAV = nullptr;
+
+	// Grid Indices
+	ID3D11ComputeShader* pParticleGridIndicesCS = nullptr;
+	ID3D11Buffer* pGridIndicesBuffer = nullptr;
+	ID3D11ShaderResourceView* pGridIndicesSRV = nullptr;
+	ID3D11UnorderedAccessView* pGridIndicesUAV = nullptr;
+
+	//Clear Grid Indices
+	ID3D11ComputeShader* pParticleClearGridIndicesCS = nullptr;
+
 	//Debug
 	ID3D11Buffer* pDebugDensityBuffer = nullptr;
 	ID3D11Buffer* pDebugForceBuffer = nullptr;
 	ID3D11Buffer* pDebugPositionBuffer = nullptr;
+	ID3D11Buffer* pDebugGridBuffer = nullptr;
+	ID3D11Buffer* pDebugGridIndicesBuffer = nullptr;
 };
 

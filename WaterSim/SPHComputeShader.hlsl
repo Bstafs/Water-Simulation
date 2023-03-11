@@ -1,3 +1,5 @@
+#define GRID_DIMENSION 256
+
 cbuffer ParticleConstantBuffer : register(b1)
 {
     int particleCount;
@@ -35,6 +37,18 @@ struct ParticleDensity
     float density;
 };
 
+struct GridKeyStructure
+{
+    uint gridKey;
+    uint particleIndex;
+};
+
+struct GridBorderStructure
+{
+    uint gridStart;
+    uint gridEnd;
+};
+
 StructuredBuffer<IntegrateParticle> IntegrateInput : register(t0); // Input // Shader Resource
 RWStructuredBuffer<IntegrateParticle> IntegrateOutput : register(u0); // Output // UAV
 
@@ -43,7 +57,81 @@ RWStructuredBuffer<ParticleForces> ForcesOutput : register(u1); // Output
 
 StructuredBuffer<ParticleDensity> DensityInput : register(t2); // Input
 RWStructuredBuffer<ParticleDensity> DensityOutput : register(u2); // Output
-                                                                    
+
+StructuredBuffer<GridKeyStructure> GridInput : register(t3); // Input
+RWStructuredBuffer<GridKeyStructure> GridOutput : register(u3); // Output
+
+StructuredBuffer<GridBorderStructure> GridIndicesInput : register(t4); // Input
+RWStructuredBuffer<GridBorderStructure> GridIndicesOutput : register(u4); // Output
+
+uint GetGridKey(uint3 gridIndex)
+{
+    uint x = gridIndex.x;
+    uint y = GRID_DIMENSION * gridIndex.y;
+    uint z = (GRID_DIMENSION * GRID_DIMENSION) * gridIndex.z;
+
+    return uint(x + y + z);
+}
+
+uint3 GetGrindIndex(float3 particle_position)
+{
+    uint halfDimension = GRID_DIMENSION * 0.5f;
+    float3 scalar = float3(1.0f / smoothingLength, 1.0f / smoothingLength, 1.0f / smoothingLength);
+    uint3 gridCoords = float3(scalar * particle_position) + uint3(halfDimension, halfDimension, halfDimension);
+	
+    return clamp(gridCoords, 0, uint3(GRID_DIMENSION - 1, GRID_DIMENSION - 1, GRID_DIMENSION - 1));
+}
+
+//--------------------------------------------------------------------------------------
+// Grid Calculation
+//--------------------------------------------------------------------------------------
+[numthreads(256, 1, 1)]
+void BuildGridCS(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
+{
+    const unsigned int threadId = dispatchThreadID.x; // Particle ID to operate on
+    float3 position = IntegrateInput[threadId].position;
+
+    uint3 gridIndex = GetGrindIndex(position);
+    uint gridKey = GetGridKey(gridIndex);
+
+    GridOutput[threadId].gridKey = gridKey;
+    GridOutput[threadId].particleIndex = gridIndex;
+}
+
+[numthreads(256, 1, 1)]
+void BuildGridIndicesCS(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
+{
+    const unsigned int threadID = dispatchThreadID.x;
+
+    unsigned int threadIdPrev = (threadID == 0) ? particleCount : threadID; threadIdPrev--;
+    unsigned int threadIDNext = (threadID + 1);
+    if(threadID == particleCount)
+    {
+        threadIDNext = 0;
+    }
+
+    unsigned int cell = GridInput[threadID].gridKey;
+
+    unsigned int cellPrev = GridInput[threadID].gridKey;;
+    if (cell != cellPrev)
+    {
+        GridIndicesOutput[cell].gridStart = threadID;
+    }
+
+    unsigned int cellNext = GridInput[threadIDNext].gridKey;
+    if (cell != cellNext)
+    {
+        GridIndicesOutput[cell].gridEnd = threadID + 1;
+    }
+}
+
+[numthreads(256, 1, 1)]
+void ClearGridIndicesCS(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
+{
+    GridIndicesOutput[dispatchThreadID.x].gridStart = 0;
+    GridIndicesOutput[dispatchThreadID.x].gridEnd = 0;
+}
+
 //--------------------------------------------------------------------------------------
 // Density Calculation
 //--------------------------------------------------------------------------------------
@@ -92,7 +180,7 @@ float3 CalculateLapViscosity(float r, float3 pVelocity, float3 nVelocity, float 
 }
 
 [numthreads(256, 1, 1)]
-void CSDensityMain(uint3 dispatchThreadID : SV_DispatchThreadID)
+void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
     const unsigned int threadID = dispatchThreadID.x;
 
@@ -123,7 +211,7 @@ void CSDensityMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 [numthreads(256, 1, 1)]
-void CSForcesMain(uint3 dispatchThreadID : SV_DispatchThreadID)
+void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
     const unsigned int threadID = dispatchThreadID.x;
 		
@@ -166,7 +254,7 @@ void CSForcesMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 
 [numthreads(256, 1, 1)]
-void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
+void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
     // Integrate Particle Forces
     const unsigned int threadID = dispatchThreadID.x;

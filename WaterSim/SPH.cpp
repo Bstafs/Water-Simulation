@@ -157,6 +157,23 @@ void SPH::InitParticles()
 	pDensityUAV = CreateUnorderedAccessView(pDensityBuffer, numberOfParticles, device);
 	pDensitySRV = CreateShaderResourceView(pDensityBuffer, numberOfParticles, device);
 	pDebugDensityBuffer = CreateReadableStructureBuffer(sizeof(ParticleDensity) * numberOfParticles, nullptr, device);
+
+	//--Build Grid
+	pParticleGridCS = CreateComputeShader(L"SPHComputeShader.hlsl", "BuildGridCS", device);
+	pGridBuffer = CreateStructureBuffer(sizeof(GridKeyStructure), nullptr, numberOfParticles, device);
+	pGridUAV = CreateUnorderedAccessView(pGridBuffer, numberOfParticles, device);
+	pGridSRV = CreateShaderResourceView(pGridBuffer, numberOfParticles, device);
+	pDebugGridBuffer = CreateReadableStructureBuffer(sizeof(GridKeyStructure) * numberOfParticles, nullptr, device);
+
+	//--Build Grid Indices
+	pParticleGridIndicesCS = CreateComputeShader(L"SPHComputeShader.hlsl", "BuildGridIndicesCS", device);
+	pGridIndicesBuffer = CreateStructureBuffer(sizeof(GridBorderStructure), nullptr, 256 * 256 * 256, device);
+	pGridIndicesUAV = CreateUnorderedAccessView(pGridBuffer, 256 * 256 * 256, device);
+	pGridIndicesSRV = CreateShaderResourceView(pGridBuffer, 256 * 256 * 256, device);
+	pDebugGridIndicesBuffer = CreateReadableStructureBuffer(sizeof(GridKeyStructure) * 256 * 256 * 256, nullptr, device);
+
+	//--Clear Grid Indices
+	pParticleGridIndicesCS = CreateComputeShader(L"SPHComputeShader.hlsl", "ClearGridIndicesCS", device);
 }
 
 void SPH::ParticleBoxCollision()
@@ -222,7 +239,37 @@ void SPH::Update()
 	ParticleBoxCollision();
 }
 
-void SPH::Draw()
+void SPH::BuildGrid()
+{
+	deviceContext->Flush();
+
+	deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+	deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+	deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+	deviceContext->CSSetShader(pParticleGridCS, nullptr, 0);
+	deviceContext->Dispatch(256, 1, 1);
+}
+
+void SPH::BuildGridIndices()
+{
+	deviceContext->Flush();
+	deviceContext->CSSetShader(pParticleClearGridIndicesCS, nullptr, 0);
+	deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
+	deviceContext->Flush();
+	deviceContext->Dispatch(256 * 256 * 256 / 1024, 1, 1);
+
+
+	deviceContext->Flush();
+	deviceContext->CSSetShader(pParticleGridIndicesCS, nullptr, 0);
+	deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
+	deviceContext->CSSetUnorderedAccessViews(4, 1, &pGridIndicesUAV, nullptr);
+
+	deviceContext->Flush();
+	deviceContext->Dispatch(256, 1, 1);
+}
+
+
+void SPH::SetUpParticleConstantBuffer()
 {
 	particleConstantCPUBuffer.particleCount = numberOfParticles;
 	particleConstantCPUBuffer.padding00 = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -236,12 +283,18 @@ void SPH::Draw()
 	particleConstantCPUBuffer.gravity = sphG;
 
 	UpdateBuffer((float*)&particleConstantCPUBuffer, sizeof(ParticleConstantBuffer), pParticleConstantBuffer, deviceContext);
+}
 
+void SPH::ParticleForcesSetup()
+{
+	deviceContext->Flush();
 
+	SetUpParticleConstantBuffer();
 
 	ID3D11UnorderedAccessView* nullUAV = nullptr;
-	
+
 	// Density
+	deviceContext->Flush();
 	deviceContext->CSSetShader(pParticleDensityCS, nullptr, 0);
 
 	deviceContext->CSSetUnorderedAccessViews(2, 1, &pDensityUAV, nullptr);
@@ -264,7 +317,10 @@ void SPH::Draw()
 	}
 	UnMapBuffer(pDebugDensityBuffer, deviceContext);
 
+	deviceContext->Flush();
+
 	// Forces
+	deviceContext->Flush();
 	deviceContext->CSSetShader(pParticleForcesCS, nullptr, 0);
 
 	deviceContext->CSSetUnorderedAccessViews(1, 1, &pForcesUAV, nullptr);
@@ -286,8 +342,10 @@ void SPH::Draw()
 		particle->acceleration = forces->acceleration;
 	}
 	UnMapBuffer(pDebugForceBuffer, deviceContext);
+	deviceContext->Flush();
 
 	// Integrate
+	deviceContext->Flush();
 	deviceContext->CSSetShader(pParticleIntegrateCS, nullptr, 0);
 	ID3D11ShaderResourceView* views[2];
 	views[0] = pIntegrateSRV;
@@ -315,4 +373,18 @@ void SPH::Draw()
 		particle->position.z += positions->position.z * (1.0f / 60.0f);
 	}
 	UnMapBuffer(pDebugPositionBuffer, deviceContext);
+	deviceContext->Flush();
+}
+
+
+void SPH::Draw()
+{
+	// Build Grid
+	BuildGrid();
+
+	// Build Grid Indices
+	BuildGridIndices();
+
+	// Setup Particle Forces
+	ParticleForcesSetup();
 }
