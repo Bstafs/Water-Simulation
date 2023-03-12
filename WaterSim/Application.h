@@ -57,6 +57,8 @@ private:
 	ID3D11PixelShader* _pPixelShader;
 	ID3D11InputLayout* _pVertexLayout;
 
+	BoundingSphere sphere;
+
 	// Vertex Buffers
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;

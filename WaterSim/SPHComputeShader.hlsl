@@ -1,4 +1,6 @@
 #define GRID_DIMENSION 256
+#define WARP_GROUP_SIZE 1024
+float wallStiffness = 3000.0f;
 
 cbuffer ParticleConstantBuffer : register(b1)
 {
@@ -14,6 +16,18 @@ cbuffer ParticleConstantBuffer : register(b1)
     float GradPressureCoef;
     float LapViscosityCoef;
     float gravity;
+
+    float4 vPlanes[6];
+};
+
+cbuffer ParticleConstantBuffer : register(b2)
+{
+    unsigned int sortLevel;
+    unsigned int sortAlternateMask;
+    unsigned int iWidth;
+    unsigned int iHeight;
+
+    float4 padding01;
 };
 
 struct IntegrateParticle
@@ -64,6 +78,8 @@ RWStructuredBuffer<GridKeyStructure> GridOutput : register(u3); // Output
 StructuredBuffer<GridBorderStructure> GridIndicesInput : register(t4); // Input
 RWStructuredBuffer<GridBorderStructure> GridIndicesOutput : register(u4); // Output
 
+groupshared GridKeyStructure sharedData[WARP_GROUP_SIZE];
+
 uint GetGridKey(uint3 gridIndex)
 {
     uint x = gridIndex.x;
@@ -73,7 +89,7 @@ uint GetGridKey(uint3 gridIndex)
     return uint(x + y + z);
 }
 
-uint3 GetGrindIndex(float3 particle_position)
+uint3 GetGridIndex(float3 particle_position)
 {
     uint halfDimension = GRID_DIMENSION * 0.5f;
     float3 scalar = float3(1.0f / smoothingLength, 1.0f / smoothingLength, 1.0f / smoothingLength);
@@ -91,11 +107,40 @@ void BuildGridCS(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThr
     const unsigned int threadId = dispatchThreadID.x; // Particle ID to operate on
     float3 position = IntegrateInput[threadId].position;
 
-    uint3 gridIndex = GetGrindIndex(position);
+    uint3 gridIndex = GetGridIndex(position);
     uint gridKey = GetGridKey(gridIndex);
 
     GridOutput[threadId].gridKey = gridKey;
     GridOutput[threadId].particleIndex = gridIndex;
+}
+
+[numthreads(256, 1, 1)]
+void SortGridIndices(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
+{
+    sharedData[GI] = GridOutput[dispatchThreadID.x];
+    GroupMemoryBarrierWithGroupSync();
+
+    	// Sort the shared data
+	[loop]
+    for (unsigned int j = sortLevel >> 1; j > 0; j >>= 1)
+    {
+        bool which_to_take = ((sharedData[GI & ~j].gridKey <= sharedData[GI | j].gridKey) == (bool) (sortAlternateMask & dispatchThreadID.x));
+
+        unsigned int gridKeyResult = which_to_take ? sharedData[GI ^ j].gridKey : sharedData[GI].gridKey;
+        unsigned int particleIndexResult = which_to_take ? sharedData[GI ^ j].particleIndex : sharedData[GI].particleIndex;
+
+
+        GroupMemoryBarrierWithGroupSync();
+        
+        sharedData[GI].gridKey = gridKeyResult;
+        sharedData[GI].particleIndex = particleIndexResult;
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+    
+	// Store shared data
+    GridOutput[dispatchThreadID.x] = sharedData[GI];
+
 }
 
 [numthreads(256, 1, 1)]
@@ -188,24 +233,42 @@ void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchT
 
     float3 particlePosition = IntegrateInput[threadID].position;
 
+    uint3 g_xyz = GetGridIndex(particlePosition);
+
     float density = 0.0f;
 
     [loop]
-    for (uint i = 0; i < particleCount; i++)
+    for (int y = max(g_xyz.y - 1, 0); y <= min(g_xyz.y + 1, GRID_DIMENSION - 1); y++)
     {
-        float3 nPosition = IntegrateInput[threadID].position;
-
-        float3 posDiff = nPosition - particlePosition;
-
-        float rSquared = dot(posDiff, posDiff);
-
-        if (rSquared < smoothingSquared)
+	    [loop]
+        for (uint x = max(g_xyz.x - 1, 0); x <= min(g_xyz.x + 1, GRID_DIMENSION - 1); x++)
         {
-            density += CalculateDensity(rSquared);
+            [loop]
+            for (uint z = max(g_xyz.z - 1, 0); z <= min(g_xyz.z + 1, GRID_DIMENSION - 1); z++)
+            {
+                uint cellID = GetGridKey(uint3(x, y, z));
+                uint gridBorderStart = GridIndicesInput[cellID].gridStart;
+                uint gridBorderEnd = GridIndicesInput[cellID].gridEnd;
+
+                [loop]
+                for (unsigned int nID = gridBorderStart; nID < gridBorderEnd; nID++)
+                {
+                    uint particleID = GridInput[nID].particleIndex;
+                    float3 nPosition = IntegrateInput[particleID].position;
+
+                    float3 diff = nPosition - particlePosition;
+                    float rSQ = dot(diff, diff);
+
+                    if(rSQ < smoothingSquared)
+                    {
+                        density += CalculateDensity(rSQ);
+                    }
+                }
+
+            }
         }
     }
-
-    DensityOutput[threadID].density = density;
+	DensityOutput[threadID].density = density;
     DensityOutput[threadID].padding01 = float3(0.0f, 0.0f, 0.0f);
 }
 
@@ -224,31 +287,49 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
 
     float3 acceleration = float3(0.0f, 0.0f, 0.0f);
 
+    uint3 g_xyz = GetGridIndex(particlePosition);
+
     [loop]
-    for (uint i = 0; i < particleCount; i++)
+    for (uint y = max(g_xyz.y - 1, 0); y <= min(g_xyz.y + 1, GRID_DIMENSION - 1); y++)
     {
-        float3 newPos = IntegrateInput[threadID].position;
-
-        float3 posDiff = newPos - particlePosition;
-
-        float rSquared = dot(posDiff, posDiff);
-
-        if (rSquared < smoothingSquared && threadID != i)
+        [loop]
+        for (uint x = max(g_xyz.x - 1, 0); x <= min(g_xyz.x + 1, GRID_DIMENSION - 1); x++)
         {
-            float3 nVelocity = IntegrateInput[threadID].velocity;
-            float nDensity = DensityInput[threadID].density;
-            float nPressure = CalculatePressure(nDensity);
-            float r = sqrt(rSquared);
 
-            // Apply Pressure
-            acceleration += CalculateGradPressure(r, particlePressure, nPressure, nDensity, posDiff);
+            [loop]
+            for (uint z = max(g_xyz.z - 1, 0); z <= min(g_xyz.z + 1, GRID_DIMENSION - 1); z++)
+            {
+                unsigned int g_cell = GetGridIndex(uint3(x, y, z));
+                uint gridBorderStart = GridIndicesInput[g_cell].gridStart;
+                uint gridBorderEnd = GridIndicesInput[g_cell].gridEnd;
 
-            // Apply Viscosity
-            acceleration += CalculateLapViscosity(r, particleVelocity, nVelocity, nDensity);
+                [loop]
+                for (unsigned int nID = gridBorderStart; nID < gridBorderEnd; nID++)
+                {
+                    uint npID = GridInput[nID].particleIndex;
+                    float3 nPosition = IntegrateInput[npID].position;
+
+                    float3 diff = nPosition - particlePosition;
+                    float rSQ = dot(diff, diff);
+
+                    if (rSQ < smoothingSquared && threadID != npID)
+                    {
+                        float3 newVelocity = IntegrateInput[npID].velocity;
+                        float newDensity = DensityInput[npID].density;
+                        float newPressure = CalculatePressure(newDensity);
+                        float r = sqrt(rSQ);
+
+                        // apply pressure
+                        acceleration += CalculateGradPressure(r, particlePressure, newPressure, newDensity, diff);
+                        acceleration += CalculateLapViscosity(r, particleVelocity, newVelocity, newDensity);
+                    }
+                }
+            }
         }
     }
+    acceleration /= float3(particleDensity, particleDensity, particleDensity);
 
-    ForcesOutput[threadID].acceleration = acceleration / particleDensity;
+    ForcesOutput[threadID].acceleration = acceleration;
     ForcesOutput[threadID].padding01 = acceleration / particleDensity;
 }
 
@@ -265,7 +346,16 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
 
    // acceleration.y -= gravity;
 
-    velocity += acceleration * deltaTime;
+    [unroll]
+    for (unsigned int i = 0; i < 6; i++)
+    {
+        float dist = dot(float4(position, 1), vPlanes[i]);
+        acceleration += min(dist, 0) * -wallStiffness * vPlanes[i].xyz;
+    }
+
+    acceleration.z -= gravity;
+
+	velocity += acceleration * deltaTime;
     position += velocity * deltaTime;
 
     IntegrateOutput[threadID].position = position;
@@ -273,3 +363,4 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
     IntegrateOutput[threadID].padding01 = 0.0f;
     IntegrateOutput[threadID].padding02 = 0.0f;
 }
+        

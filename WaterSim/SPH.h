@@ -34,6 +34,18 @@ struct ParticleConstantBuffer
 	float GradPressureCoef;
 	float LapViscosityCoef;
 	float gravity;
+
+	XMFLOAT4 vPlanes[6];
+};
+
+struct SortConstantBuffer
+{
+	unsigned int sortLevel;
+	unsigned int sortAlternateMask;
+	unsigned int iWidth;
+	unsigned int iHeight;
+
+	XMFLOAT4 padding01;
 };
 
 struct IntegrateParticle
@@ -111,7 +123,7 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
-	float collisionBoxSize = 3.0f;
+	float collisionBoxSize = 1.0f;
 private:
 	// Particle Initialization
 	void InitParticles();
@@ -120,6 +132,8 @@ private:
 	void SetUpParticleConstantBuffer();
 	void BuildGrid();
 	void BuildGridIndices();
+	void SortGridIndices();
+	void RenderFluid();
 
 	ID3D11DeviceContext* deviceContext;
 	ID3D11Device* device;
@@ -132,6 +146,7 @@ private:
 	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
 
 	ID3D11Buffer* pParticleConstantBuffer = nullptr;
+	ID3D11Buffer* pSortConstantBuffer = nullptr;
 
 	// Integrate
 	ID3D11ComputeShader* pParticleIntegrateCS = nullptr;
@@ -157,12 +172,14 @@ private:
 	ID3D11ShaderResourceView* pGridSRV = nullptr;
 	ID3D11UnorderedAccessView* pGridUAV = nullptr;
 
-	// Grid Indices
+	// Grid Indices/Border
 	ID3D11ComputeShader* pParticleGridIndicesCS = nullptr;
 	ID3D11Buffer* pGridIndicesBuffer = nullptr;
 	ID3D11ShaderResourceView* pGridIndicesSRV = nullptr;
 	ID3D11UnorderedAccessView* pGridIndicesUAV = nullptr;
 
+	// Grid Sort
+	ID3D11ComputeShader* pGridSorterShader = nullptr;
 	//Clear Grid Indices
 	ID3D11ComputeShader* pParticleClearGridIndicesCS = nullptr;
 
