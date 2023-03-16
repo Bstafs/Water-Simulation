@@ -2,7 +2,7 @@
 
 
 //walls
-float particleSpacing = 0.1f;
+float particleSpacing = 1.0f;
 
 const float low_wall = 1.0f;
 const float left_wall = 1.5f;
@@ -81,17 +81,17 @@ void SPH::InitParticles()
 {
 	// Following Realtime Particle I researched, I need to loop over every particle for x,y,z
 
-	const UINT startingHeight = 5;
+	const UINT startingHeight = 7;
 
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		UINT x = i / (startingHeight * startingHeight);
+		UINT x = i % (startingHeight);
 		UINT y = i / startingHeight % (startingHeight);
 		UINT z = i % (startingHeight);
 
-		XMFLOAT3 startingParticlePosition = XMFLOAT3((float)x * particleSpacing, (float)y * particleSpacing, (float)z * particleSpacing);
+		XMFLOAT3 startingParticlePosition = XMFLOAT3((float)x * particleSpacing, -1.6f, (float)y * particleSpacing);
 
-		Particle* newParticle = new Particle(MASS_CONSTANT, 1.0f, startingParticlePosition, XMFLOAT3(1, 1, 1));
+		Particle* newParticle = new Particle(MASS_CONSTANT, 0.6f, startingParticlePosition, XMFLOAT3(1, 1, 1));
 
 		newParticle->elasticity = sphElasticity;
 		newParticle->acceleration = XMFLOAT3(1, 1, 1);
@@ -326,9 +326,9 @@ void SPH::SetUpParticleConstantBuffer()
 	particleConstantCPUBuffer.smoothingLength = sphH;
 	particleConstantCPUBuffer.pressure = 200.0f;
 	particleConstantCPUBuffer.restDensity = sphDensity;
-	particleConstantCPUBuffer.densityCoef = POLY6_CONSTANT;
-	particleConstantCPUBuffer.GradPressureCoef = SPIKYGRAD_CONSTANT;
-	particleConstantCPUBuffer.LapViscosityCoef = VISC_CONSTANT;
+	particleConstantCPUBuffer.densityCoef = MASS_CONSTANT * 315.0f / (64.0f * PI * powf(sphH, 9));;
+	particleConstantCPUBuffer.GradPressureCoef = MASS_CONSTANT * -45.0f / (XM_PI * powf(sphH, 6));;
+	particleConstantCPUBuffer.LapViscosityCoef = MASS_CONSTANT * sphViscosity * 45.0f / (XM_PI * powf(sphH, 6));;
 	particleConstantCPUBuffer.gravity = sphG;
 
 	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0, 0, 1, low_wall);
@@ -430,7 +430,7 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->CSSetShader(pParticleIntegrateCS, nullptr, 0);
 		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
-		deviceContext->CSSetShaderResources(1, 1, &pForcesSRV);
+		//deviceContext->CSSetShaderResources(1, 1, &pForcesSRV);
 		deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAV, nullptr);
 
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
@@ -463,7 +463,7 @@ void SPH::ParticleForcesSetup()
 
 void SPH::RenderFluid()
 {
-	
+
 }
 
 

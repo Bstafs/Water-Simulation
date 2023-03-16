@@ -124,7 +124,7 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
-	float collisionBoxSize = 1.0f;
+	float collisionBoxSize = 8.0f;
 private:
 	// Particle Initialization
 	void InitParticles();

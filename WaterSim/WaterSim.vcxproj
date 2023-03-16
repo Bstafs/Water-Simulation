@@ -405,6 +405,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="RigidBody.h" />
     <ClInclude Include="SPH.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="Structures.h" />
     <ClInclude Include="Timestep.h" />
     <ClInclude Include="Transform.h" />

@@ -134,6 +134,10 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
+	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pReflectionTextureSRV);
+	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterRefraction.dds", nullptr, &pRefractionTextureSRV);
+	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pSkyBoxTextureSRV);
+
 
 	// Setup Camera
 	XMFLOAT3 eye = XMFLOAT3(0.0f, 2.0f, -1.0f);
@@ -196,12 +200,12 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		m_gameObjects.push_back(gameObject);
 	}
 
-	numbParticles = 50;
-	mass = 0.001f;
+	numbParticles = 49;
+	mass = 0.0002f;
 	density = 997.0f;
 	gasConstant = 1.0f;
 	viscosity = 0.1f;
-	h = 0.1f;
+	h = 0.12f;
 	g = -9.807f;
 	tension = 0.2f;
 	elastisicty = 1.0f;
@@ -215,7 +219,6 @@ HRESULT Application::InitShadersAndInputLayout()
 	HRESULT hr;
 
 	_pVertexShader = CreateVertexShader(L"shader.fx", "VS", "vs_4_0", _pd3dDevice);
-
 	_pPixelShader = CreatePixelShader(L"shader.fx", "PS", "ps_4_0", _pd3dDevice);
 
 	// Define the input layout
@@ -232,6 +235,22 @@ HRESULT Application::InitShadersAndInputLayout()
 
 	// Set the input layout
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
+
+
+	pWaterVertexShader = CreateVertexShader(L"WaterShader.fx", "VS", "vs_4_0", _pd3dDevice);
+	pWaterPixelShader = CreatePixelShader(L"WaterShader.fx", "PS", "ps_4_0", _pd3dDevice);
+
+	// Define the input layout
+	D3D11_INPUT_ELEMENT_DESC waterLayout[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	};
+
+	UINT numElementsWater = ARRAYSIZE(waterLayout);
+
+	pWaterInputLayout = CreateInputLayout(waterLayout, numElementsWater, _pd3dDevice);
+
 
 	D3D11_SAMPLER_DESC sampDesc;
 	ZeroMemory(&sampDesc, sizeof(sampDesc));
@@ -324,7 +343,27 @@ HRESULT Application::InitVertexBuffer()
 	if (FAILED(hr))
 		return hr;
 
+	SimpleVertex WaterVertices[] =
+	{
+	{ XMFLOAT3(-1.5f, 0.0f, -1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.5f, 0.0f,  1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3(1.5f, 0.0f,  1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3(1.5f, 0.0f, -1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
+	};
+	
 
+	// Create the vertex buffer
+	D3D11_BUFFER_DESC vertexBufferDesc;
+	ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
+	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	vertexBufferDesc.ByteWidth = sizeof(SimpleVertex) * 4;
+	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vertexBufferDesc.CPUAccessFlags = 0;
+	vertexBufferDesc.MiscFlags = 0;
+	D3D11_SUBRESOURCE_DATA vertexData;
+	ZeroMemory(&vertexData, sizeof(vertexData));
+	vertexData.pSysMem = WaterVertices;
+	hr  = _pd3dDevice->CreateBuffer(&vertexBufferDesc, &vertexData, &_pWaterVertexBuffer);
 
 
 	return S_OK;
@@ -391,6 +430,25 @@ HRESULT Application::InitIndexBuffer()
 
 	if (FAILED(hr))
 		return hr;
+
+	WORD waterIndices[] =
+	{
+	0, 1, 2,
+	0, 2, 3
+	};
+
+	// Create the index buffer
+	D3D11_BUFFER_DESC indexBufferDesc;
+	ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
+	indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	indexBufferDesc.ByteWidth = sizeof(WORD) * 6;
+	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	indexBufferDesc.CPUAccessFlags = 0;
+	indexBufferDesc.MiscFlags = 0;
+	D3D11_SUBRESOURCE_DATA indexData;
+	ZeroMemory(&indexData, sizeof(indexData));
+	indexData.pSysMem = waterIndices;
+	hr = _pd3dDevice->CreateBuffer(&indexBufferDesc, &indexData, &_pWaterIndexBuffer);
 
 	return S_OK;
 }
@@ -531,6 +589,7 @@ HRESULT Application::InitDevice()
 
 	// Create the constant buffer
 	_pConstantBuffer = CreateConstantBuffer(sizeof(ConstantBuffer), _pd3dDevice, false);
+	pWaterConstantBuffer = CreateConstantBuffer(sizeof(WaterBuffer), _pd3dDevice, false);
 
 	// Depth Stencil Stuff
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
@@ -579,7 +638,21 @@ HRESULT Application::InitDevice()
 	cmdesc.FrontCounterClockwise = false;
 	hr = _pd3dDevice->CreateRasterizerState(&cmdesc, &CWcullMode);
 
-	return S_OK;
+	D3D11_BLEND_DESC blendStateDesc;
+	ZeroMemory(&blendStateDesc, sizeof(blendStateDesc));
+	blendStateDesc.AlphaToCoverageEnable = false;
+	blendStateDesc.RenderTarget[0].BlendEnable = true;
+	blendStateDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	blendStateDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	blendStateDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	blendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	blendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	blendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	blendStateDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+	hr = _pd3dDevice->CreateBlendState(&blendStateDesc, &waterBlendState);
+
+	return hr;
 }
 
 void Application::Cleanup()
@@ -728,7 +801,6 @@ void Application::Update()
 	object = (XMMatrixRotationX(waterRot.x) * XMMatrixRotationY(waterRot.y) * XMMatrixRotationZ(waterRot.z)) * XMMatrixTranslation(waterPos.x, waterPos.y, waterPos.z);
 	XMStoreFloat4x4(&m_myWater, object);
 
-
 	// Move gameobject Forces
 
 	if (GetAsyncKeyState('1'))
@@ -782,9 +854,10 @@ void Application::ImGui()
 
 		if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, particleSize * 10 * ImGui::GetTextLineHeightWithSpacing())))
 		{
-			for (auto part : sph->particleList)
-
+			for (int i = 0; i < sph->particleList.size(); i++)
 			{
+				Particle* part = sph->particleList[i];
+
 				if (ImGui::CollapsingHeader("Particle"))
 				{
 					ImGui::Text("Collision Box");
@@ -792,7 +865,7 @@ void Application::ImGui()
 					ImGui::DragFloat("Particle Elasticity", &part->elasticity, 0.01f, 0, 1.0f);
 
 					ImGui::Text("Particle Values");
-					ImGui::DragFloat3("Position", &part->position.x, 0.01f);
+					ImGui::DragFloat3("Position", &part[0].position.x, 0.01f);
 					ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
 					ImGui::DragFloat("Density", &part->density, 1.0f, 0);
 					ImGui::DragFloat("Particle Size", &part->size, 0.01f, 0.1f, 1.0f);
@@ -801,7 +874,10 @@ void Application::ImGui()
 			ImGui::EndListBox();
 		}
 	}
-
+	if (ImGui::CollapsingHeader("Water"))
+	{
+		ImGui::DragFloat3("Water Position", &waterPos.x);
+	}
 
 
 	ImGui::End();
@@ -874,37 +950,73 @@ void Application::Draw()
 		gameObject->Draw(_pImmediateContext);
 	}
 
+	_pImmediateContext->ClearRenderTargetView(_pRenderTargetView, ClearColor);
+	_pImmediateContext->ClearDepthStencilView(_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
+
+	if (isParticleVisible == true)
+	{
+		for (int i = 0; i < sph->particleList.size(); i++)
+		{
+			m_batch->Begin();
+			Particle* part = sph->particleList[i];
+
+			part->sphere.Center = part->position;
+			part->sphere.Radius = part->size;
+
+			DrawSphere(m_batch.get(), part->sphere, DirectX::Colors::Green);
+			m_batch->End();
+		}
+	}
+
 	XMMATRIX myWater = XMLoadFloat4x4(&m_myWater);
 	cb.World = XMMatrixTranspose(myWater);
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
-		sph->Draw();
+	sph->Draw();
 
-	_pImmediateContext->IASetInputLayout(_pVertexLayout);
-	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
-	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
-	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
-	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
+	WaterBuffer wb = {};
+	wb.World = XMMatrixTranspose(myWater);
+	wb.View = XMMatrixTranspose(view);
+	wb.Projection = XMMatrixTranspose(projection);
+
+	wb.waterSpeed = XMFLOAT2(100.0f, 100.0f);
+	wb.waterColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0);
+	wb.light = basicLight;
+	wb.reflectionTint = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
+	wb.refractionTint = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
+	wb.refractionAmount = 20.0f;
+	wb.specularColor = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
+	wb.skyBoxColor = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+	_pImmediateContext->UpdateSubresource(pWaterConstantBuffer, 0, nullptr, &wb, 0, 0);
+
+	UINT stride = sizeof(SimpleVertex);
+	UINT offset = 0;
+	_pImmediateContext->IASetVertexBuffers(0, 1, &_pWaterVertexBuffer, &stride, &offset);
+	_pImmediateContext->IASetIndexBuffer(_pWaterIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+	_pImmediateContext->IASetInputLayout(pWaterInputLayout);
+	_pImmediateContext->VSSetShader(pWaterVertexShader, nullptr, 0);
+	_pImmediateContext->VSSetConstantBuffers(0, 1, &pWaterConstantBuffer);
+
+	_pImmediateContext->PSSetShader(pWaterPixelShader, nullptr, 0);
+	_pImmediateContext->PSSetConstantBuffers(0, 1, &pWaterConstantBuffer);
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
-	if (isParticleVisible == true)
-	{
-		m_batch->Begin();
-		for (int i = 0; i < sph->particleList.size(); i++)
-		{
-			Particle* part = sph->particleList[i];
+	_pImmediateContext->PSSetShaderResources(0, 1, &pReflectionTextureSRV);
+	_pImmediateContext->PSSetShaderResources(1, 1, &pRefractionTextureSRV);
+	_pImmediateContext->PSSetShaderResources(2, 1, &pSkyBoxTextureSRV);
 
-			part->sphere.Center = part->position;
-			part->sphere.Radius = part->size / 2;
+	_pImmediateContext->OMSetBlendState(waterBlendState, nullptr, 0xffffffff);
 
-			DrawSphere(m_batch.get(), part->sphere, DirectX::Colors::White);
-		}
-		m_batch->End();
-	}
+	_pImmediateContext->RSSetState(CWcullMode);
+
+	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	_pImmediateContext->DrawIndexed(6, 0, 0);
 
 	ImGui();
-
-	//sph->Draw();
 
 	_pSwapChain->Present(0, 0);
 }

@@ -42,6 +42,29 @@ struct ConstantBuffer
 	float HasTexture;
 };
 
+struct WaterBuffer
+{
+	XMMATRIX World;
+	XMMATRIX View;
+	XMMATRIX Projection;
+
+
+	XMFLOAT4 waterColor;
+	XMFLOAT4 padding00;
+	XMFLOAT4 reflectionTint;
+	XMFLOAT4 refractionTint;
+
+	XMFLOAT2 waterSpeed;
+	float refractionAmount;
+	float fresnelPower;
+	XMFLOAT4 specularColor;
+	XMFLOAT4 skyBoxColor;
+	XMFLOAT4 padding01;
+
+	Light light;
+};
+
+
 class Application
 {
 private:
@@ -65,6 +88,11 @@ private:
 
 	ID3D11Buffer* _pPlaneVertexBuffer;
 	ID3D11Buffer* _pPlaneIndexBuffer;
+
+	ID3D11Buffer* _pWaterVertexBuffer;
+	ID3D11Buffer* _pWaterIndexBuffer;
+
+	ID3D11BlendState* waterBlendState;
 
 	ID3D11Buffer* _pConstantBuffer;
 
@@ -137,8 +165,23 @@ private:
    Timestep* _timestep;
 
    XMFLOAT4X4 m_myWater;
-   XMFLOAT3 waterPos = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+   XMFLOAT3 waterPos = XMFLOAT3(1.5f, 0.0f, 1.5f);
    XMFLOAT3 waterRot = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+
+   // Water Shader
+   ID3D11VertexShader* pWaterVertexShader = nullptr;
+   ID3D11PixelShader* pWaterPixelShader = nullptr;
+
+   ID3D11InputLayout* pWaterInputLayout = nullptr;
+   ID3D11Buffer* pWaterConstantBuffer = nullptr;
+
+   ID3D11SamplerState* pWaterTextureSampler = nullptr;
+
+   ID3D11ShaderResourceView* pReflectionTextureSRV = nullptr;
+   ID3D11ShaderResourceView* pRefractionTextureSRV = nullptr;
+   ID3D11ShaderResourceView* pSkyBoxTextureSRV = nullptr;
 
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);
@@ -148,6 +191,8 @@ private:
 	HRESULT InitShadersAndInputLayout();
 	HRESULT InitVertexBuffer();
 	HRESULT InitIndexBuffer();
+
+
 
 	void ImGui();
 	float CalculateDeltaTime60FPS();
