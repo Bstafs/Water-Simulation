@@ -1,11 +1,11 @@
 #define GRID_DIMENSION 256
 #define WARP_GROUP_SIZE 1024
-float wallStiffness = 3000.0f;
 
 cbuffer ParticleConstantBuffer : register(b1)
 {
     int particleCount;
-    float3 padding00;
+    float wallStiffness;
+    float2 padding00;
 
     float deltaTime;
     float smoothingLength;
@@ -117,7 +117,7 @@ void BuildGridCS(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThr
 [numthreads(256, 1, 1)]
 void SortGridIndices(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
-    sharedData[GI] = GridOutput[dispatchThreadID.x];
+    sharedData[GI] = GridInput[dispatchThreadID.x];
     GroupMemoryBarrierWithGroupSync();
 
     	// Sort the shared data
@@ -344,8 +344,6 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
     float3 velocity = IntegrateInput[threadID].velocity;
     float3 acceleration = ForcesInput[threadID].acceleration;
 
-   // acceleration.y -= gravity;
-
     [unroll]
     for (unsigned int i = 0; i < 6; i++)
     {
@@ -353,10 +351,10 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
         acceleration += min(dist, 0) * -wallStiffness * vPlanes[i].xyz;
     }
 
-    acceleration.z -= gravity;
+    acceleration.y += gravity;
 
-	velocity += acceleration * deltaTime;
-    position += velocity * deltaTime;
+	velocity += acceleration * 0.03f;
+    position += velocity * 0.03f;
 
     IntegrateOutput[threadID].position = position;
     IntegrateOutput[threadID].velocity = velocity;

@@ -136,6 +136,10 @@ private:
 
    Timestep* _timestep;
 
+   XMFLOAT4X4 m_myWater;
+   XMFLOAT3 waterPos = XMFLOAT3(0.0f, 0.0f, 0.0f);
+   XMFLOAT3 waterRot = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);
 	HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow);

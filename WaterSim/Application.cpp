@@ -708,6 +708,13 @@ void Application::Update()
 		return;
 	}
 
+	// Update camera
+
+	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
+	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
+
+	_camera->Update();
+
 	sph->deltaTimeValue = deltaTime;
 
 	sph->Update();
@@ -716,6 +723,11 @@ void Application::Update()
 	{
 		gameObject->Update(deltaTime);
 	}
+
+	XMMATRIX object;
+	object = (XMMatrixRotationX(waterRot.x) * XMMatrixRotationY(waterRot.y) * XMMatrixRotationZ(waterRot.z)) * XMMatrixTranslation(waterPos.x, waterPos.y, waterPos.z);
+	XMStoreFloat4x4(&m_myWater, object);
+
 
 	// Move gameobject Forces
 
@@ -727,13 +739,6 @@ void Application::Update()
 	{
 		moveForward(2);
 	}
-
-	// Update camera
-
-	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
-	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
-
-	_camera->Update();
 }
 
 void Application::ImGui()
@@ -822,8 +827,6 @@ void Application::Draw()
 
 	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
-	sph->Draw();
-
 	ConstantBuffer cb;
 
 	XMFLOAT4X4 viewAsFloats = _camera->GetView();
@@ -838,6 +841,51 @@ void Application::Draw()
 	cb.light = basicLight;
 	cb.EyePosW = _camera->GetPosition();
 
+	// Render all scene objects
+	for (auto gameObject : m_gameObjects)
+	{
+		// Get render material
+		Material material = gameObject->GetAppearance()->GetMaterial();
+
+		// Copy material to shader
+		cb.surface.AmbientMtrl = material.ambient;
+		cb.surface.DiffuseMtrl = material.diffuse;
+		cb.surface.SpecularMtrl = material.specular;
+
+		// Set world matrix
+		cb.World = XMMatrixTranspose(gameObject->GetTransform()->GetWorldMatrix());
+
+		// Set texture
+		if (gameObject->GetAppearance()->HasTexture())
+		{
+			ID3D11ShaderResourceView* textureRV = gameObject->GetAppearance()->GetTextureRV();
+			_pImmediateContext->PSSetShaderResources(0, 1, &textureRV);
+			cb.HasTexture = 1.0f;
+		}
+		else
+		{
+			cb.HasTexture = 0.0f;
+		}
+
+		// Update constant buffer
+		_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+		// Draw object
+		gameObject->Draw(_pImmediateContext);
+	}
+
+	XMMATRIX myWater = XMLoadFloat4x4(&m_myWater);
+	cb.World = XMMatrixTranspose(myWater);
+	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+		sph->Draw();
+
+	_pImmediateContext->IASetInputLayout(_pVertexLayout);
+	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
+	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
+	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
+	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
+	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
 	if (isParticleVisible == true)
 	{
@@ -852,72 +900,7 @@ void Application::Draw()
 			DrawSphere(m_batch.get(), part->sphere, DirectX::Colors::White);
 		}
 		m_batch->End();
-
-		Material material = m_gameObjects[0]->GetAppearance()->GetMaterial();
-
-		// Copy material to shader
-		cb.surface.AmbientMtrl = material.ambient;
-		cb.surface.DiffuseMtrl = material.diffuse;
-		cb.surface.SpecularMtrl = material.specular;
-
-		// Set world matrix
-		cb.World = XMMatrixTranspose(m_gameObjects[0]->GetTransform()->GetWorldMatrix());
-
-		// Set texture
-		if (m_gameObjects[0]->GetAppearance()->HasTexture())
-		{
-			ID3D11ShaderResourceView* textureRV = m_gameObjects[0]->GetAppearance()->GetTextureRV();
-			_pImmediateContext->PSSetShaderResources(0, 1, &textureRV);
-			cb.HasTexture = 1.0f;
-		}
-		else
-		{
-			cb.HasTexture = 0.0f;
-		}
-
-		// Update constant buffer
-		_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-
-		// Draw object
-		m_gameObjects[0]->Draw(_pImmediateContext);
 	}
-	else
-	{
-		// Render all scene objects
-		for (auto gameObject : m_gameObjects)
-		{
-			// Get render material
-			Material material = gameObject->GetAppearance()->GetMaterial();
-
-			// Copy material to shader
-			cb.surface.AmbientMtrl = material.ambient;
-			cb.surface.DiffuseMtrl = material.diffuse;
-			cb.surface.SpecularMtrl = material.specular;
-
-			// Set world matrix
-			cb.World = XMMatrixTranspose(gameObject->GetTransform()->GetWorldMatrix());
-
-			// Set texture
-			if (gameObject->GetAppearance()->HasTexture())
-			{
-				ID3D11ShaderResourceView* textureRV = gameObject->GetAppearance()->GetTextureRV();
-				_pImmediateContext->PSSetShaderResources(0, 1, &textureRV);
-				cb.HasTexture = 1.0f;
-			}
-			else
-			{
-				cb.HasTexture = 0.0f;
-			}
-
-			// Update constant buffer
-			_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-
-			// Draw object
-			gameObject->Draw(_pImmediateContext);
-		}
-
-	}
-
 
 	ImGui();
 

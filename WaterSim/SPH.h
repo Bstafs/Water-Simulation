@@ -23,7 +23,8 @@
 struct ParticleConstantBuffer
 {
 	int particleCount;
-	XMFLOAT3 padding00;
+	float wallStiffness;
+	XMFLOAT2 padding00;
 
 	float deltaTime;
 	float smoothingLength;
@@ -189,5 +190,8 @@ private:
 	ID3D11Buffer* pDebugPositionBuffer = nullptr;
 	ID3D11Buffer* pDebugGridBuffer = nullptr;
 	ID3D11Buffer* pDebugGridIndicesBuffer = nullptr;
+
+	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };
+	ID3D11ShaderResourceView* srvNull[2] = { nullptr, nullptr };
 };
 

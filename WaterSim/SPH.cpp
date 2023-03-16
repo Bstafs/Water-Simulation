@@ -42,7 +42,6 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 
 	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
 	int particleResize = numberOfParticles;
-	//	neighbourParticles.resize(particleResize);
 	particleList.resize(particleResize);
 
 	// Particle Initialization
@@ -92,7 +91,7 @@ void SPH::InitParticles()
 
 		XMFLOAT3 startingParticlePosition = XMFLOAT3((float)x * particleSpacing, (float)y * particleSpacing, (float)z * particleSpacing);
 
-		Particle* newParticle = new Particle(MASS_CONSTANT, sphH, startingParticlePosition, XMFLOAT3(1, 1, 1));
+		Particle* newParticle = new Particle(MASS_CONSTANT, 1.0f, startingParticlePosition, XMFLOAT3(1, 1, 1));
 
 		newParticle->elasticity = sphElasticity;
 		newParticle->acceleration = XMFLOAT3(1, 1, 1);
@@ -251,11 +250,18 @@ void SPH::BuildGrid()
 {
 	deviceContext->Flush();
 
-	deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
-	deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
-	deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
 	deviceContext->CSSetShader(pParticleGridCS, nullptr, 0);
+
+	deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+
+	deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+
 	deviceContext->Dispatch(256, 1, 1);
+
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+	deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
+	deviceContext->CSSetShaderResources(0, 1, srvNull);
+	deviceContext->CSSetShaderResources(3, 1, srvNull);
 }
 
 void SPH::SortGridIndices()
@@ -279,18 +285,33 @@ void SPH::SortGridIndices()
 
 void SPH::BuildGridIndices()
 {
-	deviceContext->Flush();
-	deviceContext->CSSetShader(pParticleClearGridIndicesCS, nullptr, 0);
-	deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
-	deviceContext->Flush();
-	deviceContext->Dispatch(256 * 256 * 256 / 1024, 1, 1);
+	// Clear
 
 	deviceContext->Flush();
+	deviceContext->CSSetShader(pParticleClearGridIndicesCS, nullptr, 0);
+	deviceContext->CSSetUnorderedAccessViews(4, 1, &pGridIndicesUAV, nullptr);
+	deviceContext->Dispatch(256 * 256 * 256 / 1024, 1, 1);
+
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+	deviceContext->CSSetShaderResources(4, 1, srvNull);
+	deviceContext->CSSetUnorderedAccessViews(4, 1, uavViewNull, nullptr);
+
+
+	// Build
+	deviceContext->Flush();
 	deviceContext->CSSetShader(pParticleGridIndicesCS, nullptr, 0);
+
+	deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
 	deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
+
 	deviceContext->CSSetUnorderedAccessViews(4, 1, &pGridIndicesUAV, nullptr);
 
 	deviceContext->Dispatch(256, 1, 1);
+
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+
+	deviceContext->CSSetUnorderedAccessViews(4, 1, uavViewNull, nullptr);
+	deviceContext->CSSetShaderResources(4, 1, srvNull);
 
 	deviceContext->Flush();
 }
@@ -299,7 +320,8 @@ void SPH::BuildGridIndices()
 void SPH::SetUpParticleConstantBuffer()
 {
 	particleConstantCPUBuffer.particleCount = numberOfParticles;
-	particleConstantCPUBuffer.padding00 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	particleConstantCPUBuffer.wallStiffness = 3000.0f;
+	particleConstantCPUBuffer.padding00 = XMFLOAT2(0.0f, 0.0f);
 	particleConstantCPUBuffer.deltaTime = 1.0f / 60.0f;
 	particleConstantCPUBuffer.smoothingLength = sphH;
 	particleConstantCPUBuffer.pressure = 200.0f;
@@ -329,19 +351,26 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->CSSetShader(pParticleDensityCS, nullptr, 0);
 
+		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+		deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+		deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
+
 		ID3D11UnorderedAccessView* cleanerUAV = nullptr;
 		deviceContext->CSSetUnorderedAccessViews(2, 1, &cleanerUAV, nullptr);
-
-
 		deviceContext->CSSetUnorderedAccessViews(2, 1, &pDensityUAV, nullptr);
-
-		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
-		deviceContext->CSSetShaderResources(2, 1, &pGridSRV);
-		deviceContext->CSSetShaderResources(3, 1, &pGridIndicesSRV);
 
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
 
 		deviceContext->Dispatch(256, 1, 1);
+
+		deviceContext->CSSetShader(nullptr, nullptr, 0);
+
+		deviceContext->CSSetUnorderedAccessViews(2, 1, uavViewNull, nullptr);
+
+		deviceContext->CSSetShaderResources(0, 1, srvNull);
+		deviceContext->CSSetShaderResources(3, 1, srvNull);
+		deviceContext->CSSetShaderResources(4, 1, srvNull);
+
 
 		deviceContext->CopyResource(pDebugDensityBuffer, pDensityBuffer);
 		ParticleDensity* densities = reinterpret_cast<ParticleDensity*>(MapBuffer(pDebugDensityBuffer, deviceContext));
@@ -362,15 +391,23 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->CSSetShader(pParticleForcesCS, nullptr, 0);
 
+		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+		deviceContext->CSSetShaderResources(2, 1, &pDensitySRV);
+		deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+		deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
+
 		ID3D11UnorderedAccessView* cleanerUAV = nullptr;
 		deviceContext->CSSetUnorderedAccessViews(1, 1, &cleanerUAV, nullptr);
 		deviceContext->CSSetUnorderedAccessViews(1, 1, &pForcesUAV, nullptr);
 
-		deviceContext->CSSetShaderResources(1, 1, &pForcesSRV);
-
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
 
 		deviceContext->Dispatch(256, 1, 1);
+
+		deviceContext->CSSetShader(nullptr, nullptr, 0);
+		deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
+		deviceContext->CSSetShaderResources(1, 1, srvNull);
+
 
 		deviceContext->CopyResource(pDebugForceBuffer, pForcesBuffer);
 
@@ -390,15 +427,19 @@ void SPH::ParticleForcesSetup()
 	// Integrate
 	{
 		deviceContext->Flush();
+
 		deviceContext->CSSetShader(pParticleIntegrateCS, nullptr, 0);
-
-		deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAV, nullptr);
-
 		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+		deviceContext->CSSetShaderResources(1, 1, &pForcesSRV);
+		deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAV, nullptr);
 
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
 
 		deviceContext->Dispatch(256, 1, 1);
+
+		deviceContext->CSSetShader(nullptr, nullptr, 0);
+		deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
+		deviceContext->CSSetShaderResources(0, 1, srvNull);
 
 		deviceContext->CopyResource(pDebugPositionBuffer, pIntegrateBuffer);
 		IntegrateParticle* positions = (IntegrateParticle*)MapBuffer(pDebugPositionBuffer, deviceContext);
@@ -432,7 +473,7 @@ void SPH::Draw()
 	BuildGrid();
 
 	// Sort Grid Indices
-	SortGridIndices();
+	//SortGridIndices();
 
 	// Build Grid Indices
 	BuildGridIndices();
