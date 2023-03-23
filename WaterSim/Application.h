@@ -47,21 +47,6 @@ struct WaterBuffer
 	XMMATRIX World;
 	XMMATRIX View;
 	XMMATRIX Projection;
-
-
-	XMFLOAT4 waterColor;
-	XMFLOAT4 padding00;
-	XMFLOAT4 reflectionTint;
-	XMFLOAT4 refractionTint;
-
-	XMFLOAT2 waterSpeed;
-	float refractionAmount;
-	float fresnelPower;
-	XMFLOAT4 specularColor;
-	XMFLOAT4 skyBoxColor;
-	XMFLOAT4 padding01;
-
-	Light light;
 };
 
 

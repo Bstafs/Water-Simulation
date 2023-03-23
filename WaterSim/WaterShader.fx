@@ -9,49 +9,28 @@ Texture2D skyboxTexture : register(t2);
 
 SamplerState samLinear : register(s0);
 
-struct Light
-{
-    float4 AmbientLight;
-    float4 DiffuseLight;
-    float4 SpecularLight;
-
-    float SpecularPower;
-    float3 LightVecW;
-};
-
 cbuffer WaterBuffer : register(b0)
 {
     matrix World;
     matrix View;
     matrix Projection;
-    
-
-    float4 waterColor;
-    float4 padding00;
-    float4 reflectionTint;
-    float4 refractionTint;
-
-    float2 waterSpeed;
-    float refractionAmount;
-    float fresnelPower;
-    float4 specularColor;
-    float4 skyBoxColor;
-    float4 padding01;
-
-    Light light;
 }
 
 struct VS_INPUT
 {
     float4 pos : POSITION;
-    float2 tex : TEXCOORD;
+    float3 Norm : NORMAL;
+    float2 tex : TEXCOORD0;
 };
 
 //--------------------------------------------------------------------------------------
 struct VS_OUTPUT
 {
     float4 pos : SV_POSITION;
-    float2 tex : TEXCOORD;
+    float3 Norm : NORMAL;
+
+    float3 posW : POSITION;
+    float2 tex : TEXCOORD0;
 };
 
 //--------------------------------------------------------------------------------------
@@ -61,19 +40,29 @@ VS_OUTPUT VS(VS_INPUT input)
 {
     VS_OUTPUT output = (VS_OUTPUT) 0;
 
-    output.pos = mul(input.pos, World);
-    output.pos = mul(output.pos, View);
+    float4 wrldPos = mul(input.pos, World);
+    output.posW = wrldPos.xyz;
+
+    output.pos = mul(wrldPos, View);
     output.pos = mul(output.pos, Projection);
     output.tex = input.tex;
 
+    float3 normalW = mul(float4(input.Norm, 0.0f), World).xyz;
+    output.Norm = normalize(normalW);
+
     return output;
 }
+
+//--------------------------------------------------------------------------------------
+// Geometry Shader
+//--------------------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------------------
 // Pixel Shader
 //--------------------------------------------------------------------------------------
 float4 PS(VS_OUTPUT input) : SV_Target
 {
+    float4 final = skyboxTexture.Sample(samLinear, input.tex);
 
-    return float4(0,0,0.6,1);
+    return final;
 }

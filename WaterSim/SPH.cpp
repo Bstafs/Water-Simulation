@@ -266,15 +266,42 @@ void SPH::BuildGrid()
 
 void SPH::SortGridIndices()
 {
+	// Bitonic Sort
+
 	deviceContext->CSSetShader(pGridSorterShader, nullptr, 0);
 
-	const UINT numberOfElements = numberOfParticles;
-	const UINT matrixWidth = 1024;
-	const UINT matrixHeight = numberOfParticles / 1024;
+
+	const UINT NUM_ELEMENTS = numberOfParticles;
+	const UINT MATRIX_WIDTH = 1024;
+	const UINT MATRIX_HEIGHT = numberOfParticles / MATRIX_WIDTH;
+	const UINT WARP_GROUP_SIZE = 1024;
 
 	// Sort
+	for (UINT level = 2; level <= WARP_GROUP_SIZE; level <<= 1)
+	{
+		sortConstantCPUBuffer.sortLevel = level;
+		sortConstantCPUBuffer.sortAlternateMask = level;
 
+		UpdateBuffer((float*)&sortConstantCPUBuffer, sizeof(SortConstantBuffer), pSortConstantBuffer, deviceContext);
+		deviceContext->CSSetConstantBuffers(2, 1, &pSortConstantBuffer);
+		deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+
+		deviceContext->Dispatch(numberOfParticles / WARP_GROUP_SIZE, 1, 1);
+	}
 	// Transpose
+	for (UINT level = (WARP_GROUP_SIZE << 1); level <= numberOfParticles; level <<= 1)
+	{
+		ID3D11ShaderResourceView* nullSRV = nullptr;
+
+		sortConstantCPUBuffer.sortLevel = level / WARP_GROUP_SIZE;
+		sortConstantCPUBuffer.sortAlternateMask = (level & ~NUM_ELEMENTS) / WARP_GROUP_SIZE;
+		sortConstantCPUBuffer.iWidth = MATRIX_WIDTH;
+		sortConstantCPUBuffer.iHeight = MATRIX_HEIGHT;
+		UpdateBuffer((float*)&sortConstantCPUBuffer, sizeof(SortConstantBuffer), pSortConstantBuffer, deviceContext);
+		deviceContext->CSSetConstantBuffers(2, 1, &pSortConstantBuffer);
+
+		//deviceContext->CSSetUnorderedAccessViews()
+	}
 
 	// Sort the transpose
 
@@ -430,7 +457,7 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->CSSetShader(pParticleIntegrateCS, nullptr, 0);
 		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
-		//deviceContext->CSSetShaderResources(1, 1, &pForcesSRV);
+		deviceContext->CSSetShaderResources(1, 1, &pForcesSRV);
 		deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAV, nullptr);
 
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
@@ -473,7 +500,7 @@ void SPH::Draw()
 	BuildGrid();
 
 	// Sort Grid Indices
-	//SortGridIndices();
+	SortGridIndices();
 
 	// Build Grid Indices
 	BuildGridIndices();

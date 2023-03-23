@@ -20,7 +20,7 @@ cbuffer ParticleConstantBuffer : register(b1)
     float4 vPlanes[6];
 };
 
-cbuffer ParticleConstantBuffer : register(b2)
+cbuffer SortConstantBuffer : register(b2)
 {
     unsigned int sortLevel;
     unsigned int sortAlternateMask;
@@ -327,8 +327,13 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
             }
         }
     }
-    acceleration /= float3(particleDensity, particleDensity, particleDensity);
 
+    float x = length(acceleration);
+
+    if(x != 0)
+    {
+        acceleration /= float3(particleDensity, particleDensity, particleDensity);
+    }
     ForcesOutput[threadID].acceleration = acceleration;
     ForcesOutput[threadID].padding01 = acceleration / particleDensity;
 }
@@ -351,7 +356,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
         acceleration += min(dist, 0) * -wallStiffness * vPlanes[i].xyz;
     }
 
-   // acceleration.y += gravity;
+    acceleration.y += gravity;
 
 	velocity += acceleration * 0.03f;
     position += velocity * 0.03f;

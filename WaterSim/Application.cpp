@@ -135,7 +135,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pReflectionTextureSRV);
-	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterRefraction.dds", nullptr, &pRefractionTextureSRV);
+	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pRefractionTextureSRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pSkyBoxTextureSRV);
 
 
@@ -244,6 +244,7 @@ HRESULT Application::InitShadersAndInputLayout()
 	D3D11_INPUT_ELEMENT_DESC waterLayout[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 
@@ -980,15 +981,6 @@ void Application::Draw()
 	wb.World = XMMatrixTranspose(myWater);
 	wb.View = XMMatrixTranspose(view);
 	wb.Projection = XMMatrixTranspose(projection);
-
-	wb.waterSpeed = XMFLOAT2(100.0f, 100.0f);
-	wb.waterColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0);
-	wb.light = basicLight;
-	wb.reflectionTint = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
-	wb.refractionTint = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
-	wb.refractionAmount = 20.0f;
-	wb.specularColor = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
-	wb.skyBoxColor = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
 	_pImmediateContext->UpdateSubresource(pWaterConstantBuffer, 0, nullptr, &wb, 0, 0);
 
 	UINT stride = sizeof(SimpleVertex);

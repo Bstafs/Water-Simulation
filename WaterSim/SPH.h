@@ -142,6 +142,7 @@ private:
 	// Compute Shaders
 
 	ParticleConstantBuffer particleConstantCPUBuffer;
+	SortConstantBuffer sortConstantCPUBuffer;
 
 	ID3D11ShaderResourceView* _ppSRVNULL[2] = { nullptr, nullptr };
 	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
