@@ -107,6 +107,7 @@ void SPH::InitParticles()
 	SetDebugName(pParticleConstantBuffer, "Particle Constant Buffer");
 
 	pSortConstantBuffer = CreateConstantBuffer(sizeof(SortConstantBuffer), device, true);
+	SetDebugName(pSortConstantBuffer, "Sort Constant Buffer");
 
 	//---Integrate
 	IntegrateParticle* integrateData = new IntegrateParticle[numberOfParticles];
@@ -127,17 +128,26 @@ void SPH::InitParticles()
 	}
 
 	pParticleIntegrateCS = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
+	SetDebugName(pParticleIntegrateCS, "Integrate Shader");
 
 	pIntegrateBufferOne = CreateStructureBuffer(sizeof(IntegrateParticle), (float*)integrateData, numberOfParticles, device);
+	SetDebugName(pIntegrateBufferOne, "Integrate Buffer One");
 	pIntegrateBufferTwo = CreateStructureBuffer(sizeof(IntegrateParticle), (float*)integrateData, numberOfParticles, device);
+	SetDebugName(pIntegrateBufferTwo, "Integrate Buffer Two");
+
 
 	pIntegrateSRVOne = CreateShaderResourceView(pIntegrateBufferOne, numberOfParticles, device);
+	SetDebugName(pIntegrateSRVOne, "Integrate SRV One");
 	pIntegrateSRVTwo = CreateShaderResourceView(pIntegrateBufferTwo, numberOfParticles, device);
+	SetDebugName(pIntegrateSRVTwo, "Integrate SRV Two");
 
 	pIntegrateUAVOne = CreateUnorderedAccessView(pIntegrateBufferOne, numberOfParticles, device);
+	SetDebugName(pIntegrateUAVOne, "Integrate UAV One");
 	pIntegrateUAVTwo = CreateUnorderedAccessView(pIntegrateBufferTwo, numberOfParticles, device);
+	SetDebugName(pIntegrateUAVTwo, "Integrate UAV Two");
 
 	pDebugPositionBuffer = CreateReadableStructureBuffer(sizeof(IntegrateParticle) * numberOfParticles, nullptr, device);
+	SetDebugName(pDebugPositionBuffer, "Integrate Readable Structure Buffer");
 
 	//---Acceleration 
 	ParticleForces* forceData = new ParticleForces[numberOfParticles];
@@ -286,7 +296,6 @@ void SPH::SortGridIndices()
 	// Bitonic Sort
 
 	deviceContext->CSSetShader(pGridSorterShader, nullptr, 0);
-
 
 	const UINT NUM_ELEMENTS = numberOfParticles;
 	const UINT MATRIX_WIDTH = 1024;
