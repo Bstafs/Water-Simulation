@@ -62,9 +62,9 @@ SPH::~SPH()
 	}
 
 	if (pParticleIntegrateCS) pParticleIntegrateCS->Release();
-	if (pIntegrateBuffer) pIntegrateBuffer->Release();
-	if (pIntegrateUAV) pIntegrateUAV->Release();
-	if (pIntegrateSRV) pIntegrateSRV->Release();
+	//if (pIntegrateBuffer) pIntegrateBuffer->Release();
+	//if (pIntegrateUAV) pIntegrateUAV->Release();
+	//if (pIntegrateSRV) pIntegrateSRV->Release();
 
 	if (pParticleDensityCS) pParticleDensityCS->Release();
 	if (pDensitySRV) pDensitySRV->Release();
@@ -95,6 +95,7 @@ void SPH::InitParticles()
 
 		newParticle->elasticity = sphElasticity;
 		newParticle->acceleration = XMFLOAT3(1, 1, 1);
+		newParticle->velocity = XMFLOAT3(1, 1, 1);
 		newParticle->force = XMFLOAT3(1, 1, 1);
 
 
@@ -103,6 +104,8 @@ void SPH::InitParticles()
 
 	//--ConstantBuffer
 	pParticleConstantBuffer = CreateConstantBuffer(sizeof(ParticleConstantBuffer), device, true);
+	SetDebugName(pParticleConstantBuffer, "Particle Constant Buffer");
+
 	pSortConstantBuffer = CreateConstantBuffer(sizeof(SortConstantBuffer), device, true);
 
 	//---Integrate
@@ -124,9 +127,16 @@ void SPH::InitParticles()
 	}
 
 	pParticleIntegrateCS = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
-	pIntegrateBuffer = CreateStructureBuffer(sizeof(IntegrateParticle), (float*)integrateData, numberOfParticles, device);
-	pIntegrateSRV = CreateShaderResourceView(pIntegrateBuffer, numberOfParticles, device);
-	pIntegrateUAV = CreateUnorderedAccessView(pIntegrateBuffer, numberOfParticles, device);
+
+	pIntegrateBufferOne = CreateStructureBuffer(sizeof(IntegrateParticle), (float*)integrateData, numberOfParticles, device);
+	pIntegrateBufferTwo = CreateStructureBuffer(sizeof(IntegrateParticle), (float*)integrateData, numberOfParticles, device);
+
+	pIntegrateSRVOne = CreateShaderResourceView(pIntegrateBufferOne, numberOfParticles, device);
+	pIntegrateSRVTwo = CreateShaderResourceView(pIntegrateBufferTwo, numberOfParticles, device);
+
+	pIntegrateUAVOne = CreateUnorderedAccessView(pIntegrateBufferOne, numberOfParticles, device);
+	pIntegrateUAVTwo = CreateUnorderedAccessView(pIntegrateBufferTwo, numberOfParticles, device);
+
 	pDebugPositionBuffer = CreateReadableStructureBuffer(sizeof(IntegrateParticle) * numberOfParticles, nullptr, device);
 
 	//---Acceleration 
@@ -175,8 +185,8 @@ void SPH::InitParticles()
 	//--Build Grid Indices
 	pParticleGridIndicesCS = CreateComputeShader(L"SPHComputeShader.hlsl", "BuildGridIndicesCS", device);
 	pGridIndicesBuffer = CreateStructureBuffer(sizeof(GridBorderStructure), nullptr, 256 * 256 * 256, device);
-	pGridIndicesUAV = CreateUnorderedAccessView(pGridBuffer, 256 * 256 * 256, device);
-	pGridIndicesSRV = CreateShaderResourceView(pGridBuffer, 256 * 256 * 256, device);
+	pGridIndicesUAV = CreateUnorderedAccessView(pGridIndicesBuffer, 256 * 256 * 256, device);
+	pGridIndicesSRV = CreateShaderResourceView(pGridIndicesBuffer, 256 * 256 * 256, device);
 	pDebugGridIndicesBuffer = CreateReadableStructureBuffer(sizeof(GridKeyStructure) * 256 * 256 * 256, nullptr, device);
 
 	//--Clear Grid Indices
@@ -252,7 +262,14 @@ void SPH::BuildGrid()
 
 	deviceContext->CSSetShader(pParticleGridCS, nullptr, 0);
 
-	deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+	if (bufferIsSwapped == false)
+	{
+		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVOne);
+	}
+	else
+	{
+		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVTwo);
+	}
 
 	deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
 
@@ -378,7 +395,14 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->CSSetShader(pParticleDensityCS, nullptr, 0);
 
-		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+		if (bufferIsSwapped == false)
+		{
+			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVOne);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVTwo);
+		}
 		deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
 		deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
 
@@ -412,13 +436,21 @@ void SPH::ParticleForcesSetup()
 		deviceContext->Flush();
 	}
 
-	//Force Calculations
+	// Force Calculations
 	{
 		deviceContext->Flush();
 
 		deviceContext->CSSetShader(pParticleForcesCS, nullptr, 0);
 
-		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+		if (bufferIsSwapped == false)
+		{
+			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVOne);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVTwo);
+		}
+
 		deviceContext->CSSetShaderResources(2, 1, &pDensitySRV);
 		deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
 		deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRV);
@@ -433,7 +465,10 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->CSSetShader(nullptr, nullptr, 0);
 		deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
-		deviceContext->CSSetShaderResources(1, 1, srvNull);
+		deviceContext->CSSetShaderResources(0, 1, srvNull);
+		deviceContext->CSSetShaderResources(2, 1, srvNull);
+		deviceContext->CSSetShaderResources(3, 1, srvNull);
+		deviceContext->CSSetShaderResources(4, 1, srvNull);
 
 
 		deviceContext->CopyResource(pDebugForceBuffer, pForcesBuffer);
@@ -450,15 +485,24 @@ void SPH::ParticleForcesSetup()
 		deviceContext->Flush();
 	}
 
-
 	// Integrate
 	{
 		deviceContext->Flush();
 
 		deviceContext->CSSetShader(pParticleIntegrateCS, nullptr, 0);
-		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRV);
+
+		if (bufferIsSwapped == false)
+		{
+			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVOne);
+			deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAVTwo, nullptr);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVTwo);
+			deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAVOne, nullptr);
+		}
+
 		deviceContext->CSSetShaderResources(1, 1, &pForcesSRV);
-		deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAV, nullptr);
 
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
 
@@ -467,24 +511,27 @@ void SPH::ParticleForcesSetup()
 		deviceContext->CSSetShader(nullptr, nullptr, 0);
 		deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
 		deviceContext->CSSetShaderResources(0, 1, srvNull);
+		deviceContext->CSSetShaderResources(1, 1, srvNull);
 
-		deviceContext->CopyResource(pDebugPositionBuffer, pIntegrateBuffer);
+		deviceContext->CopyResource(pDebugPositionBuffer, pIntegrateBufferOne);
 		IntegrateParticle* positions = (IntegrateParticle*)MapBuffer(pDebugPositionBuffer, deviceContext);
 		for (int i = 0; i < numberOfParticles; ++i)
 			// Integrate
 		{
 			Particle* particle = particleList[i];
 
-			particle->velocity.x += positions->velocity.x;
-			particle->velocity.y += positions->velocity.y;
-			particle->velocity.z += positions->velocity.z;
+			particle->velocity.x = positions->velocity.x;
+			particle->velocity.y = positions->velocity.y;
+			particle->velocity.z = positions->velocity.z;
 
-			particle->position.x += positions->position.x;
-			particle->position.y += positions->position.y;
-			particle->position.z += positions->position.z;
+			particle->position.x = positions->position.x;
+			particle->position.y = positions->position.y;
+			particle->position.z = positions->position.z;
 		}
 		UnMapBuffer(pDebugPositionBuffer, deviceContext);
 
+
+		bufferIsSwapped = !bufferIsSwapped;
 	}
 }
 
@@ -500,7 +547,7 @@ void SPH::Draw()
 	BuildGrid();
 
 	// Sort Grid Indices
-	SortGridIndices();
+	//SortGridIndices();
 
 	// Build Grid Indices
 	BuildGridIndices();

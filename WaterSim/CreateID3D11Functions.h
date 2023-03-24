@@ -1,6 +1,6 @@
 #pragma once
 #include "CompileShader.h"
-
+#include <string>
 
 // Shaders
 ID3D11VertexShader* CreateVertexShader(const WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3D11Device* device);
@@ -26,3 +26,6 @@ void ComputeResourceBuffer(ID3D11Buffer** pBuffer, ID3D11UnorderedAccessView** u
 void UpdateBuffer(float* data, int byteWidth, ID3D11Buffer* buffer, ID3D11DeviceContext* device);
 void* MapBuffer(ID3D11Buffer* buffer, ID3D11DeviceContext* device);
 void UnMapBuffer(ID3D11Buffer* buffer, ID3D11DeviceContext* device);
+
+// Render Debug
+void SetDebugName(ID3D11DeviceChild* object, const std::string& name);

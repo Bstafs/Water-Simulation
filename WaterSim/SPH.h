@@ -152,9 +152,17 @@ private:
 
 	// Integrate
 	ID3D11ComputeShader* pParticleIntegrateCS = nullptr;
-	ID3D11Buffer* pIntegrateBuffer = nullptr;
-	ID3D11ShaderResourceView* pIntegrateSRV = nullptr;
-	ID3D11UnorderedAccessView* pIntegrateUAV = nullptr;
+
+	ID3D11Buffer* pIntegrateBufferOne = nullptr;
+	ID3D11Buffer* pIntegrateBufferTwo = nullptr;
+
+	ID3D11ShaderResourceView* pIntegrateSRVOne = nullptr;
+	ID3D11ShaderResourceView* pIntegrateSRVTwo = nullptr;
+
+	ID3D11UnorderedAccessView* pIntegrateUAVOne = nullptr;
+	ID3D11UnorderedAccessView* pIntegrateUAVTwo = nullptr;
+
+	bool bufferIsSwapped = false;
 
 	// Forces
 	ID3D11ComputeShader* pParticleForcesCS = nullptr;

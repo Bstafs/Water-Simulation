@@ -232,7 +232,6 @@ void UpdateBuffer(float* data, int byteWidth, ID3D11Buffer* buffer, ID3D11Device
 
 }
 
-
 void* MapBuffer(ID3D11Buffer* buffer, ID3D11DeviceContext* device)
 {
 	D3D11_MAPPED_SUBRESOURCE mappingData;
@@ -244,3 +243,10 @@ void UnMapBuffer(ID3D11Buffer* buffer, ID3D11DeviceContext* device)
 {
 	device->Unmap(buffer, 0);
 }
+
+void SetDebugName(ID3D11DeviceChild* object, const std::string& name)
+{
+	if (object != nullptr)
+		object->SetPrivateData(WKPDID_D3DDebugObjectName, name.size(), name.c_str());
+}
+

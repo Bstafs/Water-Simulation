@@ -358,8 +358,8 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
 
     acceleration.y += gravity;
 
-	velocity += acceleration * 0.03f;
-    position += velocity * 0.03f;
+	velocity += acceleration * 0.016f;
+    position += velocity * 0.016f;
 
     IntegrateOutput[threadID].position = position;
     IntegrateOutput[threadID].velocity = velocity;
