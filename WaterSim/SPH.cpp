@@ -396,10 +396,16 @@ void SPH::SetUpParticleConstantBuffer()
 
 void SPH::ParticleForcesSetup()
 {
+	if (!_pAnnotation && deviceContext)
+		deviceContext->QueryInterface(IID_PPV_ARGS(&_pAnnotation));
+
+	_pAnnotation->BeginEvent(L"Particle Forces");
+
 	SetUpParticleConstantBuffer();
 
 	// Density Calculations
 	{
+		_pAnnotation->BeginEvent(L"Density Stage");
 		deviceContext->Flush();
 
 		deviceContext->CSSetShader(pParticleDensityCS, nullptr, 0);
@@ -442,11 +448,12 @@ void SPH::ParticleForcesSetup()
 		}
 		UnMapBuffer(pDebugDensityBuffer, deviceContext);
 
-		deviceContext->Flush();
+		_pAnnotation->EndEvent();
 	}
 
 	// Force Calculations
 	{
+		_pAnnotation->BeginEvent(L"Acceleration Stage");
 		deviceContext->Flush();
 
 		deviceContext->CSSetShader(pParticleForcesCS, nullptr, 0);
@@ -490,12 +497,12 @@ void SPH::ParticleForcesSetup()
 			particle->acceleration = forces->acceleration;
 		}
 		UnMapBuffer(pDebugForceBuffer, deviceContext);
-
-		deviceContext->Flush();
+		_pAnnotation->EndEvent();
 	}
 
 	// Integrate
 	{
+		_pAnnotation->BeginEvent(L"Integrate Stage");
 		deviceContext->Flush();
 
 		deviceContext->CSSetShader(pParticleIntegrateCS, nullptr, 0);
@@ -539,9 +546,12 @@ void SPH::ParticleForcesSetup()
 		}
 		UnMapBuffer(pDebugPositionBuffer, deviceContext);
 
+		_pAnnotation->EndEvent();
 
 		bufferIsSwapped = !bufferIsSwapped;
 	}
+
+	_pAnnotation->EndEvent();
 }
 
 void SPH::RenderFluid()
@@ -553,13 +563,13 @@ void SPH::RenderFluid()
 void SPH::Draw()
 {
 	// Build Grid
-	BuildGrid();
+	//BuildGrid();
 
 	// Sort Grid Indices
 	//SortGridIndices();
 
 	// Build Grid Indices
-	BuildGridIndices();
+	//BuildGridIndices();
 
 	// Setup Particle Forces
 	ParticleForcesSetup();

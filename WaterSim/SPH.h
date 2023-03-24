@@ -20,6 +20,8 @@
 #include "Particle.h"
 #include "Includes.h"
 
+
+
 struct ParticleConstantBuffer
 {
 	int particleCount;
@@ -125,6 +127,8 @@ public:
 	std::vector <Particle*> particleList;
 
 	float collisionBoxSize = 8.0f;
+
+	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 private:
 	// Particle Initialization
 	void InitParticles();
