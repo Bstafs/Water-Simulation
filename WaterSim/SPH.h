@@ -126,7 +126,7 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
-	float collisionBoxSize = 8.0f;
+	float collisionBoxSize = 4.0f;
 
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 private:
@@ -185,6 +185,7 @@ private:
 	ID3D11Buffer* pGridBuffer = nullptr;
 	ID3D11ShaderResourceView* pGridSRV = nullptr;
 	ID3D11UnorderedAccessView* pGridUAV = nullptr;
+
 
 	// Grid Indices/Border
 	ID3D11ComputeShader* pParticleGridIndicesCS = nullptr;

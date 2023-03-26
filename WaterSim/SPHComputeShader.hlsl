@@ -147,12 +147,18 @@ void SortGridIndices(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_Dispatc
 
 }
 
-[numthreads(1, 1, 1)]
+groupshared unsigned int transpose_shared_data[16 * 16];
+
+[numthreads(16, 16, 1)]
 void TransposeMatrixCS(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
     GridKeyStructure temp = Input[DTid.y * iWidth + DTid.x];
 
-    Data[DTid.x * iHeight + DTid.y] = temp;
+    GroupMemoryBarrierWithGroupSync();
+
+    uint2 XYZ = DTid.zyx - GTid.zyx + GTid.xyz;
+
+    Data[XYZ.x * iHeight + DTid.y] = temp;
 }
 
 
@@ -248,7 +254,7 @@ void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchT
 
     uint3 g_xyz = GetGridIndex(particlePosition);
 
-    float density = 0.0f;
+    float density = 997.0f;
 
     [loop]
     for (int y = max(g_xyz.y - 1, 0); y <= min(g_xyz.y + 1, GRID_DIMENSION - 1); y++)
@@ -371,8 +377,8 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
 
     acceleration.y += gravity;
 
-	velocity += acceleration * (1.0f / 60.0f);
-    position += velocity * (1.0f / 60.0f);
+    velocity += acceleration * 0.0004f;
+    position += velocity * 0.0004f;
 
     IntegrateOutput[threadID].position = position;
     IntegrateOutput[threadID].velocity = velocity;

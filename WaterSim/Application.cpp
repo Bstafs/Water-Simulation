@@ -958,7 +958,7 @@ void Application::Draw()
 
 	if (isParticleVisible == true)
 	{
-		for (int i = 0; i < sph->particleList.size(); i++)
+		for (int i = 0; i < sph->numberOfParticles; i++)
 		{
 			m_batch->Begin();
 			Particle* part = sph->particleList[i];
@@ -1011,4 +1011,11 @@ void Application::Draw()
 	ImGui();
 
 	_pSwapChain->Present(0, 0);
+
+	// Set Shader Resource to Null / Clear
+	ID3D11ShaderResourceView* const shaderClear[1] = { NULL };
+	for (int i = 0; i < 30; i++)
+	{
+		_pImmediateContext->PSSetShaderResources(i, 1, shaderClear);
+	}
 }
