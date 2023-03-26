@@ -45,6 +45,7 @@ struct ParticleForces
     float padding01;
 };
 
+
 struct ParticleDensity
 {
     float3 padding01;
@@ -77,6 +78,9 @@ RWStructuredBuffer<GridKeyStructure> GridOutput : register(u3); // Output
 
 StructuredBuffer<GridBorderStructure> GridIndicesInput : register(t4); // Input
 RWStructuredBuffer<GridBorderStructure> GridIndicesOutput : register(u4); // Output
+
+StructuredBuffer<GridKeyStructure> Input : register(t5); // Input
+RWStructuredBuffer<GridKeyStructure> Data : register(u5); // Output
 
 groupshared GridKeyStructure sharedData[WARP_GROUP_SIZE];
 
@@ -142,6 +146,15 @@ void SortGridIndices(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_Dispatc
     GridOutput[dispatchThreadID.x] = sharedData[GI];
 
 }
+
+[numthreads(1, 1, 1)]
+void TransposeMatrixCS(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
+{
+    GridKeyStructure temp = Input[DTid.y * iWidth + DTid.x];
+
+    Data[DTid.x * iHeight + DTid.y] = temp;
+}
+
 
 [numthreads(256, 1, 1)]
 void BuildGridIndicesCS(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)

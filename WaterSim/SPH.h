@@ -192,6 +192,12 @@ private:
 	ID3D11ShaderResourceView* pGridIndicesSRV = nullptr;
 	ID3D11UnorderedAccessView* pGridIndicesUAV = nullptr;
 
+	// Grid Sort Double Buffer
+	ID3D11ComputeShader* pTransposeMatrixCS = nullptr;
+	ID3D11Buffer* pGridIndicesTempBuffer = nullptr;
+	ID3D11UnorderedAccessView* pGridIndicesTempUAV = nullptr;
+	ID3D11ShaderResourceView* pGridIndicesTempSRV = nullptr;
+
 	// Grid Sort
 	ID3D11ComputeShader* pGridSorterShader = nullptr;
 	//Clear Grid Indices
