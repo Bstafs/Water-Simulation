@@ -79,9 +79,6 @@ RWStructuredBuffer<GridKeyStructure> GridOutput : register(u3); // Output
 StructuredBuffer<GridBorderStructure> GridIndicesInput : register(t4); // Input
 RWStructuredBuffer<GridBorderStructure> GridIndicesOutput : register(u4); // Output
 
-StructuredBuffer<GridKeyStructure> Input : register(t5); // Input
-RWStructuredBuffer<GridKeyStructure> Data : register(u5); // Output
-
 groupshared GridKeyStructure sharedData[WARP_GROUP_SIZE];
 
 uint GetGridKey(uint3 gridIndex)
@@ -152,13 +149,13 @@ groupshared unsigned int transpose_shared_data[16 * 16];
 [numthreads(16, 16, 1)]
 void TransposeMatrixCS(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
-    GridKeyStructure temp = Input[DTid.y * iWidth + DTid.x];
+    GridKeyStructure temp = GridInput[DTid.y * iWidth + DTid.x];
 
     GroupMemoryBarrierWithGroupSync();
 
     uint2 XYZ = DTid.zyx - GTid.zyx + GTid.xyz;
 
-    Data[XYZ.x * iHeight + DTid.y] = temp;
+    GridOutput[XYZ.x * iHeight + DTid.y] = temp;
 }
 
 

@@ -712,40 +712,6 @@ void Application::Cleanup()
 	ImGui::DestroyContext();
 }
 
-void Application::moveForward(int objectNumber)
-{
-	Vector3 accel = m_gameObjects[objectNumber]->GetParticleModel()->GetAcceleration();
-	Vector3 velocity = m_gameObjects[objectNumber]->GetParticleModel()->GetVelocity();
-	accel.z -= 0.02f;
-	velocity.z -= 0.02f;
-	m_gameObjects[objectNumber]->GetParticleModel()->SetAcceleration(accel);
-	m_gameObjects[objectNumber]->GetParticleModel()->SetVelocity(velocity);
-}
-
-void Application::moveBackward(int objectNumber)
-{
-	Vector3 accel = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetAcceleration();
-	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	accel.z -= 0.02f;
-	velocity.z += 0.02f;
-	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetAcceleration(accel);
-	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
-}
-
-void Application::moveLeft(int objectNumber)
-{
-	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	velocity.x -= 0.02f;
-	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
-}
-
-void Application::moveRight(int objectNumber)
-{
-	Vector3 velocity = m_gameObjects[objectNumber - 2]->GetParticleModel()->GetVelocity();
-	velocity.x += 0.02f;
-	m_gameObjects[objectNumber - 2]->GetParticleModel()->SetVelocity(velocity);
-}
-
 float Application::CalculateDeltaTime60FPS()
 {
 	// Update our time
@@ -801,17 +767,6 @@ void Application::Update()
 	XMMATRIX object;
 	object = (XMMatrixRotationX(waterRot.x) * XMMatrixRotationY(waterRot.y) * XMMatrixRotationZ(waterRot.z)) * XMMatrixTranslation(waterPos.x, waterPos.y, waterPos.z);
 	XMStoreFloat4x4(&m_myWater, object);
-
-	// Move gameobject Forces
-
-	if (GetAsyncKeyState('1'))
-	{
-		moveForward(1);
-	}
-	if (GetAsyncKeyState('2'))
-	{
-		moveForward(2);
-	}
 }
 
 void Application::ImGui()
@@ -958,17 +913,19 @@ void Application::Draw()
 
 	if (isParticleVisible == true)
 	{
+		m_batch->Begin();
 		for (int i = 0; i < sph->numberOfParticles; i++)
 		{
-			m_batch->Begin();
+	
 			Particle* part = sph->particleList[i];
 
 			part->sphere.Center = part->position;
 			part->sphere.Radius = part->size;
 
 			DrawSphere(m_batch.get(), part->sphere, DirectX::Colors::Green);
-			m_batch->End();
+		
 		}
+		m_batch->End();
 	}
 
 	XMMATRIX myWater = XMLoadFloat4x4(&m_myWater);

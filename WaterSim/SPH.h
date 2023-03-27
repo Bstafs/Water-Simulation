@@ -20,6 +20,7 @@
 #include "Particle.h"
 #include "Includes.h"
 
+using namespace Microsoft::WRL;
 
 
 struct ParticleConstantBuffer
@@ -186,6 +187,11 @@ private:
 	ID3D11ShaderResourceView* pGridSRV = nullptr;
 	ID3D11UnorderedAccessView* pGridUAV = nullptr;
 
+	ID3D11Buffer* pGridBufferTwo = nullptr;
+	ID3D11ShaderResourceView* pGridSRVTwo = nullptr;
+	ID3D11UnorderedAccessView* pGridUAVTwo = nullptr;
+
+	bool isBufferSwappedGrid = false;
 
 	// Grid Indices/Border
 	ID3D11ComputeShader* pParticleGridIndicesCS = nullptr;

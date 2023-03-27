@@ -62,9 +62,12 @@ SPH::~SPH()
 	}
 
 	if (pParticleIntegrateCS) pParticleIntegrateCS->Release();
-	//if (pIntegrateBuffer) pIntegrateBuffer->Release();
-	//if (pIntegrateUAV) pIntegrateUAV->Release();
-	//if (pIntegrateSRV) pIntegrateSRV->Release();
+	if (pIntegrateBufferOne) pIntegrateBufferOne->Release();
+	if (pIntegrateUAVOne) pIntegrateUAVOne->Release();
+	if (pIntegrateSRVOne) pIntegrateSRVOne->Release();
+	if (pIntegrateBufferTwo) pIntegrateBufferTwo->Release();
+	if (pIntegrateUAVTwo) pIntegrateUAVTwo->Release();
+	if (pIntegrateSRVTwo) pIntegrateSRVTwo->Release();
 
 	if (pParticleDensityCS) pParticleDensityCS->Release();
 	if (pDensitySRV) pDensitySRV->Release();
@@ -75,6 +78,24 @@ SPH::~SPH()
 	if (pForcesSRV) pForcesSRV->Release();
 	if (pForcesUAV) pForcesUAV->Release();
 	if (pForcesBuffer) pForcesBuffer->Release();
+
+	if (pParticleGridCS) pParticleGridCS->Release();
+	if (pGridSRV) pGridSRV->Release();
+	if (pGridUAV) pGridUAV->Release();
+	if (pGridBuffer) pGridBuffer->Release();
+
+	if (pParticleClearGridIndicesCS)pParticleClearGridIndicesCS->Release();
+
+	if (pParticleGridIndicesCS)pParticleGridIndicesCS->Release();
+	if (pGridIndicesBuffer)pGridIndicesBuffer->Release();
+	if (pGridIndicesSRV)pGridIndicesSRV->Release();
+	if (pGridIndicesUAV) pGridIndicesUAV->Release();
+
+	if (pGridIndicesTempBuffer)pGridIndicesTempBuffer->Release();
+	if (pGridIndicesTempSRV)pGridIndicesTempSRV->Release();
+	if (pGridIndicesTempUAV)pGridIndicesTempUAV->Release();
+
+	if (pTransposeMatrixCS) pTransposeMatrixCS->Release();
 }
 
 void SPH::InitParticles()
@@ -219,6 +240,16 @@ void SPH::InitParticles()
 
 	pDebugGridBuffer = CreateReadableStructureBuffer(sizeof(GridKeyStructure) * numberOfParticles, nullptr, device);
 	SetDebugName(pDebugGridBuffer, "Particle Grid Readable Structure Buffer");
+
+	pGridBufferTwo = CreateStructureBuffer(sizeof(GridKeyStructure), nullptr, numberOfParticles, device);
+	SetDebugName(pGridBufferTwo, "Particle Grid Buffer 2");
+
+	pGridUAVTwo = CreateUnorderedAccessView(pGridBufferTwo, numberOfParticles, device);
+	SetDebugName(pGridUAVTwo, "Particle Grid UAV 2");
+
+	pGridSRVTwo = CreateShaderResourceView(pGridBufferTwo, numberOfParticles, device);
+	SetDebugName(pGridSRVTwo, "Particle Grid SRV 2");
+
 
 	//--Build Grid Sorter
 	pGridSorterShader = CreateComputeShader(L"SPHComputeShader.hlsl", "SortGridIndices", device);
@@ -370,26 +401,37 @@ void SPH::SortGridIndices()
 
 	_pAnnotation->BeginEvent(L"Particle Sort");
 	// Sort the data of the rows for the levels <= of the current block size
-	for (UINT level = 2; level <= WARP_GROUP_SIZE; level <<= 1)
+	for (UINT level = 2; level <= WARP_GROUP_SIZE; level++)
 	{
 		sortConstantCPUBuffer.sortLevel = level;
 		sortConstantCPUBuffer.sortAlternateMask = level;
 		sortConstantCPUBuffer.iWidth = MATRIX_WIDTH;
 		sortConstantCPUBuffer.iHeight = MATRIX_HEIGHT;
+		sortConstantCPUBuffer.padding01 = XMFLOAT4(1, 1, 1, 1);
 		UpdateBuffer((float*)&sortConstantCPUBuffer, sizeof(SortConstantBuffer), pSortConstantBuffer, deviceContext);
 		deviceContext->CSSetConstantBuffers(2, 1, &pSortConstantBuffer);
 
-		deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+		if(isBufferSwappedGrid == false)
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAVTwo, nullptr);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRVTwo);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+		}
 
 		deviceContext->Dispatch(numberOfParticles, 1, 1);
 
 		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
+		deviceContext->CSSetShaderResources(3, 1, srvNull);
 	}
 	_pAnnotation->EndEvent();
 
 	_pAnnotation->BeginEvent(L"Particle Transpose");
 	// Transpose
-	for (UINT level = (WARP_GROUP_SIZE << 1); level <= numberOfParticles; level <<= 1)
+	for (UINT level = WARP_GROUP_SIZE; level <= numberOfParticles; level++)
 	{
 		ID3D11ShaderResourceView* nullSRV = nullptr;
 
@@ -401,18 +443,41 @@ void SPH::SortGridIndices()
 		UpdateBuffer((float*)&sortConstantCPUBuffer, sizeof(SortConstantBuffer), pSortConstantBuffer, deviceContext);
 
 		deviceContext->CSSetShader(pTransposeMatrixCS, nullptr, 0);
-		deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
-		deviceContext->CSSetUnorderedAccessViews(5, 1, &pGridIndicesTempUAV, nullptr);
+
+		if (isBufferSwappedGrid == false)
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAVTwo, nullptr);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRVTwo);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+		}
 
 		deviceContext->Dispatch(MATRIX_WIDTH / 16, MATRIX_HEIGHT / 16, 1);
 #
 		deviceContext->CSSetShaderResources(3, 1, srvNull);
-		deviceContext->CSSetUnorderedAccessViews(5, 1, uavViewNull, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
 
 		// Sort the transposed Data
 		deviceContext->CSSetShader(pGridSorterShader, nullptr, 0);
+
+		if (isBufferSwappedGrid == false)
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAVTwo, nullptr);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRVTwo);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+		}
+
 		deviceContext->Dispatch(numberOfParticles / 1024, 1, 1);
-		deviceContext->CSSetUnorderedAccessViews(5, 1, uavViewNull, nullptr);
+
+		deviceContext->CSSetShaderResources(3, 1, srvNull);
+		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
 
 
 		sortConstantCPUBuffer.sortLevel = WARP_GROUP_SIZE;
@@ -424,23 +489,43 @@ void SPH::SortGridIndices()
 		// Transpose the data from buffer 2 back to buffer 1
 		deviceContext->CSSetShader(pTransposeMatrixCS, nullptr, 0);
 
-		deviceContext->CSSetUnorderedAccessViews(4, 1, &pGridIndicesUAV, nullptr);
-		deviceContext->CSSetShaderResources(5, 1, &pGridIndicesTempSRV);
+		//deviceContext->CSSetUnorderedAccessViews(4, 1, &pGridIndicesUAV, nullptr);
+		//deviceContext->CSSetShaderResources(5, 1, &pGridIndicesTempSRV);
+
+		if (isBufferSwappedGrid == false)
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAVTwo, nullptr);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRVTwo);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+		}
 
 		deviceContext->Dispatch(MATRIX_HEIGHT, MATRIX_WIDTH, 1);
 
-		deviceContext->CSSetUnorderedAccessViews(4, 1, uavViewNull, nullptr);
-		deviceContext->CSSetShaderResources(5, 1, srvNull);
+		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
+		deviceContext->CSSetShaderResources(3, 1, srvNull);
 
 		// Sort the rows Data
 		deviceContext->CSSetShader(pGridSorterShader, nullptr, 0);
+
+		if (isBufferSwappedGrid == false)
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAVTwo, nullptr);
+		}
+		else
+		{
+			deviceContext->CSSetShaderResources(3, 1, &pGridSRVTwo);
+			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
+		}
+
 		deviceContext->Dispatch(numberOfParticles / 512, 1, 1);
 
 		deviceContext->CSSetShader(nullptr, nullptr, 0);
-		deviceContext->CSSetUnorderedAccessViews(4, 1, uavViewNull, nullptr);
-		deviceContext->CSSetUnorderedAccessViews(5, 1, uavViewNull, nullptr);
 		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
-		deviceContext->CSSetShaderResources(5, 1, srvNull);
 		deviceContext->CSSetShaderResources(3, 1, srvNull);
 	}
 	_pAnnotation->EndEvent();
@@ -674,6 +759,7 @@ void SPH::ParticleForcesSetup()
 		_pAnnotation->EndEvent();
 
 		bufferIsSwapped = !bufferIsSwapped;
+		isBufferSwappedGrid = !isBufferSwappedGrid;
 	}
 
 	_pAnnotation->EndEvent();
