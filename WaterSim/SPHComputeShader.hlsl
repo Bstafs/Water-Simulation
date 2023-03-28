@@ -1,5 +1,5 @@
-#define GRID_DIMENSION 256
-#define WARP_GROUP_SIZE 1024
+#define GRID_DIMENSION 64
+#define WARP_GROUP_SIZE 49
 
 cbuffer ParticleConstantBuffer : register(b1)
 {
@@ -158,14 +158,15 @@ void TransposeMatrixCS(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID,
     GridOutput[XYZ.x * iHeight + DTid.y] = temp;
 }
 
-
 [numthreads(256, 1, 1)]
 void BuildGridIndicesCS(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
     const unsigned int threadID = dispatchThreadID.x;
 
-    unsigned int threadIdPrev = (threadID == 0) ? particleCount : threadID; threadIdPrev--;
-    unsigned int threadIDNext = (threadID + 1);
+    unsigned int threadIdPrev = threadID;
+	threadIdPrev--;
+    unsigned int threadIDNext = threadID + 1;
+
     if(threadID == particleCount)
     {
         threadIDNext = 0;
@@ -328,7 +329,7 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
                     float3 diff = nPosition - particlePosition;
                     float rSQ = dot(diff, diff);
 
-                    if (rSQ < smoothingSquared && threadID != npID)
+                    if (rSQ < smoothingSquared && threadID != npID && rSQ > 0)
                     {
                         float3 newVelocity = IntegrateInput[npID].velocity;
                         float newDensity = DensityInput[npID].density;
@@ -344,12 +345,9 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
         }
     }
 
-    float x = length(acceleration);
 
-    if(x != 0)
-    {
-        acceleration /= float3(particleDensity, particleDensity, particleDensity);
-    }
+	acceleration /= float3(particleDensity, particleDensity, particleDensity);
+    
     ForcesOutput[threadID].acceleration = acceleration;
     ForcesOutput[threadID].padding01 = acceleration / particleDensity;
 }
@@ -374,8 +372,8 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
 
     acceleration.y += gravity;
 
-    velocity += acceleration * 0.0004f;
-    position += velocity * 0.0004f;
+    velocity += acceleration * deltaTime;
+    position += velocity * deltaTime;
 
     IntegrateOutput[threadID].position = position;
     IntegrateOutput[threadID].velocity = velocity;

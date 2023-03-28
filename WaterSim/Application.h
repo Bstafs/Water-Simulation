@@ -134,6 +134,9 @@ private:
 
 	 SPH* sph = nullptr;
 
+
+	 ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
+
 	// Particle Variables for ImGui
 	int numbParticles;
 	float mass;

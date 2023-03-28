@@ -837,8 +837,18 @@ void Application::ImGui()
 
 
 	ImGui::End();
+
+	if (!_pAnnotation && _pImmediateContext)
+		_pImmediateContext->QueryInterface(IID_PPV_ARGS(&_pAnnotation));
+
+	_pAnnotation->BeginEvent(L"ImGui Render");
+
 	ImGui::Render();
+
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+	_pAnnotation->EndEvent();
+
 }
 
 void Application::Draw()
@@ -911,6 +921,11 @@ void Application::Draw()
 
 	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
 
+	if (!_pAnnotation && _pImmediateContext)
+		_pImmediateContext->QueryInterface(IID_PPV_ARGS(&_pAnnotation));
+
+	_pAnnotation->BeginEvent(L"Water Visual Batch Draw");
+
 	if (isParticleVisible == true)
 	{
 		m_batch->Begin();
@@ -928,11 +943,22 @@ void Application::Draw()
 		m_batch->End();
 	}
 
+	_pAnnotation->EndEvent();
+
+
+	_pAnnotation->BeginEvent(L"Water Simulation");
+
 	XMMATRIX myWater = XMLoadFloat4x4(&m_myWater);
 	cb.World = XMMatrixTranspose(myWater);
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
+	_pAnnotation->BeginEvent(L"Water Particles");
+
 	sph->Draw();
+
+	_pAnnotation->EndEvent();
+
+	_pAnnotation->BeginEvent(L"Water Render");
 
 	WaterBuffer wb = {};
 	wb.World = XMMatrixTranspose(myWater);
@@ -964,6 +990,10 @@ void Application::Draw()
 	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	_pImmediateContext->DrawIndexed(6, 0, 0);
+
+	_pAnnotation->EndEvent();
+
+	_pAnnotation->EndEvent();
 
 	ImGui();
 

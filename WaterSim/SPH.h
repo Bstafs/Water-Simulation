@@ -1,5 +1,8 @@
 #pragma once
 
+#define GRID_DIMENSION 64
+#define WARP_GROUP_SIZE 49
+
 // TO DO - Must
 /* I need to grab particle Data to calculate each neighbouring particle to each other, maybe a vector?
  * Possibility need to learn how to make a hash table (std::unordered_map) for particles.
