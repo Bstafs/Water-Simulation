@@ -1,6 +1,6 @@
 #pragma once
 
-#define GRID_DIMENSION 64
+#define GRID_DIMENSION 256
 #define WARP_GROUP_SIZE 49
 
 // TO DO - Must
@@ -43,6 +43,7 @@ struct ParticleConstantBuffer
 	float gravity;
 
 	XMFLOAT4 vPlanes[6];
+	XMFLOAT4 gridDim;
 };
 
 struct SortConstantBuffer
@@ -130,7 +131,7 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
-	float collisionBoxSize = 4.0f;
+	float collisionBoxSize = 10.0f;
 
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 private:
@@ -141,6 +142,7 @@ private:
 	void SetUpParticleConstantBuffer();
 	void BuildGrid();
 	void BuildGridIndices();
+	void ClearGridIndices();
 	void SortGridIndices();
 	void RenderFluid();
 
@@ -198,9 +200,16 @@ private:
 
 	// Grid Indices/Border
 	ID3D11ComputeShader* pParticleGridIndicesCS = nullptr;
-	ID3D11Buffer* pGridIndicesBuffer = nullptr;
-	ID3D11ShaderResourceView* pGridIndicesSRV = nullptr;
-	ID3D11UnorderedAccessView* pGridIndicesUAV = nullptr;
+
+	ID3D11Buffer* pGridIndicesBufferOne = nullptr;
+	ID3D11ShaderResourceView* pGridIndicesSRVOne = nullptr;
+	ID3D11UnorderedAccessView* pGridIndicesUAVOne = nullptr;
+
+	ID3D11Buffer* pGridIndicesBufferTwo = nullptr;
+	ID3D11ShaderResourceView* pGridIndicesSRVTwo = nullptr;
+	ID3D11UnorderedAccessView* pGridIndicesUAVTwo = nullptr;
+
+	bool isBufferSwappedIndices = false;
 
 	// Grid Sort Double Buffer
 	ID3D11ComputeShader* pTransposeMatrixCS = nullptr;

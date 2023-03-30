@@ -199,8 +199,10 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		gameObject->GetParticleModel()->SetToggleGravity(false);
 		m_gameObjects.push_back(gameObject);
 	}
-
-	numbParticles = 49;
+	
+	numbParticles = 16384;
+	//numbParticles = 50;
+	//numbParticles = 1;
 	mass = 0.0002f;
 	density = 997.0f;
 	gasConstant = 1.0f;
@@ -937,8 +939,8 @@ void Application::Draw()
 			part->sphere.Center = part->position;
 			part->sphere.Radius = part->size;
 
+
 			DrawSphere(m_batch.get(), part->sphere, DirectX::Colors::Green);
-		
 		}
 		m_batch->End();
 	}
