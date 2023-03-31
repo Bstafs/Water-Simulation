@@ -1,7 +1,6 @@
 #pragma once
 
 #define GRID_DIMENSION 256
-#define WARP_GROUP_SIZE 49
 
 // TO DO - Must
 /* I need to grab particle Data to calculate each neighbouring particle to each other, maybe a vector?
@@ -92,14 +91,13 @@ struct GridBorderStructure
 class SPH
 {
 public:
-	SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device);
+	SPH(int numbParticles, float mass, float density, float viscosity, float h, float g, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device);
 	~SPH();
 	void Update();
 	void Draw();
 	// Particle Variables
 	float sphViscosity;
 	float sphDensity; // Rest Density of water is 997kg/m^3
-	float sphTension; // 72 at room temp
 	int numberOfParticles;
 	float sphElasticity;
 	float sphPressure;
@@ -111,7 +109,6 @@ public:
 	float sphH;
 
 	// Fluid Constants
-	float GAS_CONSTANT; // Needed for temperature 
 	float MASS_CONSTANT;
 	float H2_CONSTANT; // h^2
 	float DENS_CONSTANT;

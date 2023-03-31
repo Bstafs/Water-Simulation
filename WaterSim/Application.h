@@ -141,11 +141,9 @@ private:
 	int numbParticles;
 	float mass;
 	float density;
-	float gasConstant;
 	float viscosity;
 	float h;
 	float g = 9.0f;
-	float tension;
 	float elastisicty;
 
 	bool isParticleVisible = false;
@@ -170,6 +168,8 @@ private:
    ID3D11ShaderResourceView* pReflectionTextureSRV = nullptr;
    ID3D11ShaderResourceView* pRefractionTextureSRV = nullptr;
    ID3D11ShaderResourceView* pSkyBoxTextureSRV = nullptr;
+
+   int numberOfParticlesDrawn = 16384;
 
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);

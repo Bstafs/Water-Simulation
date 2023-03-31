@@ -7,11 +7,11 @@ const UINT TRANSPOSE_BLOCK_SIZE = 16;
 //walls
 float particleSpacing = 1.0f;
 
-const float mapHeight = 3.0f;
+const float mapHeight = 1.2f;
 const float mapWidth = (4.0f / 3.0f) * mapHeight;
 
 
-SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float viscosity, float h, float g, float tension, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
+SPH::SPH(int numbParticles, float mass, float density, float viscosity, float h, float g, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 {
 	// Variable Initialization
 	numberOfParticles = numbParticles;
@@ -19,7 +19,6 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 	sphViscosity = viscosity;
 	sphH = h;
 	sphG = g;
-	sphTension = tension;
 	sphElasticity = elasticity;
 	sphPressure = pressure;
 
@@ -38,7 +37,6 @@ SPH::SPH(int numbParticles, float mass, float density, float gasConstant, float 
 
 	// Particle Constant Initialization
 
-	GAS_CONSTANT = gasConstant;
 	H2_CONSTANT = sphH * sphH;
 	DENS_CONSTANT = MASS_CONSTANT * POLY6_CONSTANT * pow(sphH, 6);
 
@@ -108,11 +106,13 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
+		float bias = i / 10000.0f;
+
 		UINT x = i % (startingHeight);
 		UINT y = i / startingHeight % (startingHeight);
 		UINT z = i % (startingHeight);
 
-		XMFLOAT3 startingParticlePosition = XMFLOAT3((float)x * particleSpacing, y * particleSpacing, (float)z * particleSpacing);
+		XMFLOAT3 startingParticlePosition = XMFLOAT3((float)x * particleSpacing + bias, y * particleSpacing + bias, (float)z * particleSpacing + bias);
 
 		Particle* newParticle = new Particle(MASS_CONSTANT, 0.6f, startingParticlePosition, XMFLOAT3(1, 1, 1));
 
@@ -417,7 +417,7 @@ void SPH::SortGridIndices()
 
 	const UINT NUM_ELEMENTS = numberOfParticles;
 	const UINT MATRIX_WIDTH = BITONIC_BLOCK_SIZE;
-	const UINT MATRIX_HEIGHT = numberOfParticles / BITONIC_BLOCK_SIZE;
+	const UINT MATRIX_HEIGHT = BITONIC_BLOCK_SIZE;
 
 	_pAnnotation->BeginEvent(L"Particle Sort");
 	// Sort the data
@@ -480,28 +480,10 @@ void SPH::SortGridIndices()
 		}
 
 		deviceContext->Dispatch(MATRIX_WIDTH / TRANSPOSE_BLOCK_SIZE, MATRIX_HEIGHT / TRANSPOSE_BLOCK_SIZE, 1);
-#
-		deviceContext->CSSetShaderResources(3, 1, srvNull);
-		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
 
 		// Sort the transposed Column Data
 		deviceContext->CSSetShader(pGridSorterShader, nullptr, 0);
 		deviceContext->Dispatch(NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1);
-
-		if (isBufferSwappedGrid == false)
-		{
-			deviceContext->CSSetShaderResources(3, 1, &pGridSRV);
-			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAVTwo, nullptr);
-		}
-		else
-		{
-			deviceContext->CSSetShaderResources(3, 1, &pGridSRVTwo);
-			deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAV, nullptr);
-		}
-
-		deviceContext->CSSetShaderResources(3, 1, srvNull);
-		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
-
 
 		sortConstantCPUBuffer.sortLevel = BITONIC_BLOCK_SIZE;
 		sortConstantCPUBuffer.sortAlternateMask = level;
@@ -527,9 +509,6 @@ void SPH::SortGridIndices()
 		}
 
 		deviceContext->Dispatch(MATRIX_HEIGHT / TRANSPOSE_BLOCK_SIZE, MATRIX_WIDTH / TRANSPOSE_BLOCK_SIZE, 1);
-
-		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
-		deviceContext->CSSetShaderResources(3, 1, srvNull);
 
 		// Sort the rows Data
 		deviceContext->CSSetShader(pGridSorterShader, nullptr, 0);
@@ -625,23 +604,25 @@ void SPH::BuildGridIndices()
 void SPH::SetUpParticleConstantBuffer()
 {
 	particleConstantCPUBuffer.particleCount = numberOfParticles;
-	particleConstantCPUBuffer.wallStiffness = 10.0f;
+	particleConstantCPUBuffer.wallStiffness = 0.2f;
 	particleConstantCPUBuffer.padding00 = XMFLOAT2(0.0f, 0.0f);
 	particleConstantCPUBuffer.deltaTime = 1.0f / 60.0f;
 	particleConstantCPUBuffer.smoothingLength = sphH;
 	particleConstantCPUBuffer.pressure = 200.0f;
 	particleConstantCPUBuffer.restDensity = sphDensity;
 	particleConstantCPUBuffer.densityCoef = MASS_CONSTANT * 315.0f / (64.0f * PI * powf(sphH, 9));;
-	particleConstantCPUBuffer.GradPressureCoef = MASS_CONSTANT * -45.0f / (XM_PI * powf(sphH, 6));;
-	particleConstantCPUBuffer.LapViscosityCoef = MASS_CONSTANT * sphViscosity * 45.0f / (XM_PI * powf(sphH, 6));;
+	particleConstantCPUBuffer.GradPressureCoef = MASS_CONSTANT * -45.0f / (PI * powf(sphH, 6));;
+	particleConstantCPUBuffer.LapViscosityCoef = MASS_CONSTANT * sphViscosity * 45.0f / (PI * powf(sphH, 6));;
 	particleConstantCPUBuffer.gravity = sphG;
 
-	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0, 0, 1, 0); // Front
-	particleConstantCPUBuffer.vPlanes[1] = XMFLOAT4(0, 0, -1, 0); // Back
-	particleConstantCPUBuffer.vPlanes[2] = XMFLOAT4(0, 1, 0, 0); // Top
-	particleConstantCPUBuffer.vPlanes[3] = XMFLOAT4(0, -1, 0, mapHeight); // Bottom
-	particleConstantCPUBuffer.vPlanes[4] = XMFLOAT4(1, 0, 1, mapWidth); // Left
-	particleConstantCPUBuffer.vPlanes[5] = XMFLOAT4(-1, 0, 1, 0); // Right
+	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0, 0, 5, 0); // Front
+	particleConstantCPUBuffer.vPlanes[1] = XMFLOAT4(0, 0, -5, 0); // Back
+
+	particleConstantCPUBuffer.vPlanes[2] = XMFLOAT4(0, 5, 0, mapHeight); // Top
+	particleConstantCPUBuffer.vPlanes[3] = XMFLOAT4(0, -5, 0, 0); // Bottom
+
+	particleConstantCPUBuffer.vPlanes[4] = XMFLOAT4(5, 0, 0, mapWidth); // Right
+	particleConstantCPUBuffer.vPlanes[5] = XMFLOAT4(-5, 0, 0, 0); // Left
 
 	particleConstantCPUBuffer.gridDim.x = 1.0f / sphH;
 	particleConstantCPUBuffer.gridDim.y = 1.0f / sphH;

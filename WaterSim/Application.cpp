@@ -199,19 +199,19 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		gameObject->GetParticleModel()->SetToggleGravity(false);
 		m_gameObjects.push_back(gameObject);
 	}
-	
-	numbParticles = 16384;
+
+	numbParticles = 8196 * 2;
+	//numbParticles = 8196;
+	//numbParticles = 4096;
 	//numbParticles = 50;
 	//numbParticles = 1;
-	mass = 0.0002f;
-	density = 997.0f;
-	gasConstant = 1.0f;
-	viscosity = 0.1f;
-	h = 0.12f;
+	mass = 0.02f;
+	density = 100.0f;
+	viscosity = 1.0f;
+	h = 0.0018f;
 	g = -9.807f;
-	tension = 0.2f;
 	elastisicty = 0.1f;
-	sph = new SPH(numbParticles, mass, density, gasConstant, viscosity, h, g, tension, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+	sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
 
 	return S_OK;
 }
@@ -353,7 +353,7 @@ HRESULT Application::InitVertexBuffer()
 	{ XMFLOAT3(1.5f, 0.0f,  1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
 	{ XMFLOAT3(1.5f, 0.0f, -1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
 	};
-	
+
 
 	// Create the vertex buffer
 	D3D11_BUFFER_DESC vertexBufferDesc;
@@ -366,7 +366,7 @@ HRESULT Application::InitVertexBuffer()
 	D3D11_SUBRESOURCE_DATA vertexData;
 	ZeroMemory(&vertexData, sizeof(vertexData));
 	vertexData.pSysMem = WaterVertices;
-	hr  = _pd3dDevice->CreateBuffer(&vertexBufferDesc, &vertexData, &_pWaterVertexBuffer);
+	hr = _pd3dDevice->CreateBuffer(&vertexBufferDesc, &vertexData, &_pWaterVertexBuffer);
 
 
 	return S_OK;
@@ -804,6 +804,8 @@ void Application::ImGui()
 		ImGui::Text("Visualize");
 		ImGui::Checkbox("Visualize", &isParticleVisible);
 
+		ImGui::InputInt("Cubes Drawn: ", &numberOfParticlesDrawn);
+
 		ImGui::Text("Initial Values");
 		ImGui::DragInt("Number Of Particles", &particleSize);
 		ImGui::DragFloat("Density", &sph->sphDensity, 1.0f, 0);
@@ -928,31 +930,42 @@ void Application::Draw()
 
 	_pAnnotation->BeginEvent(L"Water Visual Batch Draw");
 
-	if (isParticleVisible == true)
-	{
-		m_batch->Begin();
-		for (int i = 0; i < sph->numberOfParticles; i++)
-		{
-	
-			Particle* part = sph->particleList[i];
 
-			part->sphere.Center = part->position;
-			part->sphere.Radius = part->size;
-
-
-			DrawSphere(m_batch.get(), part->sphere, DirectX::Colors::Green);
-		}
-		m_batch->End();
-	}
 
 	_pAnnotation->EndEvent();
 
 
 	_pAnnotation->BeginEvent(L"Water Simulation");
 
+	BoundingBox box;
+
 	XMMATRIX myWater = XMLoadFloat4x4(&m_myWater);
 	cb.World = XMMatrixTranspose(myWater);
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+	if (isParticleVisible == true)
+	{
+		m_batch->Begin();
+		for (int i = 0; i < min(numberOfParticlesDrawn, sph->particleList.size()); ++i)
+		{
+			Particle* part = sph->particleList[i];
+
+			box.Center = part->position;
+			box.Extents = XMFLOAT3(part->size, part->size, part->size);
+			DrawBox(m_batch.get(), box, Colors::Blue);
+
+			//sphere.Center = part->position;
+			//sphere.Radius = part->size;
+			//DrawSphere(m_batch.get(), sphere, Colors::Blue);
+		}
+
+		box.Center = XMFLOAT3(0, 0, 0);
+		box.Extents = XMFLOAT3(5, 5, 5);
+		DrawBox(m_batch.get(), box, Colors::Blue);
+
+
+		m_batch->End();
+	}
 
 	_pAnnotation->BeginEvent(L"Water Particles");
 
@@ -991,7 +1004,7 @@ void Application::Draw()
 
 	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	_pImmediateContext->DrawIndexed(6, 0, 0);
+	//_pImmediateContext->DrawIndexed(6, 0, 0);
 
 	_pAnnotation->EndEvent();
 
