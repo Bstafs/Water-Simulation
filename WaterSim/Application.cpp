@@ -200,15 +200,15 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		m_gameObjects.push_back(gameObject);
 	}
 
-	numbParticles = 8196 * 2;
-	//numbParticles = 8196;
-	//numbParticles = 4096;
+	//numbParticles = 8192 * 2;
+	//numbParticles = 8192;
+	numbParticles = 4096;
 	//numbParticles = 50;
 	//numbParticles = 1;
-	mass = 0.02f;
+	mass = 0.0002f;
 	density = 100.0f;
-	viscosity = 1.0f;
-	h = 0.0018f;
+	viscosity = 0.1f;
+	h = 0.012f;
 	g = -9.807f;
 	elastisicty = 0.1f;
 	sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
@@ -960,7 +960,7 @@ void Application::Draw()
 		}
 
 		box.Center = XMFLOAT3(0, 0, 0);
-		box.Extents = XMFLOAT3(5, 5, 5);
+		box.Extents = XMFLOAT3(6.0f, 6.0f, 6.0f);
 		DrawBox(m_batch.get(), box, Colors::Blue);
 
 
@@ -1004,7 +1004,7 @@ void Application::Draw()
 
 	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	//_pImmediateContext->DrawIndexed(6, 0, 0);
+	_pImmediateContext->DrawIndexed(6, 0, 0);
 
 	_pAnnotation->EndEvent();
 

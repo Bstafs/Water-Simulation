@@ -365,18 +365,16 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
 
 	// Box 
 	[unroll(6)]
-	for (unsigned int i = 0; i < 6; i++)
-	{
-		float dist = dot(float4(position, 1), vPlanes[i]);
-		acceleration += min(dist, 0) * -wallStiffness * vPlanes[i].xyz;
+    for (unsigned int i = 0; i < 6; i++)
+    {
+        float dist = dot(float4(position, 1.0f), vPlanes[i]);
+        acceleration += min(dist, 0.0f) * -wallStiffness * vPlanes[i].xyz;
+    }
 
-		// acceleration += min(dist, 0) * -wallStiffness * vPlanes[i].xyz;
-	}
+    acceleration.y += gravity;
 
-	acceleration.y += gravity;
-
-	velocity += acceleration * 0.004f;
-	position += velocity * 0.004f;
+    velocity += acceleration * 0.004f;
+    position += velocity * 0.004f; 
 
 	IntegrateOutput[threadID].position = position;
 	IntegrateOutput[threadID].velocity = velocity;

@@ -7,8 +7,9 @@ const UINT TRANSPOSE_BLOCK_SIZE = 16;
 //walls
 float particleSpacing = 1.0f;
 
-const float mapHeight = 1.2f;
-const float mapWidth = (4.0f / 3.0f) * mapHeight;
+constexpr float mapZ = 5.0f;
+constexpr float mapX = 5.0f;
+constexpr float mapY = 5.0f;
 
 
 SPH::SPH(int numbParticles, float mass, float density, float viscosity, float h, float g, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
@@ -101,25 +102,24 @@ SPH::~SPH()
 void SPH::InitParticles()
 {
 	// Following Realtime Particle I researched, I need to loop over every particle for x,y,z
-
-	const UINT startingHeight = 7;
+	srand(10);
 
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
 		float bias = i / 10000.0f;
 
-		UINT x = i % (startingHeight);
-		UINT y = i / startingHeight % (startingHeight);
-		UINT z = i % (startingHeight);
+		float x = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10.0f;
+		float y = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10.0f;
+		float z = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10.0f;
 
-		XMFLOAT3 startingParticlePosition = XMFLOAT3((float)x * particleSpacing + bias, y * particleSpacing + bias, (float)z * particleSpacing + bias);
+		XMFLOAT3 startingParticlePosition = XMFLOAT3(x * particleSpacing + bias, y * particleSpacing + bias, z * particleSpacing + bias);
 
-		Particle* newParticle = new Particle(MASS_CONSTANT, 0.6f, startingParticlePosition, XMFLOAT3(1, 1, 1));
+		Particle* newParticle = new Particle(MASS_CONSTANT, 0.1f, startingParticlePosition, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		newParticle->elasticity = sphElasticity;
-		newParticle->acceleration = XMFLOAT3(1, 1, 1);
-		newParticle->velocity = XMFLOAT3(1, 1, 1);
-		newParticle->force = XMFLOAT3(1, 1, 1);
+		newParticle->acceleration = XMFLOAT3(1.0f, 1.0f, 1.0f);
+		newParticle->velocity = XMFLOAT3(1.0f, 1.0f, 1.0f);
+		newParticle->force = XMFLOAT3(1.0f, 1.0f, 1.0f);
 		newParticle->density = sphDensity;
 		newParticle->mass = MASS_CONSTANT;
 
@@ -137,15 +137,14 @@ void SPH::InitParticles()
 	IntegrateParticle* integrateData = new IntegrateParticle[numberOfParticles];
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		Particle* particle = particleList[i];
 
-		integrateData[i].position.x = particle->position.x;
-		integrateData[i].position.y = particle->position.y;
-		integrateData[i].position.z = particle->position.z;
-
-		integrateData[i].velocity.x = particle->velocity.x;
-		integrateData[i].velocity.y = particle->velocity.y;
-		integrateData[i].velocity.z = particle->velocity.z;
+		integrateData[i].position.x = particleList[i]->position.x;
+		integrateData[i].position.y = particleList[i]->position.y;
+		integrateData[i].position.z = particleList[i]->position.z;
+									
+		integrateData[i].velocity.x = particleList[i]->velocity.x;
+		integrateData[i].velocity.y = particleList[i]->velocity.y;
+		integrateData[i].velocity.z = particleList[i]->velocity.z;
 
 		integrateData[i].padding01 = 0.0f;
 		integrateData[i].padding02 = 0.0f;
@@ -180,11 +179,9 @@ void SPH::InitParticles()
 	ParticleForces* forceData = new ParticleForces[numberOfParticles];
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		Particle* particle = particleList[i];
-
-		forceData[i].acceleration.x = particle->acceleration.x;
-		forceData[i].acceleration.y = particle->acceleration.y;
-		forceData[i].acceleration.z = particle->acceleration.z;
+		forceData[i].acceleration.x = particleList[i]->acceleration.x;
+		forceData[i].acceleration.y = particleList[i]->acceleration.y;
+		forceData[i].acceleration.z = particleList[i]->acceleration.z;
 
 		forceData[i].padding01 = 0.0f;
 	}
@@ -207,9 +204,7 @@ void SPH::InitParticles()
 	ParticleDensity* densityData = new ParticleDensity[numberOfParticles];
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		Particle* particle = particleList[i];
-
-		densityData[i].density = particle->density;
+		densityData[i].density = particleList[i]->density;
 		densityData[i].padding01 = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	}
 	pParticleDensityCS = CreateComputeShader(L"SPHComputeShader.hlsl", "CSDensityMain", device);
@@ -604,7 +599,7 @@ void SPH::BuildGridIndices()
 void SPH::SetUpParticleConstantBuffer()
 {
 	particleConstantCPUBuffer.particleCount = numberOfParticles;
-	particleConstantCPUBuffer.wallStiffness = 0.2f;
+	particleConstantCPUBuffer.wallStiffness = 30000.0f;
 	particleConstantCPUBuffer.padding00 = XMFLOAT2(0.0f, 0.0f);
 	particleConstantCPUBuffer.deltaTime = 1.0f / 60.0f;
 	particleConstantCPUBuffer.smoothingLength = sphH;
@@ -615,14 +610,16 @@ void SPH::SetUpParticleConstantBuffer()
 	particleConstantCPUBuffer.LapViscosityCoef = MASS_CONSTANT * sphViscosity * 45.0f / (PI * powf(sphH, 6));;
 	particleConstantCPUBuffer.gravity = sphG;
 
-	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0, 0, 5, 0); // Front
-	particleConstantCPUBuffer.vPlanes[1] = XMFLOAT4(0, 0, -5, 0); // Back
+	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0.0f, 0.0f, 1.0f, mapZ); // Back
+	particleConstantCPUBuffer.vPlanes[1] = XMFLOAT4(0.0f, 0.0f, -1.0f, mapZ); // Front
 
-	particleConstantCPUBuffer.vPlanes[2] = XMFLOAT4(0, 5, 0, mapHeight); // Top
-	particleConstantCPUBuffer.vPlanes[3] = XMFLOAT4(0, -5, 0, 0); // Bottom
+	particleConstantCPUBuffer.vPlanes[2] = XMFLOAT4(0.0f, 1.0f, 0.0f, 2.5f); // Bottom Starts at 0.0f
+	particleConstantCPUBuffer.vPlanes[3] = XMFLOAT4(0.0f, -1.0f, 0.0f, mapY); // Top
 
-	particleConstantCPUBuffer.vPlanes[4] = XMFLOAT4(5, 0, 0, mapWidth); // Right
-	particleConstantCPUBuffer.vPlanes[5] = XMFLOAT4(-5, 0, 0, 0); // Left
+
+	particleConstantCPUBuffer.vPlanes[4] = XMFLOAT4(1.0f, 0.0f, 0.0f, mapX); // Left
+	particleConstantCPUBuffer.vPlanes[5] = XMFLOAT4(-1.0f, 0.0f, 0.0f, mapX); // Right
+
 
 	particleConstantCPUBuffer.gridDim.x = 1.0f / sphH;
 	particleConstantCPUBuffer.gridDim.y = 1.0f / sphH;
@@ -697,9 +694,7 @@ void SPH::ParticleForcesSetup()
 		ParticleDensity* densities = reinterpret_cast<ParticleDensity*>(MapBuffer(pDebugDensityBuffer, deviceContext));
 		for (int i = 0; i < numberOfParticles; ++i)
 		{
-			Particle* particle = particleList[i];
-
-			particle->density = densities[i].density;
+			particleList[i]->density = densities[i].density;
 		}
 		UnMapBuffer(pDebugDensityBuffer, deviceContext);
 
@@ -765,9 +760,7 @@ void SPH::ParticleForcesSetup()
 		ParticleForces* forces = reinterpret_cast<ParticleForces*>(MapBuffer(pDebugForceBuffer, deviceContext));
 		for (int i = 0; i < numberOfParticles; ++i)
 		{
-			Particle* particle = particleList[i];
-
-			particle->acceleration = forces[i].acceleration;
+			particleList[i]->acceleration = forces[i].acceleration;
 		}
 		UnMapBuffer(pDebugForceBuffer, deviceContext);
 		_pAnnotation->EndEvent();
@@ -807,15 +800,13 @@ void SPH::ParticleForcesSetup()
 		// Integrate
 		for (int i = 0; i < numberOfParticles; ++i)
 		{
-			Particle* particle = particleList[i];
-
-			particle->velocity.x = positions[i].velocity.x;
-			particle->velocity.y = positions[i].velocity.y;
-			particle->velocity.z = positions[i].velocity.z;
-
-			particle->position.x = positions[i].position.x;
-			particle->position.y = positions[i].position.y;
-			particle->position.z = positions[i].position.z;
+			particleList[i]->velocity.x = positions[i].velocity.x;
+			particleList[i]->velocity.y = positions[i].velocity.y;
+			particleList[i]->velocity.z = positions[i].velocity.z;
+	
+			particleList[i]->position.x = positions[i].position.x;
+			particleList[i]->position.y = positions[i].position.y;
+			particleList[i]->position.z = positions[i].position.z;
 		}
 		UnMapBuffer(pDebugPositionBuffer, deviceContext);
 
