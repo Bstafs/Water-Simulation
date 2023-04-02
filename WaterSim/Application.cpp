@@ -208,7 +208,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	mass = 0.0002f;
 	density = 100.0f;
 	viscosity = 0.1f;
-	h = 0.012f;
+	h = 0.018f;
 	g = -9.807f;
 	elastisicty = 0.1f;
 	sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);

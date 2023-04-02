@@ -371,6 +371,8 @@ void SPH::BuildGrid()
 
 	deviceContext->CSSetShader(pParticleGridCS, nullptr, 0);
 
+	deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
+
 	if (bufferIsSwapped == false)
 	{
 		deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVOne);
@@ -389,7 +391,7 @@ void SPH::BuildGrid()
 		deviceContext->CSSetUnorderedAccessViews(3, 1, &pGridUAVTwo, nullptr);
 	}
 
-	deviceContext->Dispatch(numberOfParticles / GRID_DIMENSION, 1, 1);
+	deviceContext->Dispatch(numberOfParticles / 255, 1, 1);
 
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
 	deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
@@ -599,7 +601,7 @@ void SPH::BuildGridIndices()
 void SPH::SetUpParticleConstantBuffer()
 {
 	particleConstantCPUBuffer.particleCount = numberOfParticles;
-	particleConstantCPUBuffer.wallStiffness = 30000.0f;
+	particleConstantCPUBuffer.wallStiffness = 300000.0f;
 	particleConstantCPUBuffer.padding00 = XMFLOAT2(0.0f, 0.0f);
 	particleConstantCPUBuffer.deltaTime = 1.0f / 60.0f;
 	particleConstantCPUBuffer.smoothingLength = sphH;
@@ -831,11 +833,11 @@ void SPH::Draw()
 	// Build Grid
 	BuildGrid();
 
-	// Sort Grid Indices
-	SortGridIndices();
+	//// Sort Grid Indices
+	//SortGridIndices();
 
-	// Build Grid Indices
-	BuildGridIndices();
+	//// Build Grid Indices
+	//BuildGridIndices();
 
 	// Setup Particle Forces
 	ParticleForcesSetup();
