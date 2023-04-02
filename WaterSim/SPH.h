@@ -79,7 +79,6 @@ struct ParticleDensity
 struct GridKeyStructure
 {
 	UINT gridKey;
-	UINT particleIndex;
 };
 
 struct GridBorderStructure
@@ -133,14 +132,19 @@ public:
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 private:
 	// Particle Initialization
+
 	void InitParticles();
+
 	void ParticleBoxCollision();
-	void ParticleForcesSetup();
 	void SetUpParticleConstantBuffer();
+
 	void BuildGrid();
-	void BuildGridIndices();
+	void SortGrid();
 	void ClearGridIndices();
-	void SortGridIndices();
+	void BuildGridIndices();
+	void RearrangeParticles();
+	void ParticleForcesSetup();
+
 	void RenderFluid();
 
 	ID3D11DeviceContext* deviceContext;
@@ -218,6 +222,9 @@ private:
 	ID3D11ComputeShader* pGridSorterShader = nullptr;
 	//Clear Grid Indices
 	ID3D11ComputeShader* pParticleClearGridIndicesCS = nullptr;
+
+	// Rearrange Particles Shader
+	ID3D11ComputeShader* pRearrangeParticlesCS = nullptr;
 
 	//Debug
 	ID3D11Buffer* pDebugDensityBuffer = nullptr;
