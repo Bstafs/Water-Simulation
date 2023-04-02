@@ -1,16 +1,19 @@
 #include "SPH.h"
 
 // Numthreads size for the sort
-const UINT BITONIC_BLOCK_SIZE = 256;
+const UINT BITONIC_BLOCK_SIZE = 512;
 const UINT TRANSPOSE_BLOCK_SIZE = 8;
 const UINT NUM_GRID_INDICES = 65536;
 //walls
-float particleSpacing = 1.0f;
+float particleSpacing = 5.0f;
 
-constexpr float mapZ = 5.0f;
-constexpr float mapX = 5.0f;
-constexpr float mapY = 5.0f;
+constexpr float mapZ = 1.0f;
+constexpr float mapX = 1.0f;
+constexpr float mapY = 1.0f;
 
+const float low_wall = 1;
+const float left_wall = 1.5;
+const float near_wall = 32 * particleSpacing;
 
 SPH::SPH(int numbParticles, float mass, float density, float viscosity, float h, float g, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 {
@@ -106,7 +109,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < numberOfParticles; ++i)
 	{
-		float bias = i / 10000.0f;
+		float bias = i / 50000.0f;
 
 		float x = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10.0f;
 		float y = (float(rand()) / float((RAND_MAX)) * 0.5f - 1.0f) * sphH / 10.0f;
@@ -527,9 +530,9 @@ void SPH::SortGrid()
 		deviceContext->Dispatch(NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1);
 	}
 
-	deviceContext->CSSetShader(nullptr, nullptr, 0);
-	deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
-	deviceContext->CSSetShaderResources(3, 1, srvNull);
+	//deviceContext->CSSetShader(nullptr, nullptr, 0);
+	//deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
+	//deviceContext->CSSetShaderResources(3, 1, srvNull);
 
 	_pAnnotation->EndEvent();
 
@@ -605,7 +608,7 @@ void SPH::BuildGridIndices()
 void SPH::SetUpParticleConstantBuffer()
 {
 	particleConstantCPUBuffer.particleCount = numberOfParticles;
-	particleConstantCPUBuffer.wallStiffness = 300000.0f;
+	particleConstantCPUBuffer.wallStiffness = 1000.0f;
 	particleConstantCPUBuffer.padding00 = XMFLOAT2(0.0f, 0.0f);
 	particleConstantCPUBuffer.deltaTime = 1.0f / 60.0f;
 	particleConstantCPUBuffer.smoothingLength = sphH;
@@ -616,15 +619,15 @@ void SPH::SetUpParticleConstantBuffer()
 	particleConstantCPUBuffer.LapViscosityCoef = MASS_CONSTANT * sphViscosity * 45.0f / (PI * powf(sphH, 6));;
 	particleConstantCPUBuffer.gravity = sphG;
 
-	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0.0f, 0.0f, 1.0f, mapZ); // Back
-	particleConstantCPUBuffer.vPlanes[1] = XMFLOAT4(0.0f, 0.0f, -1.0f, mapZ); // Front
+	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0.0f, 0.0f, 1.0f, low_wall); // Back
+	particleConstantCPUBuffer.vPlanes[1] = XMFLOAT4(0.0f, 0.0f, -1.0f, low_wall); // Front
 
-	particleConstantCPUBuffer.vPlanes[2] = XMFLOAT4(0.0f, 1.0f, 0.0f, 2.5f); // Bottom Starts at 0.0f
-	particleConstantCPUBuffer.vPlanes[3] = XMFLOAT4(0.0f, -1.0f, 0.0f, mapY); // Top
+	particleConstantCPUBuffer.vPlanes[2] = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f); // Bottom Starts at 0.0f
+	particleConstantCPUBuffer.vPlanes[3] = XMFLOAT4(0.0f, -1.0f, 0.0f, 32.0f); // Top
 
 
-	particleConstantCPUBuffer.vPlanes[4] = XMFLOAT4(1.0f, 0.0f, 0.0f, mapX); // Left
-	particleConstantCPUBuffer.vPlanes[5] = XMFLOAT4(-1.0f, 0.0f, 0.0f, mapX); // Right
+	particleConstantCPUBuffer.vPlanes[4] = XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f); // Left
+	particleConstantCPUBuffer.vPlanes[5] = XMFLOAT4(-1.0f, 0.0f, 0.0f, 32.0f); // Right
 
 
 	particleConstantCPUBuffer.gridDim.x = 0.5f / sphH;
@@ -727,15 +730,6 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->Dispatch(numberOfParticles, 1, 1);
 
-		deviceContext->CSSetShader(nullptr, nullptr, 0);
-
-		deviceContext->CSSetUnorderedAccessViews(2, 1, uavViewNull, nullptr);
-
-		deviceContext->CSSetShaderResources(0, 1, srvNull);
-		deviceContext->CSSetShaderResources(3, 1, srvNull);
-		deviceContext->CSSetShaderResources(4, 1, srvNull);
-
-
 		deviceContext->CopyResource(pDebugDensityBuffer, pDensityBuffer);
 		ParticleDensity* densities = reinterpret_cast<ParticleDensity*>(MapBuffer(pDebugDensityBuffer, deviceContext));
 		for (int i = 0; i < numberOfParticles; ++i)
@@ -743,6 +737,14 @@ void SPH::ParticleForcesSetup()
 			particleList[i]->density = densities[i].density;
 		}
 		UnMapBuffer(pDebugDensityBuffer, deviceContext);
+
+		deviceContext->CSSetShader(nullptr, nullptr, 0);
+
+		deviceContext->CSSetUnorderedAccessViews(2, 1, uavViewNull, nullptr);
+
+		deviceContext->CSSetShaderResources(0, 1, srvNull);
+		deviceContext->CSSetShaderResources(3, 1, srvNull);
+		deviceContext->CSSetShaderResources(4, 1, srvNull);
 
 		_pAnnotation->EndEvent();
 	}
@@ -874,16 +876,16 @@ void SPH::RenderFluid()
 
 void SPH::Draw()
 {
-	// Build Grid - Working
+	// Build Grid 
 	BuildGrid();
 
 	// Sort Grid 
 	SortGrid();
 
-	// Clear Indices - Working
+	// Clear Indices 
 	ClearGridIndices();
 
-	// Build Grid Indices - Working
+	// Build Grid Indices
 	BuildGridIndices();
 
 	// Rearrange
