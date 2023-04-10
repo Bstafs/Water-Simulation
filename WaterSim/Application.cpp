@@ -200,16 +200,16 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		m_gameObjects.push_back(gameObject);
 	}
 
-	numbParticles = 8192 * 4;
+	//numbParticles = 8192 * 8;
 	//numbParticles = 8192;
-	//numbParticles = 4096;
+	numbParticles = 4096;
 	//numbParticles = 50;
 	//numbParticles = 2;
 	//numbParticles = 2;
-	mass = 0.02f;
-	density = 997.0f;
-	viscosity = 0.01f;
-	h = 10.0f;
+	mass = 0.002f;
+	density = 100.0f;
+	viscosity = 0.1f;
+	h = 20.0f;
 	g = -9.807f;
 	elastisicty = 0.1f;
 	sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);

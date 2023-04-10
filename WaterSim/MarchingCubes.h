@@ -11,7 +11,7 @@ using namespace std;
 
 class MarchingCubes
 {
-private:
+public:
 	MarchingCubes();
 
 	void MarchingCubesGrid();

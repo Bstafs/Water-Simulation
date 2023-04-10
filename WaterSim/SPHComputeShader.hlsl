@@ -262,16 +262,14 @@ void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchT
     const float h_sq = smoothingLength * smoothingLength;
     float3 particlePosition = IntegrateInput[particleID].position;
 
-    float density = 997.0f;
+    float density = 1.0f;
 
     uint3 gridXYZ = GridCalculateCell(particlePosition, gridDim.xyzw);
 
     for (uint Y = max(gridXYZ.y - 1, 0); Y <= min(gridXYZ.y + 1, 255); Y++) // 255 - grid max dimension
     {
-
         for (uint X = max(gridXYZ.x - 1, 0); X <= min(gridXYZ.x + 1, 255); X++)
         {
-	
             for (uint Z = max(gridXYZ.z - 1, 0); Z <= min(gridXYZ.z + 1, 255); Z++)
             {
                 unsigned int gridCell = GridConstructKey(uint3(X, Y, Z));
@@ -305,7 +303,11 @@ void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchT
 // Pressure = B * ((rho / rho_0)^y  - 1)
 float CalculatePressure(float density)
 {
-    return pressure * max(pow(density / restDensity, 3.0f) - 1.0f, 0.0f);
+	// Implements this equation:
+	// Pressure = B * ((rho / rho_0)^y  - 1)
+    float pow_inner = density / restDensity;
+    float max_inner = pow(pow_inner, 3.0f);
+    return pressure * max(max_inner - 1.0f, 0);
 }
 
 // Spiky Grad Smoothing Kernel
@@ -315,10 +317,12 @@ float CalculatePressure(float density)
 float3 CalculateGradPressure(float r, float pPressure, float nPressure, float nDesnity, float3 velDiff)
 {
     const float h = smoothingLength;
-
-    float averagePressure = 0.5f * (nPressure + pPressure);
-
-    return GradPressureCoef * averagePressure / nDesnity * (h - r) * (h - r) / r * (velDiff);
+    float avg_pressure = 0.5f * (nPressure + pPressure);
+	// Implements this equation:
+	// W_spkiey(r, h) = 15 / (pi * h^6) * (h - r)^3
+	// GRAD( W_spikey(r, h) ) = -45 / (pi * h^6) * (h - r)^2
+	// g_fGradPressureCoef = fParticleMass * -45.0f / (PI * fSmoothlen^6)
+    return GradPressureCoef * avg_pressure / nDesnity * (h - r) * (h - r) / r * (velDiff);
 }
 
 // Viscosity Smoothing Kernel
@@ -328,9 +332,13 @@ float3 CalculateGradPressure(float r, float pPressure, float nPressure, float nD
 float3 CalculateLapViscosity(float r, float3 pVelocity, float3 nVelocity, float nDesnity)
 {
     const float h = smoothingLength;
-    float3 velDiff = (nVelocity - pVelocity);
+    float3 vel_diff = (nVelocity - pVelocity);
 
-    return LapViscosityCoef / nDesnity * (h - r) * velDiff;
+	// Implements this equation:
+	// W_viscosity(r, h) = 15 / (2 * pi * h^3) * (-r^3 / (2 * h^3) + r^2 / h^2 + h / (2 * r) - 1)
+	// LAPLACIAN( W_viscosity(r, h) ) = 45 / (pi * h^6) * (h - r)
+	// g_fLapViscosityCoef = fParticleMass * fViscosity * 45.0f / (PI * fSmoothlen^6)
+    return (LapViscosityCoef / nDesnity) * (h - r) * vel_diff;
 }
 
 //[numthreads(256, 1, 1)]
@@ -394,7 +402,7 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
 
     const float smoothingSquared = smoothingLength * smoothingLength;
 
-    float3 acceleration = float3(1.0f, 1.0f, 1.0f);
+    float3 acceleration = float3(10.0f, 10.0f, 10.0f);
 
     uint3 gridXYZ = GridCalculateCell(particlePosition, gridDim.xyzw);
 
@@ -435,7 +443,7 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
 
     if (x != 0)
     {
-        ForcesOutput[particleID].acceleration = acceleration;
+        ForcesOutput[particleID].acceleration = acceleration / particleDensity;
     }
 
    // ForcesOutput[particleID].acceleration = acceleration / particleDensity;
@@ -460,7 +468,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID
         acceleration += min(dist, 0.0f) * -wallStiffness * vPlanes[i].xyz;
     }
 
-    acceleration.y = gravity;
+	acceleration.y += gravity;
 
     velocity += acceleration * 0.0004f;
     position += velocity * 0.0004f;
