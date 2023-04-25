@@ -33,12 +33,6 @@
     <ClCompile Include="Vector3.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Physics.cpp">
-      <Filter>Physics</Filter>
-    </ClCompile>
-    <ClCompile Include="RigidBody.cpp">
-      <Filter>Physics</Filter>
-    </ClCompile>
     <ClCompile Include="Appearance.cpp">
       <Filter>Entity</Filter>
     </ClCompile>
@@ -111,12 +105,6 @@
     <ClInclude Include="Structures.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Physics.h">
-      <Filter>Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="RigidBody.h">
-      <Filter>Physics</Filter>
-    </ClInclude>
     <ClInclude Include="Appearance.h">
       <Filter>Entity</Filter>
     </ClInclude>
@@ -160,9 +148,6 @@
     </Filter>
     <Filter Include="Util">
       <UniqueIdentifier>{f4fa7e80-b563-4905-90d4-d8f0d31742e1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Physics">
-      <UniqueIdentifier>{cb0689c1-92a0-42a9-bf8c-0556f03bf5bb}</UniqueIdentifier>
     </Filter>
     <Filter Include="Entity">
       <UniqueIdentifier>{a9dfd827-bb96-44e7-8281-7206c4fa787b}</UniqueIdentifier>

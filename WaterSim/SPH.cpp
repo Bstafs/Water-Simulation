@@ -11,8 +11,8 @@ constexpr float mapZ = 1.0f;
 constexpr float mapX = 1.0f;
 constexpr float mapY = 1.0f;
 
-const float low_wall = 1.0f;
-const float left_wall = 1.5f;
+const float low_wall = 5.0f;
+const float left_wall = 5.5f;
 const float near_wall = 32.0f * particleSpacing;
 
 SPH::SPH(int numbParticles, float mass, float density, float viscosity, float h, float g, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
@@ -363,7 +363,7 @@ void SPH::ParticleBoxCollision()
 
 void SPH::Update()
 {
-	ParticleBoxCollision();
+	//ParticleBoxCollision();
 }
 
 void SPH::BuildGrid()
@@ -797,7 +797,6 @@ void SPH::ParticleForcesSetup()
 		deviceContext->CSSetShaderResources(2, 1, srvNull);
 		deviceContext->CSSetShaderResources(3, 1, srvNull);
 		deviceContext->CSSetShaderResources(4, 1, srvNull);
-
 
 		deviceContext->CopyResource(pDebugForceBuffer, pForcesBuffer);
 

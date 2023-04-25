@@ -185,9 +185,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	gameObject->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
 	gameObject->GetTransform()->SetScale(15.0f, 15.0f, 15.0f);
 	gameObject->GetTransform()->SetRotation(XMConvertToRadians(90.0f), 0.0f, 0.0f);
-	gameObject->GetParticleModel()->SetMass(1.0f);
 	gameObject->GetAppearance()->SetTextureRV(_pGroundTextureRV);
-	gameObject->GetParticleModel()->SetToggleGravity(false);
 	m_gameObjects.push_back(gameObject);
 
 	for (int i = 0; i < NUMBER_OF_CUBES; i++)
@@ -196,22 +194,19 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
 		gameObject->GetTransform()->SetPosition(0.0f, 0.5f, 0.0);
 		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
-		gameObject->GetParticleModel()->SetToggleGravity(false);
 		m_gameObjects.push_back(gameObject);
 	}
 
-	//numbParticles = 8192 * 8;
+	numbParticles = 8192 * 32;
 	//numbParticles = 8192;
-	numbParticles = 4096;
-	//numbParticles = 50;
-	//numbParticles = 2;
-	//numbParticles = 2;
+	//numbParticles = 4096;
 	mass = 0.002f;
 	density = 100.0f;
 	viscosity = 0.1f;
 	h = 20.0f;
 	g = -9.807f;
 	elastisicty = 0.1f;
+	numberOfParticlesDrawn = numbParticles;
 	sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
 
 	return S_OK;
@@ -788,6 +783,10 @@ void Application::ImGui()
 
 	ImGui::SetWindowSize(ImVec2(500.0f, 500.0f));
 
+	ImGuiIO& io = ImGui::GetIO();
+
+	ImGui::Text("Frames Per Second: %.1f MS / %.3f FPS", 1000.0f / io.Framerate, io.Framerate);
+
 	if (ImGui::CollapsingHeader("Camera"))
 	{
 		ImGui::Text("Camera Position");
@@ -813,13 +812,14 @@ void Application::ImGui()
 		ImGui::DragFloat("Smoothing Length", &sph->sphH, 0.001f, 0, 1.0f);
 		ImGui::DragFloat("Gravity", &sph->sphG);
 
-		if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, particleSize * 10 * ImGui::GetTextLineHeightWithSpacing())))
+		if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, 12 * ImGui::GetTextLineHeightWithSpacing())))
 		{
 			for (int i = 0; i < sph->particleList.size(); i++)
 			{
 				Particle* part = sph->particleList[i];
+				std::string partName = std::format("Particle {}", i);
 
-				if (ImGui::CollapsingHeader("Particle"))
+				if (ImGui::CollapsingHeader(partName.c_str()))
 				{
 					ImGui::Text("Collision Box");
 					ImGui::DragFloat("Collision Box Size", &sph->collisionBoxSize, 0.01f, 0.0f, 100.0f);
@@ -954,15 +954,11 @@ void Application::Draw()
 			box.Center = part->position;
 			box.Extents = XMFLOAT3(part->size, part->size, part->size);
 			DrawBox(m_batch.get(), box, Colors::Blue);
-
-			//sphere.Center = part->position;
-			//sphere.Radius = part->size;
-			//DrawSphere(m_batch.get(), sphere, Colors::Blue);
 		}
 
-		box.Center = XMFLOAT3(0, 0, 0);
-		box.Extents = XMFLOAT3(16.0f, 16.0f, 3.0f);
-		DrawBox(m_batch.get(), box, Colors::Blue);
+		//box.Center = XMFLOAT3(0, 0, 0);
+		//box.Extents = XMFLOAT3(16.0f, 16.0f, 3.0f);
+		//DrawBox(m_batch.get(), box, Colors::Blue);
 
 
 		m_batch->End();

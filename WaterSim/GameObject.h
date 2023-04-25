@@ -6,8 +6,6 @@
 #include "Vector3.h"
 #include "Transform.h"
 #include "Appearance.h"
-#include "Physics.h"
-#include "RigidBody.h"
 
 using namespace DirectX;
 using namespace std;
@@ -22,8 +20,6 @@ public:
 
 	Transform* GetTransform()const { return m_transform; }
 	Appearance* GetAppearance()const { return m_appearance; }
-	Physics* GetParticleModel()const { return m_physics; }
-	RigidBody* GetRigidBody()const { return m_rigidbody; }
 
 	void SetParent(GameObject* parent) { m_parent = parent; }
 
@@ -38,7 +34,6 @@ private:
 
 	Transform* m_transform;
 	Appearance* m_appearance;
-	Physics* m_physics;
-	RigidBody* m_rigidbody;
 };
+
 

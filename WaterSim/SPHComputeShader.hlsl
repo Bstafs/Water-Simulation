@@ -221,39 +221,6 @@ float CalculateDensity(float r_sq)
     return max(densityCoef * (distance) * (distance) * (distance), 0);
 }
 
-//[numthreads(256, 1, 1)]
-//void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
-//{
-//    const unsigned int threadID = dispatchThreadID.x;
-
-//    const float smoothingSquared = smoothingLength * smoothingLength;
-
-//    float3 particlePosition = IntegrateInput[threadID].position;
-
-//   // uint3 g_xyz = GetGridIndex(particlePosition);
-
-//    float density = 997.0f;
-
-//	[loop]
-//    for (unsigned int nID = 0; nID < particleCount; nID++)
-//    {
-//    //    uint particleID = GridInput[nID].gridIndex;
-//        float3 nPosition = IntegrateInput[nID].position;
-
-//        float3 diff = nPosition - particlePosition;
-//        float rSQ = dot(diff, diff);
-
-//        if (rSQ < smoothingSquared)
-//        {
-//            density += CalculateDensity(rSQ);
-//        }
-//    }
-
-
-//    DensityOutput[threadID].density = density;
-//    DensityOutput[threadID].padding01 = float3(0.0f, 0.0f, 0.0f);
-//}
-
 [numthreads(256, 1, 1)]
 void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
@@ -266,15 +233,19 @@ void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchT
 
     uint3 gridXYZ = GridCalculateCell(particlePosition, gridDim.xyzw);
 
+    [fastopt]
     for (uint Y = max(gridXYZ.y - 1, 0); Y <= min(gridXYZ.y + 1, 255); Y++) // 255 - grid max dimension
     {
+        [fastopt]
         for (uint X = max(gridXYZ.x - 1, 0); X <= min(gridXYZ.x + 1, 255); X++)
         {
+            [fastopt]
             for (uint Z = max(gridXYZ.z - 1, 0); Z <= min(gridXYZ.z + 1, 255); Z++)
             {
                 unsigned int gridCell = GridConstructKey(uint3(X, Y, Z));
                 uint2 gridStartEnd = uint2(GridIndicesInput[gridCell].gridStart, GridIndicesInput[gridCell].gridStart);
 
+                [fastopt]
                 for (unsigned int newID = gridStartEnd.x; newID < gridStartEnd.y; newID++)
                 {
                     float3 newParticlePosition = IntegrateInput[newID].position;
@@ -341,55 +312,6 @@ float3 CalculateLapViscosity(float r, float3 pVelocity, float3 nVelocity, float 
     return (LapViscosityCoef / nDesnity) * (h - r) * vel_diff;
 }
 
-//[numthreads(256, 1, 1)]
-//void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
-//{
-//    const unsigned int threadID = dispatchThreadID.x;
-
-//    float3 particlePosition = IntegrateInput[threadID].position;
-//    float3 particleVelocity = IntegrateInput[threadID].velocity;
-//    float particleDensity = DensityInput[threadID].density;
-//    float particlePressure = CalculatePressure(particleDensity);
-
-//    const float smoothingSquared = smoothingLength * smoothingLength;
-
-//    float3 acceleration = float3(0.0f, 0.0f, 0.0f);
-
-//	[loop]
-//    for (unsigned int nID = 0; nID < particleCount; nID++)
-//    {
-
-//    //    uint npID = GridInput[nID].gridIndex;
-//        float3 nPosition = IntegrateInput[nID].position;
-
-//        float3 diff = nPosition - particlePosition;
-//        float rSQ = dot(diff, diff);
-
-//        if (rSQ < smoothingSquared && threadID != nID && rSQ > 0)
-//        {
-//            float3 newVelocity = IntegrateInput[nID].velocity;
-//            float newDensity = DensityInput[nID].density;
-//            float newPressure = CalculatePressure(newDensity);
-//            float r = sqrt(rSQ);
-
-//            acceleration += CalculateGradPressure(r, particlePressure, newPressure, newDensity, diff);
-//            acceleration += CalculateLapViscosity(r, particleVelocity, newVelocity, newDensity);
-//        }
-//    }
-
-//    int x = length(acceleration);
-
-//    if (x != 0)
-//    {
-//        ForcesOutput[threadID].acceleration = acceleration / particleDensity;
-//    }
-//    else
-//    {
-//        ForcesOutput[threadID].acceleration = acceleration;
-//    }
-//    ForcesOutput[threadID].padding01 = 0.0f;
-//}
-
 [numthreads(256, 1, 1)]
 void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
@@ -406,17 +328,19 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
 
     uint3 gridXYZ = GridCalculateCell(particlePosition, gridDim.xyzw);
 
-    for (int Y = max(gridXYZ.y - 1, 0); Y <= min(gridXYZ.y + 1, 255); Y++) // 255 - grid max dimension
+    [fastopt]
+    for (uint Y = max(gridXYZ.y - 1, 0); Y <= min(gridXYZ.y + 1, 255); Y++) // 255 - grid max dimension
     {
-
-        for (int X = max(gridXYZ.x - 1, 0); X <= min(gridXYZ.x + 1, 255); X++)
+        [fastopt]
+        for (uint X = max(gridXYZ.x - 1, 0); X <= min(gridXYZ.x + 1, 255); X++)
         {
-	
-            for (int Z = max(gridXYZ.z - 1, 0); Z <= min(gridXYZ.z + 1, 255); Z++)
+            [fastopt]
+            for (uint Z = max(gridXYZ.z - 1, 0); Z <= min(gridXYZ.z + 1, 255); Z++)
             {
                 unsigned int gridCell = GridConstructKey(uint3(X, Y, Z));
                 uint2 gridStartEnd = uint2(GridIndicesInput[gridCell].gridStart, GridIndicesInput[gridCell].gridStart);
 
+                [fastopt]
                 for (unsigned int nID = gridStartEnd.x; nID < gridStartEnd.y; nID++)
                 {
                     float3 nPosition = IntegrateInput[nID].position;
@@ -441,12 +365,12 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
 
     int x = length(acceleration);
 
-    if (x != 0)
-    {
-        ForcesOutput[particleID].acceleration = acceleration / particleDensity;
-    }
+    //if (x != 0)
+    //{
+    //    ForcesOutput[particleID].acceleration = acceleration / particleDensity;
+    //}
 
-   // ForcesOutput[particleID].acceleration = acceleration / particleDensity;
+    ForcesOutput[particleID].acceleration = acceleration / particleDensity;
     ForcesOutput[particleID].padding01 = 0.0f;
 }
 
