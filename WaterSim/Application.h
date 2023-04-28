@@ -107,7 +107,7 @@ private:
 	UINT _renderWidth = _WindowWidth;
 	UINT _renderHeight = _WindowHeight;
 
-	float currentPosZ = 0.0f;
+	float currentPosZ = -70.0f;
 	float currentPosX = 0.0f;
 	float currentPosY = 2.0f;
 	float rotationX = 0.0f;
@@ -169,7 +169,7 @@ private:
    ID3D11ShaderResourceView* pRefractionTextureSRV = nullptr;
    ID3D11ShaderResourceView* pSkyBoxTextureSRV = nullptr;
 
-   int numberOfParticlesDrawn = 16384;
+   int numberOfParticlesDrawn;
 
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);
