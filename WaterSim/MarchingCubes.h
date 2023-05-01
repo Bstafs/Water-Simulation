@@ -31,7 +31,7 @@ public:
 	void MarchingCubesGenerate();
 
 
-    void MarchingCubesMesh(vector<XMFLOAT3>& vertexs, vector<int>& tri_index);
+   // void MarchingCubesMesh(vector<XMFLOAT3>& vertexs, vector<int>& tri_index);
 private:
 	const float isovalue = 100.0f;
 

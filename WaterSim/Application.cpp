@@ -197,12 +197,13 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		m_gameObjects.push_back(gameObject);
 	}
 
-	numbParticles = 8192 * 32;
-	//numbParticles = 8192;
-	//numbParticles = 4096;
+
+	// CUDA
+	numbParticles = 8192;			// 8,192 Particles
+
 	mass = 0.002f;
-	density = 100.0f;
-	viscosity = 0.1f;
+	density = 997.0f;
+	viscosity = 1.5f;
 	h = 20.0f;
 	g = -9.807f;
 	elastisicty = 0.1f;
@@ -807,39 +808,87 @@ void Application::ImGui()
 		ImGui::InputInt("Cubes Drawn: ", &numberOfParticlesDrawn);
 
 		ImGui::Text("Initial Values");
-		ImGui::DragInt("Number Of Particles", &particleSize);
+
+
+		if(ImGui::Button("8,192 Particles"))
+		{
+			numbParticles = 8196;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+		if (ImGui::Button("16,384 Particles"))
+		{
+			numbParticles = 16384;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+		if (ImGui::Button("32,768 Particles"))
+		{
+			numbParticles = 32768;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+		if (ImGui::Button("65,536 Particles"))
+		{
+			numbParticles = 65536;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+		if (ImGui::Button("131,072 Particles"))
+		{
+			numbParticles = 131072;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+		if (ImGui::Button("262,144 Particles"))
+		{
+			numbParticles = 262144;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+		if (ImGui::Button("524,288 Particles"))
+		{
+			numbParticles = 524288;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+		if (ImGui::Button("1,048,576 Particles"))
+		{
+			numbParticles = 1048576;
+			numberOfParticlesDrawn = numbParticles;
+			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+		}
+
 		ImGui::DragFloat("Density", &sph->sphDensity, 1.0f, 0);
 		ImGui::DragFloat("Smoothing Length", &sph->sphH, 0.001f, 0, 1.0f);
 		ImGui::DragFloat("Gravity", &sph->sphG);
 
-		if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, 12 * ImGui::GetTextLineHeightWithSpacing())))
+		if (ImGui::CollapsingHeader("Particle List"))
 		{
-			for (int i = 0; i < sph->particleList.size(); i++)
+			if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, 12 * ImGui::GetTextLineHeightWithSpacing())))
 			{
-				Particle* part = sph->particleList[i];
-				std::string partName = std::format("Particle {}", i);
-
-				if (ImGui::CollapsingHeader(partName.c_str()))
+				for (int i = 0; i < sph->particleList.size(); i++)
 				{
-					ImGui::Text("Collision Box");
-					ImGui::DragFloat("Collision Box Size", &sph->collisionBoxSize, 0.01f, 0.0f, 100.0f);
-					ImGui::DragFloat("Particle Elasticity", &part->elasticity, 0.01f, 0, 1.0f);
+					Particle* part = sph->particleList[i];
+					std::string partName = std::format("Particle {}", i);
 
-					ImGui::Text("Particle Values");
-					ImGui::DragFloat3("Position", &part[0].position.x, 0.01f);
-					ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
-					ImGui::DragFloat("Density", &part->density, 1.0f, 0);
-					ImGui::DragFloat("Particle Size", &part->size, 0.01f, 0.1f, 1.0f);
+					if (ImGui::CollapsingHeader(partName.c_str()))
+					{
+						ImGui::Text("Collision Box");
+						ImGui::DragFloat("Collision Box Size", &sph->collisionBoxSize, 0.01f, 0.0f, 100.0f);
+						ImGui::DragFloat("Particle Elasticity", &part->elasticity, 0.01f, 0, 1.0f);
+
+						ImGui::Text("Particle Values");
+						ImGui::DragFloat3("Position", &part[0].position.x, 0.01f);
+						ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
+						ImGui::DragFloat("Density", &part->density, 1.0f, 0);
+						ImGui::DragFloat("Particle Size", &part->size, 0.01f, 0.1f, 1.0f);
+					}
 				}
+				ImGui::EndListBox();
 			}
-			ImGui::EndListBox();
 		}
 	}
-	if (ImGui::CollapsingHeader("Water"))
-	{
-		ImGui::DragFloat3("Water Position", &waterPos.x);
-	}
-
 
 	ImGui::End();
 

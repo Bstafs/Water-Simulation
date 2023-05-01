@@ -1,8 +1,8 @@
 #include "SPH.h"
 
 // Numthreads size for the sort
-const UINT BITONIC_BLOCK_SIZE = 256;
-const UINT TRANSPOSE_BLOCK_SIZE = 8;
+const UINT BITONIC_BLOCK_SIZE = 1024;
+const UINT TRANSPOSE_BLOCK_SIZE = 64;
 const UINT NUM_GRID_INDICES = 65536;
 //walls
 float particleSpacing = 5.0f;
@@ -11,9 +11,9 @@ constexpr float mapZ = 1.0f;
 constexpr float mapX = 1.0f;
 constexpr float mapY = 1.0f;
 
-const float low_wall = 5.0f;
-const float left_wall = 5.5f;
-const float near_wall = 32.0f * particleSpacing;
+const float low_wall = 1.0f;
+const float left_wall = 1.5f;
+const float near_wall = 64.0f * particleSpacing;
 
 SPH::SPH(int numbParticles, float mass, float density, float viscosity, float h, float g, float elasticity, float pressure, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 {

@@ -229,7 +229,7 @@ void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchT
     const float h_sq = smoothingLength * smoothingLength;
     float3 particlePosition = IntegrateInput[particleID].position;
 
-    float density = 1.0f;
+    float density = 997.0f;
 
     uint3 gridXYZ = GridCalculateCell(particlePosition, gridDim.xyzw);
 
@@ -266,6 +266,39 @@ void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchT
     DensityOutput[particleID].density = density;
     DensityOutput[particleID].padding01 = float3(0.0f, 0.0f, 0.0f);
 }
+
+//[numthreads(256, 1, 1)]
+//void CSDensityMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
+//{
+//    const unsigned int threadID = dispatchThreadID.x;
+
+//    const float smoothingSquared = smoothingLength * smoothingLength;
+
+//    float3 particlePosition = IntegrateInput[threadID].position;
+
+//   // uint3 g_xyz = GetGridIndex(particlePosition);
+
+//    float density = 997.0f;
+
+//	[loop]
+//    for (unsigned int nID = 0; nID < particleCount; nID++)
+//    {
+//    //    uint particleID = GridInput[nID].gridIndex;
+//        float3 nPosition = IntegrateInput[nID].position;
+
+//        float3 diff = nPosition - particlePosition;
+//        float rSQ = dot(diff, diff);
+
+//        if (rSQ < smoothingSquared)
+//        {
+//            density += CalculateDensity(rSQ);
+//        }
+//    }
+
+
+//    DensityOutput[threadID].density = density;
+//    DensityOutput[threadID].padding01 = float3(0.0f, 0.0f, 0.0f);
+//}
 
 //--------------------------------------------------------------------------------------
 // Force Calculation
@@ -373,6 +406,55 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
     ForcesOutput[particleID].acceleration = acceleration / particleDensity;
     ForcesOutput[particleID].padding01 = 0.0f;
 }
+
+//[numthreads(256, 1, 1)]
+//void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
+//{
+//    const unsigned int threadID = dispatchThreadID.x;
+
+//    float3 particlePosition = IntegrateInput[threadID].position;
+//    float3 particleVelocity = IntegrateInput[threadID].velocity;
+//    float particleDensity = DensityInput[threadID].density;
+//    float particlePressure = CalculatePressure(particleDensity);
+
+//    const float smoothingSquared = smoothingLength * smoothingLength;
+
+//    float3 acceleration = float3(0.0f, 0.0f, 0.0f);
+
+//	[loop]
+//    for (unsigned int nID = 0; nID < particleCount; nID++)
+//    {
+
+//        uint npID = GridInput[nID].gridIndex;
+//        float3 nPosition = IntegrateInput[nID].position;
+
+//        float3 diff = nPosition - particlePosition;
+//        float rSQ = dot(diff, diff);
+
+//        if (rSQ < smoothingSquared && threadID != nID && rSQ > 0)
+//        {
+//            float3 newVelocity = IntegrateInput[nID].velocity;
+//            float newDensity = DensityInput[nID].density;
+//            float newPressure = CalculatePressure(newDensity);
+//            float r = sqrt(rSQ);
+
+//            acceleration += CalculateGradPressure(r, particlePressure, newPressure, newDensity, diff);
+//            acceleration += CalculateLapViscosity(r, particleVelocity, newVelocity, newDensity);
+//        }
+//    }
+
+//    int x = length(acceleration);
+
+//    if (x != 0)
+//    {
+//        ForcesOutput[threadID].acceleration = acceleration / particleDensity;
+//    }
+//    else
+//    {
+//        ForcesOutput[threadID].acceleration = acceleration;
+//    }
+//    ForcesOutput[threadID].padding01 = 0.0f;
+//}
 
 [numthreads(256, 1, 1)]
 void CSMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
