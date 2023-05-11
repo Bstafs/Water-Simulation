@@ -305,60 +305,60 @@ void SPH::InitParticles()
 
 void SPH::ParticleBoxCollision()
 {
-	//for (int i = 0; i < particleList.size(); ++i)
-	//{
-	//	Particle* part = particleList[i];
+	for (int i = 0; i < particleList.size(); ++i)
+	{
+		Particle* part = particleList[i];
 
-	//	// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
+		// Creating a box Collsion to hold particles. Continuining Following Realtime Particle - Based Fluid Simulation.
 
-	//	// Collision on the y Axis
+		// Collision on the y Axis
 
-	//	// Top
-	//	if (part->position.y < part->size - collisionBoxSize)
-	//	{
-	//		part->position.y = -part->position.y + 2 * (part->size - collisionBoxSize);
-	//		part->velocity.y = -part->velocity.y * part->elasticity;
-	//	}
+		// Top
+		if (part->position.y < part->size - collisionBoxSize)
+		{
+			part->position.y = -part->position.y + 2 * (part->size - collisionBoxSize);
+			part->velocity.y = -part->velocity.y * part->elasticity;
+		}
 
-	//	// Bottom
-	//	if (part->position.y > -part->size + collisionBoxSize)
-	//	{
-	//		part->position.y = -part->position.y + 2 * -(part->size - collisionBoxSize);
-	//		part->velocity.y = -part->velocity.y * part->elasticity;
-	//	}
+		// Bottom
+		if (part->position.y > -part->size + collisionBoxSize)
+		{
+			part->position.y = -part->position.y + 2 * -(part->size - collisionBoxSize);
+			part->velocity.y = -part->velocity.y * part->elasticity;
+		}
 
-	//	// Collision on the X Axis
+		// Collision on the X Axis
 
-	//	// Left
-	//	if (part->position.x < part->size - collisionBoxSize)
-	//	{
-	//		part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize);
-	//		part->velocity.x = -part->velocity.x * part->elasticity;
-	//	}
+		// Left
+		if (part->position.x < part->size - collisionBoxSize)
+		{
+			part->position.x = -part->position.x + 2 * (part->size - collisionBoxSize);
+			part->velocity.x = -part->velocity.x * part->elasticity;
+		}
 
-	//	// Right
-	//	if (part->position.x > -part->size + collisionBoxSize)
-	//	{
-	//		part->position.x = -part->position.x + 2 * -(part->size - collisionBoxSize);
-	//		part->velocity.x = -part->velocity.x * part->elasticity;
-	//	}
+		// Right
+		if (part->position.x > -part->size + collisionBoxSize)
+		{
+			part->position.x = -part->position.x + 2 * -(part->size - collisionBoxSize);
+			part->velocity.x = -part->velocity.x * part->elasticity;
+		}
 
-	//	// Collision on the Z Axis
+		// Collision on the Z Axis
 
-	//	// Back
-	//	if (part->position.z < part->size - collisionBoxSize)
-	//	{
-	//		part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize);
-	//		part->velocity.z = -part->velocity.z * part->elasticity;
-	//	}
+		// Back
+		if (part->position.z < part->size - collisionBoxSize)
+		{
+			part->position.z = -part->position.z + 2 * (part->size - collisionBoxSize);
+			part->velocity.z = -part->velocity.z * part->elasticity;
+		}
 
-	//	// Front
-	//	if (part->position.z > -part->size + collisionBoxSize)
-	//	{
-	//		part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize);
-	//		part->velocity.z = -part->velocity.z * part->elasticity;
-	//	}
-	//}
+		// Front
+		if (part->position.z > -part->size + collisionBoxSize)
+		{
+			part->position.z = -part->position.z + 2 * -(part->size - collisionBoxSize);
+			part->velocity.z = -part->velocity.z * part->elasticity;
+		}
+	}
 }
 
 void SPH::Update()
@@ -718,13 +718,14 @@ void SPH::ParticleForcesSetup()
 			deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRVTwo);
 		}
 
-		ID3D11UnorderedAccessView* cleanerUAV = nullptr;
-		deviceContext->CSSetUnorderedAccessViews(2, 1, &cleanerUAV, nullptr);
-		deviceContext->CSSetUnorderedAccessViews(2, 1, &pDensityUAV, nullptr);
+		//ID3D11UnorderedAccessView* cleanerUAV = nullptr;
+		//deviceContext->CSSetUnorderedAccessViews(2, 1, &cleanerUAV, nullptr);
 
+		deviceContext->CSSetUnorderedAccessViews(2, 1, &pDensityUAV, nullptr);
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
 
 		deviceContext->Dispatch(numberOfParticles, 1, 1);
+
 
 		deviceContext->CopyResource(pDebugDensityBuffer, pDensityBuffer);
 		ParticleDensity* densities = reinterpret_cast<ParticleDensity*>(MapBuffer(pDebugDensityBuffer, deviceContext));
@@ -783,8 +784,8 @@ void SPH::ParticleForcesSetup()
 			deviceContext->CSSetShaderResources(4, 1, &pGridIndicesSRVTwo);
 		}
 
-		ID3D11UnorderedAccessView* cleanerUAV = nullptr;
-		deviceContext->CSSetUnorderedAccessViews(1, 1, &cleanerUAV, nullptr);
+		//ID3D11UnorderedAccessView* cleanerUAV = nullptr;
+		//deviceContext->CSSetUnorderedAccessViews(1, 1, &cleanerUAV, nullptr);
 		deviceContext->CSSetUnorderedAccessViews(1, 1, &pForcesUAV, nullptr);
 
 		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
@@ -793,6 +794,7 @@ void SPH::ParticleForcesSetup()
 
 		deviceContext->CSSetShader(nullptr, nullptr, 0);
 		deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
 		deviceContext->CSSetShaderResources(0, 1, srvNull);
 		deviceContext->CSSetShaderResources(2, 1, srvNull);
 		deviceContext->CSSetShaderResources(3, 1, srvNull);
@@ -871,20 +873,20 @@ void SPH::RenderFluid()
 
 void SPH::Draw()
 {
-	// Build Grid 
-	BuildGrid();
+	//// Build Grid 
+	//BuildGrid();
 
-	// Sort Grid 
-	SortGrid();
+	//// Sort Grid 
+	//SortGrid();
 
-	// Clear Indices 
-	//ClearGridIndices();
+	//// Clear Indices 
+	////ClearGridIndices();
 
-	// Build Grid Indices
-	BuildGridIndices();
+	//// Build Grid Indices
+	//BuildGridIndices();
 
-	// Rearrange
-	RearrangeParticles();
+	//// Rearrange
+	//RearrangeParticles();
 
 	// Setup Particle Forces
 	ParticleForcesSetup();

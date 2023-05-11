@@ -425,7 +425,7 @@ void CSForcesMain(uint3 Gid : SV_GroupID, uint3 dispatchThreadID : SV_DispatchTh
 //    for (unsigned int nID = 0; nID < particleCount; nID++)
 //    {
 
-//        uint npID = GridInput[nID].gridIndex;
+//     //   uint npID = GridInput[nID].gridIndex;
 //        float3 nPosition = IntegrateInput[nID].position;
 
 //        float3 diff = nPosition - particlePosition;

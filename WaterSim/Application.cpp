@@ -4,6 +4,13 @@
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+// Note: if NuGet Package not found go to tools->options->NuGet Package Manager
+// Package Sources -> Add Source -> name = nuget.org, source = https://api.nuget.org/v3/index.json
+// Click Update then Ok.
+
+// Right click solution -> Restore NuGet Packages.
+
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
@@ -34,7 +41,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 bool Application::HandleKeyboard()
 {
-	float mCameraSpeed = 0.008f;
+	float mCameraSpeed = 0.08f;
+	float mTurnCameraSpeed = 0.008f;
 
 	// Forward
 	if (GetAsyncKeyState('W'))
@@ -54,12 +62,12 @@ bool Application::HandleKeyboard()
 	// Right
 	if (GetAsyncKeyState('D'))
 	{
-		rotationX += mCameraSpeed;
+		rotationX += mTurnCameraSpeed;
 	}
 	// Left
 	if (GetAsyncKeyState('A'))
 	{
-		rotationX -= mCameraSpeed;
+		rotationX -= mTurnCameraSpeed;
 	}
 
 	// Up
@@ -198,8 +206,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	}
 
 
-	// CUDA
-	numbParticles = 8192;			// 8,192 Particles
+	numbParticles = 8192;			
 
 	mass = 0.002f;
 	density = 997.0f;
@@ -494,6 +501,7 @@ HRESULT Application::InitDevice()
 
 	UINT createDeviceFlags = 0;
 
+	// comment this out
 #ifdef _DEBUG
 	createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
