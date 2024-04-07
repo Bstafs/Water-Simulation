@@ -34,7 +34,6 @@ public:
 	SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* device);
 	~SPH();
 	void Update(float deltaTime);
-	void Draw(float deltaTime);
 	// Particle Variables
 
 	int numberOfParticles;

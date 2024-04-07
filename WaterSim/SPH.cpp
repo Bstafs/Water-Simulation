@@ -121,11 +121,6 @@ void SPH::InitParticles()
 	SetDebugName(pDebugPositionBuffer, "Integrate Readable Structure Buffer");
 }
 
-void SPH::Update(float deltaTime)
-{
-	dt = deltaTime;
-}
-
 void SPH::SetUpParticleConstantBuffer()
 {
 	particleConstantCPUBuffer.particleCount = numberOfParticles;
@@ -203,7 +198,7 @@ void SPH::ParticleForcesSetup()
 }
 
 
-void SPH::Draw(float deltaTime)
+void SPH::Update(float deltaTime)
 {
 	// Setup Particle Forces
    	//ParticleForcesSetup();
@@ -227,8 +222,8 @@ void SPH::Draw(float deltaTime)
 		particleList[i]->position.y += particleList[i]->velocity.y * deltaTime;
 		particleList[i]->position.z += particleList[i]->velocity.z * deltaTime;
 
-		{
-			// Check and adjust particle positions within the bounding box
+		// Basic Bounding Box
+		{ 
 			if (particleList[i]->position.x < minX) {
 				particleList[i]->position.x = minX;
 				particleList[i]->velocity.x = -particleList[i]->velocity.x * dampingFactor; // Reverse velocity upon collision
@@ -255,6 +250,6 @@ void SPH::Draw(float deltaTime)
 				particleList[i]->position.z = maxZ;
 				particleList[i]->velocity.z = -particleList[i]->velocity.z * dampingFactor;
 			}
-		}
+		} // Basic Bounding Box
 	}
 }

@@ -756,8 +756,6 @@ void Application::Update()
 
 	sph->Update(deltaTime);
 
-	sph->Draw(deltaTime);
-
 	for (auto gameObject : m_gameObjects)
 	{
 		gameObject->Update(deltaTime);
