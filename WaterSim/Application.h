@@ -107,9 +107,9 @@ private:
 	UINT _renderWidth = _WindowWidth;
 	UINT _renderHeight = _WindowHeight;
 
-	float currentPosZ = -70.0f;
+	float currentPosZ = -30.0f;
 	float currentPosX = 0.0f;
-	float currentPosY = 2.0f;
+	float currentPosY = 0.0f;
 	float rotationX = 0.0f;
 	float rotationY = 0.0f;
 
@@ -146,7 +146,7 @@ private:
 	float g = 9.0f;
 	float elastisicty;
 
-	bool isParticleVisible = false;
+	bool isParticleVisible = true;
 
    Timestep* _timestep;
 

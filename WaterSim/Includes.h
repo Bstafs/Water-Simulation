@@ -23,6 +23,7 @@
 #include <format>
 #include <vector>
 #include <unordered_map>
+#include <cmath>
 
 // Physics / Objects
 #include "Quaternion.h"

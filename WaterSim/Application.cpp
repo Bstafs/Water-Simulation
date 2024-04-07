@@ -41,7 +41,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 bool Application::HandleKeyboard()
 {
-	float mCameraSpeed = 0.08f;
+	float mCameraSpeed = 0.008f;
 	float mTurnCameraSpeed = 0.008f;
 
 	// Forward
@@ -205,17 +205,9 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 		m_gameObjects.push_back(gameObject);
 	}
 
-
-	numbParticles = 8192;			
-
-	mass = 0.002f;
-	density = 997.0f;
-	viscosity = 1.5f;
-	h = 20.0f;
-	g = -9.807f;
-	elastisicty = 0.1f;
+	numbParticles = 300;			
 	numberOfParticlesDrawn = numbParticles;
-	sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
+	sph = new SPH(numbParticles, _pImmediateContext, _pd3dDevice);
 
 	return S_OK;
 }
@@ -762,9 +754,9 @@ void Application::Update()
 
 	_camera->Update();
 
-	sph->deltaTimeValue = deltaTime;
+	sph->Update(deltaTime);
 
-	sph->Update();
+	sph->Draw(deltaTime);
 
 	for (auto gameObject : m_gameObjects)
 	{
@@ -817,60 +809,6 @@ void Application::ImGui()
 
 		ImGui::Text("Initial Values");
 
-
-		if(ImGui::Button("8,192 Particles"))
-		{
-			numbParticles = 8196;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-		if (ImGui::Button("16,384 Particles"))
-		{
-			numbParticles = 16384;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-		if (ImGui::Button("32,768 Particles"))
-		{
-			numbParticles = 32768;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-		if (ImGui::Button("65,536 Particles"))
-		{
-			numbParticles = 65536;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-		if (ImGui::Button("131,072 Particles"))
-		{
-			numbParticles = 131072;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-		if (ImGui::Button("262,144 Particles"))
-		{
-			numbParticles = 262144;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-		if (ImGui::Button("524,288 Particles"))
-		{
-			numbParticles = 524288;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-		if (ImGui::Button("1,048,576 Particles"))
-		{
-			numbParticles = 1048576;
-			numberOfParticlesDrawn = numbParticles;
-			sph = new SPH(numbParticles, mass, density, viscosity, h, g, elastisicty, 200.0f, _pImmediateContext, _pd3dDevice);
-		}
-
-		ImGui::DragFloat("Density", &sph->sphDensity, 1.0f, 0);
-		ImGui::DragFloat("Smoothing Length", &sph->sphH, 0.001f, 0, 1.0f);
-		ImGui::DragFloat("Gravity", &sph->sphG);
-
 		if (ImGui::CollapsingHeader("Particle List"))
 		{
 			if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, 12 * ImGui::GetTextLineHeightWithSpacing())))
@@ -882,15 +820,9 @@ void Application::ImGui()
 
 					if (ImGui::CollapsingHeader(partName.c_str()))
 					{
-						ImGui::Text("Collision Box");
-						ImGui::DragFloat("Collision Box Size", &sph->collisionBoxSize, 0.01f, 0.0f, 100.0f);
-						ImGui::DragFloat("Particle Elasticity", &part->elasticity, 0.01f, 0, 1.0f);
-
 						ImGui::Text("Particle Values");
 						ImGui::DragFloat3("Position", &part[0].position.x, 0.01f);
 						ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
-						ImGui::DragFloat("Density", &part->density, 1.0f, 0);
-						ImGui::DragFloat("Particle Size", &part->size, 0.01f, 0.1f, 1.0f);
 					}
 				}
 				ImGui::EndListBox();
@@ -995,7 +927,7 @@ void Application::Draw()
 
 	_pAnnotation->BeginEvent(L"Water Simulation");
 
-	BoundingBox box;
+	BoundingSphere sphere;
 
 	XMMATRIX myWater = XMLoadFloat4x4(&m_myWater);
 	cb.World = XMMatrixTranspose(myWater);
@@ -1004,65 +936,21 @@ void Application::Draw()
 	if (isParticleVisible == true)
 	{
 		m_batch->Begin();
-		for (int i = 0; i < min(numberOfParticlesDrawn, sph->particleList.size()); ++i)
+		for (int i = 0; i < sph->particleList.size(); i++)
 		{
 			Particle* part = sph->particleList[i];
 
-			box.Center = part->position;
-			box.Extents = XMFLOAT3(part->size, part->size, part->size);
-			DrawBox(m_batch.get(), box, Colors::Blue);
+			sphere.Center = part->position;
+			sphere.Radius = 1.0f;
+			DrawSphere(m_batch.get(), sphere, Colors::Blue);
 		}
-
-		//box.Center = XMFLOAT3(0, 0, 0);
-		//box.Extents = XMFLOAT3(16.0f, 16.0f, 3.0f);
-		//DrawBox(m_batch.get(), box, Colors::Blue);
-
-
 		m_batch->End();
 	}
 
 	_pAnnotation->BeginEvent(L"Water Particles");
 
-	sph->Draw();
-
 	_pAnnotation->EndEvent();
 
-	_pAnnotation->BeginEvent(L"Water Render");
-
-	WaterBuffer wb = {};
-	wb.World = XMMatrixTranspose(myWater);
-	wb.View = XMMatrixTranspose(view);
-	wb.Projection = XMMatrixTranspose(projection);
-	_pImmediateContext->UpdateSubresource(pWaterConstantBuffer, 0, nullptr, &wb, 0, 0);
-
-	UINT stride = sizeof(SimpleVertex);
-	UINT offset = 0;
-	_pImmediateContext->IASetVertexBuffers(0, 1, &_pWaterVertexBuffer, &stride, &offset);
-	_pImmediateContext->IASetIndexBuffer(_pWaterIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
-
-	_pImmediateContext->IASetInputLayout(pWaterInputLayout);
-	_pImmediateContext->VSSetShader(pWaterVertexShader, nullptr, 0);
-	_pImmediateContext->VSSetConstantBuffers(0, 1, &pWaterConstantBuffer);
-
-	_pImmediateContext->PSSetShader(pWaterPixelShader, nullptr, 0);
-	_pImmediateContext->PSSetConstantBuffers(0, 1, &pWaterConstantBuffer);
-	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
-
-	_pImmediateContext->PSSetShaderResources(0, 1, &pReflectionTextureSRV);
-	_pImmediateContext->PSSetShaderResources(1, 1, &pRefractionTextureSRV);
-	_pImmediateContext->PSSetShaderResources(2, 1, &pSkyBoxTextureSRV);
-
-	_pImmediateContext->OMSetBlendState(waterBlendState, nullptr, 0xffffffff);
-
-	_pImmediateContext->RSSetState(CWcullMode);
-
-	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	//_pImmediateContext->DrawIndexed(6, 0, 0);
-
-	_pAnnotation->EndEvent();
-
-	_pAnnotation->EndEvent();
 
 	ImGui();
 
