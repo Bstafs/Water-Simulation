@@ -11,6 +11,10 @@ using namespace DirectX;
 
 using VertexType = DirectX::VertexPositionColor;
 
+const int NUM_VERTICES_PER_RING = 32;
+const int NUM_RINGS = 16;
+const float RADIUS = 1.0f;
+
 struct SurfaceInfo
 {
 	XMFLOAT4 AmbientMtrl;
@@ -71,14 +75,6 @@ private:
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;
 
-	ID3D11Buffer* _pPlaneVertexBuffer;
-	ID3D11Buffer* _pPlaneIndexBuffer;
-
-	ID3D11Buffer* _pWaterVertexBuffer;
-	ID3D11Buffer* _pWaterIndexBuffer;
-
-	ID3D11BlendState* waterBlendState;
-
 	ID3D11Buffer* _pConstantBuffer;
 
 	ID3D11DepthStencilView* _depthStencilView = nullptr;
@@ -91,6 +87,9 @@ private:
 	ID3D11ShaderResourceView* _pHerculesTextureRV = nullptr;
 
 	ID3D11SamplerState* _pSamplerLinear = nullptr;
+
+	std::vector<SimpleVertex> sphereVertices;
+	std::vector<WORD> sphereIndices;
 
 	MeshData objMeshData;
 
@@ -180,7 +179,7 @@ private:
 	HRESULT InitVertexBuffer();
 	HRESULT InitIndexBuffer();
 
-
+	void CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices);
 
 	void ImGui();
 	float CalculateDeltaTime60FPS();

@@ -58,8 +58,10 @@ SPH::~SPH()
 
 void SPH::InitParticles()
 {
-	int particlesPerRow = (int)sqrt(numberOfParticles);
-	int particlesPerCol = 5;
+	int particlesPerRow = (int)cbrt(numberOfParticles); // cubic root instead of square root
+	int particlesPerLayer = particlesPerRow * particlesPerRow;
+	int particlesPerColumn = (numberOfParticles - 1) / particlesPerLayer + 1;
+
 	float spacing = 1.0f * 2 + 1.0f;
 
 	for (int i = 0; i < numberOfParticles; i++)
@@ -67,13 +69,13 @@ void SPH::InitParticles()
 		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f));
 
 		float x = (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
-		float y = (i / particlesPerRow % particlesPerCol - particlesPerCol / 2.0f + 0.5f) * spacing;
-		float z = (i / (particlesPerRow * particlesPerCol) - 10.0f / 2.0f + 0.5f) * spacing;
+		float y = ((i / particlesPerRow) % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
+		float z = (i / particlesPerLayer - particlesPerColumn / 2.0f + 0.5f) * spacing;
 
 		newParticle->position.x = x;
 		newParticle->position.y = y;
 		newParticle->position.z = z;
-		
+
 		particleList[i] = newParticle;
 	}
 
@@ -197,13 +199,49 @@ void SPH::ParticleForcesSetup()
 	_pAnnotation->EndEvent();
 }
 
+float SPH::SmoothingKernel(float radius, float dst)
+{
+	if (dst < radius)
+	{
+		float volume = 64 * 3.1415f * pow(radius, 9) / 4;
+		float value = radius * radius - dst * dst;
+		return value * value * value / volume;
+	}
+}
+
+float CalculateMagnitude(const XMFLOAT3 &vector)
+{
+	XMVECTOR xmVector = XMLoadFloat3(&vector);
+	XMVECTOR magnitudeVector = XMVector3Length(xmVector);
+	float magnitude;
+	XMStoreFloat(&magnitude, magnitudeVector);
+	return magnitude;
+}
+
+float SPH::CalculateDensity(XMFLOAT3 samplePoint)
+{
+	float density = 0.0f;
+	const float mass = 1.0f;
+
+	for (int i = 0; i < particleList.size(); i++)
+	{
+		float particlePositionMagnitude = CalculateMagnitude(particleList[i]->position);
+		float samplePointMagnitude = CalculateMagnitude(samplePoint);
+
+		float dst = particlePositionMagnitude - samplePointMagnitude;
+		float influence = SmoothingKernel(0.5f, dst);
+
+		density += mass * influence;
+	}
+	return density;
+}
 
 void SPH::Update(float deltaTime)
 {
 	// Setup Particle Forces
    	//ParticleForcesSetup();
 
-	float dampingFactor = 0.1f;
+	float dampingFactor = 0.4f;
 
 	float minX = -10.0f;
 	float maxX = 10.0f;

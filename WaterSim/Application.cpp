@@ -140,6 +140,10 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
 	ImGui::StyleColorsDark();
 
+	numbParticles = 100;
+	numberOfParticlesDrawn = numbParticles;
+	sph = new SPH(numbParticles, _pImmediateContext, _pd3dDevice);
+
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pReflectionTextureSRV);
@@ -163,19 +167,12 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	basicLight.SpecularPower = 20.0f;
 	basicLight.LightVecW = XMFLOAT3(0.0f, 1.0f, -1.0f);
 
-	Geometry cubeGeometry;
-	cubeGeometry.indexBuffer = _pIndexBuffer;
-	cubeGeometry.vertexBuffer = _pVertexBuffer;
-	cubeGeometry.numberOfIndices = 36;
-	cubeGeometry.vertexBufferOffset = 0;
-	cubeGeometry.vertexBufferStride = sizeof(SimpleVertex);
-
-	Geometry planeGeometry;
-	planeGeometry.indexBuffer = _pPlaneIndexBuffer;
-	planeGeometry.vertexBuffer = _pPlaneVertexBuffer;
-	planeGeometry.numberOfIndices = 6;
-	planeGeometry.vertexBufferOffset = 0;
-	planeGeometry.vertexBufferStride = sizeof(SimpleVertex);
+	Geometry sphereGeometry;
+	sphereGeometry.indexBuffer = _pIndexBuffer;
+	sphereGeometry.vertexBuffer = _pVertexBuffer;
+	sphereGeometry.numberOfIndices = sphereIndices.size();
+	sphereGeometry.vertexBufferOffset = 0;
+	sphereGeometry.vertexBufferStride = sizeof(SimpleVertex);
 
 	Material shinyMaterial;
 	shinyMaterial.ambient = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
@@ -189,25 +186,15 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	noSpecMaterial.specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
 	noSpecMaterial.specularPower = 0.0f;
 
-	GameObject* gameObject = new GameObject("Floor", planeGeometry, noSpecMaterial);
-	gameObject->GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
-	gameObject->GetTransform()->SetScale(15.0f, 15.0f, 15.0f);
-	gameObject->GetTransform()->SetRotation(XMConvertToRadians(90.0f), 0.0f, 0.0f);
-	gameObject->GetAppearance()->SetTextureRV(_pGroundTextureRV);
-	m_gameObjects.push_back(gameObject);
 
-	for (int i = 0; i < NUMBER_OF_CUBES; i++)
+	for (int i = 0; i < sph->particleList.size(); i++)
 	{
-		gameObject = new GameObject("Cube " + i, cubeGeometry, shinyMaterial);
-		gameObject->GetTransform()->SetScale(0.5f, 0.5f, 0.5f);
-		gameObject->GetTransform()->SetPosition(0.0f, 0.5f, 0.0);
-		gameObject->GetAppearance()->SetTextureRV(_pTextureRV);
+		GameObject* gameObject = new GameObject("Cube " + i, sphereGeometry, shinyMaterial);
+		gameObject->GetTransform()->SetScale(1.0f, 1.0f, 1.0f);
+		gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
+		gameObject->GetAppearance()->SetTextureRV(0);
 		m_gameObjects.push_back(gameObject);
 	}
-
-	numbParticles = 300;			
-	numberOfParticlesDrawn = numbParticles;
-	sph = new SPH(numbParticles, _pImmediateContext, _pd3dDevice);
 
 	return S_OK;
 }
@@ -265,105 +252,75 @@ HRESULT Application::InitShadersAndInputLayout()
 	return hr;
 }
 
+// Generate vertices and indices for a sphere
+void Application::CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices) {
+	const float pi = XM_PI;
+	const float twoPi = 2.0f * pi;
+
+	// Generate vertices
+	for (int i = 0; i <= numSubdivisions; ++i) {
+		float phi = pi * static_cast<float>(i) / numSubdivisions;
+
+		for (int j = 0; j <= numSubdivisions; ++j) {
+			float theta = twoPi * static_cast<float>(j) / numSubdivisions;
+
+			SimpleVertex vertex;
+			vertex.Pos.x = radius * sin(phi) * cos(theta);
+			vertex.Pos.y = radius * cos(phi);
+			vertex.Pos.z = radius * sin(phi) * sin(theta);
+
+			vertex.Normal.x = vertex.Pos.x / radius;
+			vertex.Normal.y = vertex.Pos.y / radius;
+			vertex.Normal.z = vertex.Pos.z / radius;
+
+			vertex.TexC.x = static_cast<float>(j) / numSubdivisions;
+			vertex.TexC.y = static_cast<float>(i) / numSubdivisions;
+
+			vertices.push_back(vertex);
+		}
+	}
+
+	// Generate indices
+	for (int i = 0; i < numSubdivisions; ++i) {
+		for (int j = 0; j < numSubdivisions; ++j) {
+			int v0 = i * (numSubdivisions + 1) + j;
+			int v1 = v0 + 1;
+			int v2 = (i + 1) * (numSubdivisions + 1) + j;
+			int v3 = v2 + 1;
+
+			indices.push_back(v0);
+			indices.push_back(v2);
+			indices.push_back(v1);
+
+			indices.push_back(v1);
+			indices.push_back(v2);
+			indices.push_back(v3);
+		}
+	}
+}
+
 HRESULT Application::InitVertexBuffer()
 {
 	HRESULT hr;
 
-	// Create vertex buffer
-	SimpleVertex vertices[] =
-	{
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
+	D3D11_BUFFER_DESC vbDesc, ibDesc;
+	D3D11_SUBRESOURCE_DATA vbData, ibData;
 
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
+	vbDesc.Usage = D3D11_USAGE_DEFAULT;
+	vbDesc.ByteWidth = sizeof(SimpleVertex) * sphereVertices.size();
+	vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vbDesc.CPUAccessFlags = 0;
+	vbDesc.MiscFlags = 0;
+	vbData.pSysMem = sphereVertices.data();
+	_pd3dDevice->CreateBuffer(&vbDesc, &vbData, &_pVertexBuffer);
 
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
-
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
-
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
-	};
-
-	D3D11_BUFFER_DESC bd;
-	ZeroMemory(&bd, sizeof(bd));
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * 24;
-	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	bd.CPUAccessFlags = 0;
-
-	D3D11_SUBRESOURCE_DATA InitData;
-	ZeroMemory(&InitData, sizeof(InitData));
-	InitData.pSysMem = vertices;
-
-	hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pVertexBuffer);
-
-	if (FAILED(hr))
-		return hr;
-
-	// Create vertex buffer
-	SimpleVertex planeVertices[] =
-	{
-		{ XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 5.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(5.0f, 5.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(5.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	};
-
-	ZeroMemory(&bd, sizeof(bd));
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * 4;
-	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	bd.CPUAccessFlags = 0;
-
-	ZeroMemory(&InitData, sizeof(InitData));
-	InitData.pSysMem = planeVertices;
-
-	hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pPlaneVertexBuffer);
-
-	if (FAILED(hr))
-		return hr;
-
-	SimpleVertex WaterVertices[] =
-	{
-	{ XMFLOAT3(-1.5f, 0.0f, -1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.5f, 0.0f,  1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3(1.5f, 0.0f,  1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3(1.5f, 0.0f, -1.5), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
-	};
-
-
-	// Create the vertex buffer
-	D3D11_BUFFER_DESC vertexBufferDesc;
-	ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
-	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexBufferDesc.ByteWidth = sizeof(SimpleVertex) * 4;
-	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vertexBufferDesc.CPUAccessFlags = 0;
-	vertexBufferDesc.MiscFlags = 0;
-	D3D11_SUBRESOURCE_DATA vertexData;
-	ZeroMemory(&vertexData, sizeof(vertexData));
-	vertexData.pSysMem = WaterVertices;
-	hr = _pd3dDevice->CreateBuffer(&vertexBufferDesc, &vertexData, &_pWaterVertexBuffer);
-
+	ibDesc.Usage = D3D11_USAGE_DEFAULT;
+	ibDesc.ByteWidth = sizeof(WORD) * sphereIndices.size();
+	ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibDesc.CPUAccessFlags = 0;
+	ibDesc.MiscFlags = 0;
+	ibData.pSysMem = sphereIndices.data();
+	_pd3dDevice->CreateBuffer(&ibDesc, &ibData, &_pIndexBuffer);
 
 	return S_OK;
 }
@@ -371,83 +328,6 @@ HRESULT Application::InitVertexBuffer()
 HRESULT Application::InitIndexBuffer()
 {
 	HRESULT hr;
-
-	// Create index buffer
-	WORD indices[] =
-	{
-		3, 1, 0,
-		2, 1, 3,
-
-		6, 4, 5,
-		7, 4, 6,
-
-		11, 9, 8,
-		10, 9, 11,
-
-		14, 12, 13,
-		15, 12, 14,
-
-		19, 17, 16,
-		18, 17, 19,
-
-		22, 20, 21,
-		23, 20, 22
-	};
-
-	D3D11_BUFFER_DESC bd;
-	ZeroMemory(&bd, sizeof(bd));
-
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(WORD) * 36;
-	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	bd.CPUAccessFlags = 0;
-
-	D3D11_SUBRESOURCE_DATA InitData;
-	ZeroMemory(&InitData, sizeof(InitData));
-	InitData.pSysMem = indices;
-	hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pIndexBuffer);
-
-	if (FAILED(hr))
-		return hr;
-
-	// Create plane index buffer
-	WORD planeIndices[] =
-	{
-		0, 3, 1,
-		3, 2, 1,
-	};
-
-	ZeroMemory(&bd, sizeof(bd));
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(WORD) * 6;
-	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	bd.CPUAccessFlags = 0;
-
-	ZeroMemory(&InitData, sizeof(InitData));
-	InitData.pSysMem = planeIndices;
-	hr = _pd3dDevice->CreateBuffer(&bd, &InitData, &_pPlaneIndexBuffer);
-
-	if (FAILED(hr))
-		return hr;
-
-	WORD waterIndices[] =
-	{
-	0, 1, 2,
-	0, 2, 3
-	};
-
-	// Create the index buffer
-	D3D11_BUFFER_DESC indexBufferDesc;
-	ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
-	indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	indexBufferDesc.ByteWidth = sizeof(WORD) * 6;
-	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	indexBufferDesc.CPUAccessFlags = 0;
-	indexBufferDesc.MiscFlags = 0;
-	D3D11_SUBRESOURCE_DATA indexData;
-	ZeroMemory(&indexData, sizeof(indexData));
-	indexData.pSysMem = waterIndices;
-	hr = _pd3dDevice->CreateBuffer(&indexBufferDesc, &indexData, &_pWaterIndexBuffer);
 
 	return S_OK;
 }
@@ -581,6 +461,7 @@ HRESULT Application::InitDevice()
 
 	InitShadersAndInputLayout();
 
+	CreateSphere(1.0f, 32, sphereVertices, sphereIndices);
 	InitVertexBuffer();
 	InitIndexBuffer();
 
@@ -589,7 +470,6 @@ HRESULT Application::InitDevice()
 
 	// Create the constant buffer
 	_pConstantBuffer = CreateConstantBuffer(sizeof(ConstantBuffer), _pd3dDevice, false);
-	pWaterConstantBuffer = CreateConstantBuffer(sizeof(WaterBuffer), _pd3dDevice, false);
 
 	// Depth Stencil Stuff
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
@@ -638,20 +518,6 @@ HRESULT Application::InitDevice()
 	cmdesc.FrontCounterClockwise = false;
 	hr = _pd3dDevice->CreateRasterizerState(&cmdesc, &CWcullMode);
 
-	D3D11_BLEND_DESC blendStateDesc;
-	ZeroMemory(&blendStateDesc, sizeof(blendStateDesc));
-	blendStateDesc.AlphaToCoverageEnable = false;
-	blendStateDesc.RenderTarget[0].BlendEnable = true;
-	blendStateDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-	blendStateDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	blendStateDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	blendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	blendStateDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-	blendStateDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-	blendStateDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-	hr = _pd3dDevice->CreateBlendState(&blendStateDesc, &waterBlendState);
-
 	return hr;
 }
 
@@ -668,8 +534,6 @@ void Application::Cleanup()
 
 	if (_pVertexBuffer) _pVertexBuffer->Release();
 	if (_pIndexBuffer) _pIndexBuffer->Release();
-	if (_pPlaneVertexBuffer) _pPlaneVertexBuffer->Release();
-	if (_pPlaneIndexBuffer) _pPlaneIndexBuffer->Release();
 
 	if (_pVertexLayout) _pVertexLayout->Release();
 	if (_pVertexShader) _pVertexShader->Release();
@@ -803,7 +667,7 @@ void Application::ImGui()
 		ImGui::Text("Visualize");
 		ImGui::Checkbox("Visualize", &isParticleVisible);
 
-		ImGui::InputInt("Cubes Drawn: ", &numberOfParticlesDrawn);
+		ImGui::DragInt("Number of Particles", &numbParticles);
 
 		ImGui::Text("Initial Values");
 
@@ -908,47 +772,15 @@ void Application::Draw()
 		gameObject->Draw(_pImmediateContext);
 	}
 
-	_pImmediateContext->ClearRenderTargetView(_pRenderTargetView, ClearColor);
-	_pImmediateContext->ClearDepthStencilView(_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
-
-	if (!_pAnnotation && _pImmediateContext)
-		_pImmediateContext->QueryInterface(IID_PPV_ARGS(&_pAnnotation));
-
-	_pAnnotation->BeginEvent(L"Water Visual Batch Draw");
-
-
-
-	_pAnnotation->EndEvent();
-
-
-	_pAnnotation->BeginEvent(L"Water Simulation");
-
-	BoundingSphere sphere;
-
-	XMMATRIX myWater = XMLoadFloat4x4(&m_myWater);
-	cb.World = XMMatrixTranspose(myWater);
-	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-
-	if (isParticleVisible == true)
+	for (int i = 0; i < m_gameObjects.size(); i++)
 	{
-		m_batch->Begin();
-		for (int i = 0; i < sph->particleList.size(); i++)
+		for (int j = 0; j < sph->particleList.size() - i; j++)
 		{
-			Particle* part = sph->particleList[i];
+			Particle* part = sph->particleList[j];
 
-			sphere.Center = part->position;
-			sphere.Radius = 1.0f;
-			DrawSphere(m_batch.get(), sphere, Colors::Blue);
+			m_gameObjects[i]->GetTransform()->SetPosition(part->position);
 		}
-		m_batch->End();
 	}
-
-	_pAnnotation->BeginEvent(L"Water Particles");
-
-	_pAnnotation->EndEvent();
-
 
 	ImGui();
 

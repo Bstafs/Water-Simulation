@@ -64,6 +64,9 @@ private:
 	void SetUpParticleConstantBuffer();
 	void ParticleForcesSetup();
 
+	static float SmoothingKernel(float radius, float dst);
+	float CalculateDensity(XMFLOAT3 samplePoint);
+
 	ID3D11DeviceContext* deviceContext;
 	ID3D11Device* device;
 

@@ -56,6 +56,7 @@ void XM_CALLCONV DrawRing(PrimitiveBatch<VertexPositionColor>* batch,
     verts[c_ringSegments] = verts[0];
 
     batch->Draw(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP, verts, c_ringSegments + 1);
+
 }
 
 void XM_CALLCONV DrawBox(PrimitiveBatch<VertexPositionColor>* batch,

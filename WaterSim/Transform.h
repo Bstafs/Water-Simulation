@@ -13,6 +13,7 @@ public:
 
 	// Setters and Getters for position/rotation/scale
 	void SetPosition(Vector3 position) { m_position = position; }
+	void SetPosition(XMFLOAT3 position) { m_position.x = position.x, m_position.y = position.y, m_position.z = position.z; }
 	void SetPosition(float x, float y, float z) { m_position.x = x; m_position.y = y; m_position.z = z; }
 
 	Vector3 GetPosition() const { return m_position; }
