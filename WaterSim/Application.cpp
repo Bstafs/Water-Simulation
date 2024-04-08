@@ -140,7 +140,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
 	ImGui::StyleColorsDark();
 
-	numbParticles = 100;
+	numbParticles = 400;
 	numberOfParticlesDrawn = numbParticles;
 	sph = new SPH(numbParticles, _pImmediateContext, _pd3dDevice);
 

@@ -58,6 +58,8 @@ SPH::~SPH()
 
 void SPH::InitParticles()
 {
+	particleProperties = new float[numberOfParticles];
+
 	int particlesPerRow = (int)cbrt(numberOfParticles); // cubic root instead of square root
 	int particlesPerLayer = particlesPerRow * particlesPerRow;
 	int particlesPerColumn = (numberOfParticles - 1) / particlesPerLayer + 1;
@@ -66,7 +68,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < numberOfParticles; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		float x = (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
 		float y = ((i / particlesPerRow) % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
@@ -201,15 +203,20 @@ void SPH::ParticleForcesSetup()
 
 float SPH::SmoothingKernel(float radius, float dst)
 {
-	if (dst < radius)
-	{
-		float volume = 64 * 3.1415f * pow(radius, 9) / 4;
-		float value = radius * radius - dst * dst;
-		return value * value * value / volume;
-	}
+	if (dst >= radius) return 0;
+
+	float volume = PI * pow(radius, 4.0f) / 6.0f;
+	return (radius - dst) * (radius - dst) / volume;
 }
 
-float CalculateMagnitude(const XMFLOAT3 &vector)
+float SPH::SmoothingKernelDerivative(float radius, float dst)
+{
+	if (dst >= radius) return 0;
+	float scale = 12 / (pow(radius, 4.0f) * PI);
+	return (dst - radius ) * scale;
+}
+
+float SPH::CalculateMagnitude(const XMFLOAT3& vector)
 {
 	XMVECTOR xmVector = XMLoadFloat3(&vector);
 	XMVECTOR magnitudeVector = XMVector3Length(xmVector);
@@ -218,9 +225,9 @@ float CalculateMagnitude(const XMFLOAT3 &vector)
 	return magnitude;
 }
 
-float SPH::CalculateDensity(XMFLOAT3 samplePoint)
+void SPH::CalculateDensity(XMFLOAT3 samplePoint)
 {
-	float density = 0.0f;
+	float density;
 	const float mass = 1.0f;
 
 	for (int i = 0; i < particleList.size(); i++)
@@ -229,19 +236,63 @@ float SPH::CalculateDensity(XMFLOAT3 samplePoint)
 		float samplePointMagnitude = CalculateMagnitude(samplePoint);
 
 		float dst = particlePositionMagnitude - samplePointMagnitude;
-		float influence = SmoothingKernel(0.5f, dst);
+		float influence = SmoothingKernel(smoothingRadius, dst);
 
-		density += mass * influence;
+		particleList[i]->density += mass * influence;
 	}
-	return density;
+}
+
+float SPH::ConvertDensityToPressure(float density)
+{
+	float densityError = density - targetDensity;
+	float pressure = densityError * pressureMulti;
+	return pressure;
+}
+
+float SPH::CalculateSharedPressure(float densityA, float densityB)
+{
+	float pressureA = ConvertDensityToPressure(densityA);
+	float pressureB = ConvertDensityToPressure(densityB);
+	return(pressureA + densityB) / 2;
+}
+
+XMFLOAT3 SPH::CalculatePressureForce(int particleIndex)
+{
+	XMFLOAT3 pressureForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	for (int otherParticleIndex = 0; otherParticleIndex < particleList.size(); otherParticleIndex++)
+	{
+		if (particleIndex == otherParticleIndex) continue;
+
+		XMFLOAT3 offset;
+		offset.x = particleList[otherParticleIndex]->position.x - particleList[particleIndex]->position.x;
+		offset.y = particleList[otherParticleIndex]->position.y - particleList[particleIndex]->position.y;
+		offset.z = particleList[otherParticleIndex]->position.z - particleList[particleIndex]->position.z;
+
+		float dst = CalculateMagnitude(offset);
+		float density = particleList[otherParticleIndex]->density;
+
+		float dirX = dst == 0.0f ? -1.0f : offset.x / dst;
+		float dirY = dst == 0.0f ? -1.0f : offset.x / dst;
+		float dirZ = dst == 0.0f ? -1.0f : offset.x / dst;
+		XMFLOAT3 dir = XMFLOAT3(dirX, dirY, dirZ);
+
+		float slope = SmoothingKernelDerivative(dst, smoothingRadius);
+
+		float sharedPressure = CalculateSharedPressure(density, particleList[particleIndex]->density);
+		pressureForce.x += sharedPressure * dir.x * slope * 1.0f / density;
+		pressureForce.y += sharedPressure * dir.y * slope * 1.0f / density;
+		pressureForce.z += sharedPressure * dir.z * slope * 1.0f / density;
+
+	}
+	return pressureForce;
 }
 
 void SPH::Update(float deltaTime)
 {
 	// Setup Particle Forces
-   	//ParticleForcesSetup();
+	//ParticleForcesSetup();
 
-	float dampingFactor = 0.4f;
+	float dampingFactor = 0.95f;
 
 	float minX = -10.0f;
 	float maxX = 10.0f;
@@ -252,16 +303,30 @@ void SPH::Update(float deltaTime)
 
 	for (int i = 0; i < particleList.size(); i++)
 	{
-		particleList[i]->velocity.x += deltaTime;
 		particleList[i]->velocity.y += -9.81f * deltaTime;
-		particleList[i]->velocity.x += deltaTime;
+
+		CalculateDensity(particleList[i]->position);
+
+		XMFLOAT3 pressureForce = CalculatePressureForce(i);
+
+		XMFLOAT3 pressureAcceleration;
+		pressureAcceleration.x = pressureForce.x / particleList[i]->density;
+		pressureAcceleration.y = pressureForce.y / particleList[i]->density;
+		pressureAcceleration.z = pressureForce.z / particleList[i]->density;
+
+		particleList[i]->velocity.x += pressureAcceleration.x * deltaTime;
+		particleList[i]->velocity.y += pressureAcceleration.y * deltaTime;
+		particleList[i]->velocity.x += pressureAcceleration.z * deltaTime;
+
+		//particleList[i]->velocity.x += deltaTime;
+		//particleList[i]->velocity.z += deltaTime;
 
 		particleList[i]->position.x += particleList[i]->velocity.x * deltaTime;
 		particleList[i]->position.y += particleList[i]->velocity.y * deltaTime;
-		particleList[i]->position.z += particleList[i]->velocity.z * deltaTime;
+		particleList[i]->position.z += particleList[i]->velocity.x * deltaTime;
 
 		// Basic Bounding Box
-		{ 
+		{
 			if (particleList[i]->position.x < minX) {
 				particleList[i]->position.x = minX;
 				particleList[i]->velocity.x = -particleList[i]->velocity.x * dampingFactor; // Reverse velocity upon collision
@@ -288,6 +353,6 @@ void SPH::Update(float deltaTime)
 				particleList[i]->position.z = maxZ;
 				particleList[i]->velocity.z = -particleList[i]->velocity.z * dampingFactor;
 			}
-		} // Basic Bounding Box
+		}
 	}
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#define GRID_DIMENSION 256
+#define PI 3.141592653589793238462643383279502884197
 
 #include "Particle.h"
 #include "Includes.h"
@@ -48,6 +48,8 @@ public:
 
 	XMFLOAT3* position;
 	XMFLOAT3* velocity;
+	float targetDensity = 2.75f;
+	float pressureMulti= 500.0f;
 
 	XMFLOAT3 halfBoundSize = XMFLOAT3(10.0f / 2 - 1.0f, 10.0f / 2 - 1.0f, 10.0f / 2 - 1.0f);
 
@@ -64,8 +66,20 @@ private:
 	void SetUpParticleConstantBuffer();
 	void ParticleForcesSetup();
 
+	float CalculateMagnitude(const XMFLOAT3& vector);
+	float* particleProperties;
+
+
 	static float SmoothingKernel(float radius, float dst);
-	float CalculateDensity(XMFLOAT3 samplePoint);
+	static float SmoothingKernelDerivative(float radius, float dst);
+
+	void CalculateDensity(XMFLOAT3 samplePoint);
+	float ConvertDensityToPressure(float density);
+	XMFLOAT3 CalculatePressureForce(int particleIndex);
+	float CalculateSharedPressure(float densityA, float densityB);
+
+	float* densities;
+	float smoothingRadius = 1.2f;
 
 	ID3D11DeviceContext* deviceContext;
 	ID3D11Device* device;
