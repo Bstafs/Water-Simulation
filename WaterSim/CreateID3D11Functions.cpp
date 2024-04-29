@@ -249,4 +249,3 @@ void SetDebugName(ID3D11DeviceChild* object, const std::string& name)
 	if (object != nullptr)
 		object->SetPrivateData(WKPDID_D3DDebugObjectName, name.size(), name.c_str());
 }
-

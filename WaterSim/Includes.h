@@ -1,5 +1,6 @@
 #pragma once
 
+#define NUM_OF_PARTICLES 200
 // DirectX
 #include <windows.h>
 #include <directxmath.h>
@@ -24,6 +25,9 @@
 #include <vector>
 #include <unordered_map>
 #include <cmath>
+#include <random>
+#include <cstdlib> 
+#include <ctime>   
 
 // Physics / Objects
 #include "Quaternion.h"

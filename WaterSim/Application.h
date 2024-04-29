@@ -69,8 +69,6 @@ private:
 	ID3D11PixelShader* _pPixelShader;
 	ID3D11InputLayout* _pVertexLayout;
 
-	BoundingSphere sphere;
-
 	// Vertex Buffers
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;
@@ -131,44 +129,12 @@ private:
 
 	// SPH
 
-	 SPH* sph = nullptr;
+	SPH* sph = nullptr;
 
 
-	 ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
+	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 
-	// Particle Variables for ImGui
-	int numbParticles;
-	float mass;
-	float density;
-	float viscosity;
-	float h;
-	float g = 9.0f;
-	float elastisicty;
-
-	bool isParticleVisible = true;
-
-   Timestep* _timestep;
-
-   XMFLOAT4X4 m_myWater;
-
-   XMFLOAT3 waterPos = XMFLOAT3(1.5f, 0.0f, 1.5f);
-   XMFLOAT3 waterRot = XMFLOAT3(0.0f, 0.0f, 0.0f);
-
-
-   // Water Shader
-   ID3D11VertexShader* pWaterVertexShader = nullptr;
-   ID3D11PixelShader* pWaterPixelShader = nullptr;
-
-   ID3D11InputLayout* pWaterInputLayout = nullptr;
-   ID3D11Buffer* pWaterConstantBuffer = nullptr;
-
-   ID3D11SamplerState* pWaterTextureSampler = nullptr;
-
-   ID3D11ShaderResourceView* pReflectionTextureSRV = nullptr;
-   ID3D11ShaderResourceView* pRefractionTextureSRV = nullptr;
-   ID3D11ShaderResourceView* pSkyBoxTextureSRV = nullptr;
-
-   int numberOfParticlesDrawn;
+	Timestep* _timestep;
 
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);

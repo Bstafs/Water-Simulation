@@ -140,15 +140,10 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
 	ImGui::StyleColorsDark();
 
-	numbParticles = 400;
-	numberOfParticlesDrawn = numbParticles;
-	sph = new SPH(numbParticles, _pImmediateContext, _pd3dDevice);
+	sph = new SPH(NUM_OF_PARTICLES, _pImmediateContext, _pd3dDevice);
 
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
-	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pReflectionTextureSRV);
-	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pRefractionTextureSRV);
-	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\waterReflection.dds", nullptr, &pSkyBoxTextureSRV);
 
 
 	// Setup Camera
@@ -222,20 +217,6 @@ HRESULT Application::InitShadersAndInputLayout()
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
 
 
-	pWaterVertexShader = CreateVertexShader(L"WaterShader.fx", "VS", "vs_4_0", _pd3dDevice);
-	pWaterPixelShader = CreatePixelShader(L"WaterShader.fx", "PS", "ps_4_0", _pd3dDevice);
-
-	// Define the input layout
-	D3D11_INPUT_ELEMENT_DESC waterLayout[] =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-
-	UINT numElementsWater = ARRAYSIZE(waterLayout);
-
-	pWaterInputLayout = CreateInputLayout(waterLayout, numElementsWater, _pd3dDevice);
 
 
 	D3D11_SAMPLER_DESC sampDesc;
@@ -253,7 +234,8 @@ HRESULT Application::InitShadersAndInputLayout()
 }
 
 // Generate vertices and indices for a sphere
-void Application::CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices) {
+void Application::CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices) 
+{
 	const float pi = XM_PI;
 	const float twoPi = 2.0f * pi;
 
@@ -625,9 +607,6 @@ void Application::Update()
 		gameObject->Update(deltaTime);
 	}
 
-	XMMATRIX object;
-	object = (XMMatrixRotationX(waterRot.x) * XMMatrixRotationY(waterRot.y) * XMMatrixRotationZ(waterRot.z)) * XMMatrixTranslation(waterPos.x, waterPos.y, waterPos.z);
-	XMStoreFloat4x4(&m_myWater, object);
 }
 
 void Application::ImGui()
@@ -664,10 +643,7 @@ void Application::ImGui()
 	{
 		int particleSize = sph->particleList.size();
 
-		ImGui::Text("Visualize");
-		ImGui::Checkbox("Visualize", &isParticleVisible);
-
-		ImGui::DragInt("Number of Particles", &numbParticles);
+		ImGui::DragInt("Number of Particles", &particleSize);
 
 		ImGui::Text("Initial Values");
 
@@ -685,6 +661,11 @@ void Application::ImGui()
 						ImGui::Text("Particle Values");
 						ImGui::DragFloat3("Position", &part[0].position.x, 0.01f);
 						ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
+						ImGui::DragFloat("Smoothing Radius", &part->smoothingRadius, 0.01f);
+						ImGui::DragFloat("Acceleration", &part->acceleration.x, 0.01f);
+						ImGui::DragFloat("Pressure", &part->pressureForce.x, 0.01f);
+						ImGui::DragFloat("Density", &part->density, 0.01f);
+
 					}
 				}
 				ImGui::EndListBox();
@@ -776,9 +757,7 @@ void Application::Draw()
 	{
 		for (int j = 0; j < sph->particleList.size() - i; j++)
 		{
-			Particle* part = sph->particleList[j];
-
-			m_gameObjects[i]->GetTransform()->SetPosition(part->position);
+			m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[j]->position);
 		}
 	}
 

@@ -1,34 +1,14 @@
 #include "SPH.h"
 
-// Numthreads size for the sort
-const UINT BITONIC_BLOCK_SIZE = 1024;
-const UINT TRANSPOSE_BLOCK_SIZE = 64;
-const UINT NUM_GRID_INDICES = 65536;
-//walls
-float particleSpacing = 5.0f;
-
-constexpr float mapZ = 1.0f;
-constexpr float mapX = 1.0f;
-constexpr float mapY = 1.0f;
-
-const float low_wall = 1.0f;
-const float left_wall = 1.5f;
-const float near_wall = 64.0f * particleSpacing;
-
 SPH::SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 {
-	// Variable Initialization
-	numberOfParticles = numbParticles;
 
 	deviceContext = contextdevice;
 	this->device = device;
 
 	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
-	int particleResize = numberOfParticles;
+	int particleResize = NUM_OF_PARTICLES;
 	particleList.resize(particleResize);
-
-	position = new XMFLOAT3[numberOfParticles];
-	velocity = new XMFLOAT3[numberOfParticles];
 
 	// Particle Initialization
 	InitParticles();
@@ -47,32 +27,30 @@ SPH::~SPH()
 		}
 	}
 
-	if (pParticleIntegrateCS) pParticleIntegrateCS->Release();
-	if (pIntegrateBufferOne) pIntegrateBufferOne->Release();
-	if (pIntegrateUAVOne) pIntegrateUAVOne->Release();
-	if (pIntegrateSRVOne) pIntegrateSRVOne->Release();
-	if (pIntegrateBufferTwo) pIntegrateBufferTwo->Release();
-	if (pIntegrateUAVTwo) pIntegrateUAVTwo->Release();
-	if (pIntegrateSRVTwo) pIntegrateSRVTwo->Release();
 }
 
 void SPH::InitParticles()
 {
-	particleProperties = new float[numberOfParticles];
 
-	int particlesPerRow = (int)cbrt(numberOfParticles); // cubic root instead of square root
-	int particlesPerLayer = particlesPerRow * particlesPerRow;
-	int particlesPerColumn = (numberOfParticles - 1) / particlesPerLayer + 1;
+	// Particle Initialization
+	float spacing = 5.0f; // Adjust spacing as needed
+	int particlesPerDimension = powf(NUM_OF_PARTICLES, 1.0 / 3.0); // Calculate particles per dimension
 
-	float spacing = 1.0f * 2 + 1.0f;
+	float offsetX = -spacing * (particlesPerDimension - 1) / 2.0f;
+	float offsetY = -spacing * (particlesPerDimension - 1) / 2.0f;
+	float offsetZ = -spacing * (particlesPerDimension - 1) / 2.0f;
 
-	for (int i = 0; i < numberOfParticles; i++)
+	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 1.5f, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
-		float x = (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
-		float y = ((i / particlesPerRow) % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
-		float z = (i / particlesPerLayer - particlesPerColumn / 2.0f + 0.5f) * spacing;
+		int xIndex = i % particlesPerDimension;
+		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
+		int zIndex = i / (particlesPerDimension * particlesPerDimension);
+
+		float x = offsetX + xIndex * spacing;
+		float y = offsetY + yIndex * spacing;
+		float z = offsetZ + zIndex * spacing;
 
 		newParticle->position.x = x;
 		newParticle->position.y = y;
@@ -81,139 +59,59 @@ void SPH::InitParticles()
 		particleList[i] = newParticle;
 	}
 
-	//--ConstantBuffer
-	pParticleConstantBuffer = CreateConstantBuffer(sizeof(ParticleConstantBuffer), device, true);
-	SetDebugName(pParticleConstantBuffer, "Particle Constant Buffer");
+	FluidSimComputeShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
+	SetDebugName(FluidSimComputeShader, "Update Positions");
 
-	//---Integrate
-	IntegrateParticle* integrateData = new IntegrateParticle[numberOfParticles];
-	for (int i = 0; i < numberOfParticles; ++i)
+	ParticlePosition* positions = new ParticlePosition[NUM_OF_PARTICLES];
+
+	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-
-		integrateData[i].position.x = particleList[i]->position.x;
-		integrateData[i].position.y = particleList[i]->position.y;
-		integrateData[i].position.z = particleList[i]->position.z;
-
-		integrateData[i].velocity.x = particleList[i]->velocity.x;
-		integrateData[i].velocity.y = particleList[i]->velocity.y;
-		integrateData[i].velocity.z = particleList[i]->velocity.z;
+		positions[i].positions.x = particleList[i]->position.x;
+		positions[i].positions.y = particleList[i]->position.y;
+		positions[i].positions.z = particleList[i]->position.z;
 	}
 
-	pParticleIntegrateCS = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
-	SetDebugName(pParticleIntegrateCS, "Integrate Shader");
-
-	pIntegrateBufferOne = CreateStructureBuffer(sizeof(IntegrateParticle), (float*)integrateData, numberOfParticles, device);
-	SetDebugName(pIntegrateBufferOne, "Integrate Buffer One");
-
-	pIntegrateBufferTwo = CreateStructureBuffer(sizeof(IntegrateParticle), (float*)integrateData, numberOfParticles, device);
-	SetDebugName(pIntegrateBufferTwo, "Integrate Buffer Two");
-
-
-	pIntegrateSRVOne = CreateShaderResourceView(pIntegrateBufferOne, numberOfParticles, device);
-	SetDebugName(pIntegrateSRVOne, "Integrate SRV One");
-
-	pIntegrateSRVTwo = CreateShaderResourceView(pIntegrateBufferTwo, numberOfParticles, device);
-	SetDebugName(pIntegrateSRVTwo, "Integrate SRV Two");
-
-	pIntegrateUAVOne = CreateUnorderedAccessView(pIntegrateBufferOne, numberOfParticles, device);
-	SetDebugName(pIntegrateUAVOne, "Integrate UAV One");
-
-	pIntegrateUAVTwo = CreateUnorderedAccessView(pIntegrateBufferTwo, numberOfParticles, device);
-	SetDebugName(pIntegrateUAVTwo, "Integrate UAV Two");
-
-	pDebugPositionBuffer = CreateReadableStructureBuffer(sizeof(IntegrateParticle) * numberOfParticles, nullptr, device);
-	SetDebugName(pDebugPositionBuffer, "Integrate Readable Structure Buffer");
+	positionBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)positions, NUM_OF_PARTICLES, device);
 }
 
 void SPH::SetUpParticleConstantBuffer()
 {
-	particleConstantCPUBuffer.particleCount = numberOfParticles;
-	particleConstantCPUBuffer.wallStiffness = 3.0f;
-	particleConstantCPUBuffer.deltaTime = dt;
-	particleConstantCPUBuffer.gravity = 9.81f;
 
-	particleConstantCPUBuffer.vPlanes[0] = XMFLOAT4(0.0f, 0.0f, 1.0f, low_wall); // Back
-	particleConstantCPUBuffer.vPlanes[1] = XMFLOAT4(0.0f, 0.0f, -1.0f, low_wall); // Front
-
-	particleConstantCPUBuffer.vPlanes[2] = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f); // Bottom Starts at 0.0f
-	particleConstantCPUBuffer.vPlanes[3] = XMFLOAT4(0.0f, -1.0f, 0.0f, 32.0f); // Top
-
-	particleConstantCPUBuffer.vPlanes[4] = XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f); // Left
-	particleConstantCPUBuffer.vPlanes[5] = XMFLOAT4(-1.0f, 0.0f, 0.0f, 32.0f); // Right
-
-	UpdateBuffer((float*)&particleConstantCPUBuffer, sizeof(ParticleConstantBuffer), pParticleConstantBuffer, deviceContext);
 }
 
 void SPH::ParticleForcesSetup()
 {
-	if (!_pAnnotation && deviceContext)
-		deviceContext->QueryInterface(IID_PPV_ARGS(&_pAnnotation));
+	deviceContext->CSSetShader(FluidSimComputeShader, nullptr, 0);
 
-	_pAnnotation->BeginEvent(L"Particle Forces");
+	deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVOne);
+	deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAVOne, nullptr);
 
-	SetUpParticleConstantBuffer();
+	deviceContext->Dispatch(NUM_OF_PARTICLES, 1, 1);
 
-	// Integrate
-	{
-		_pAnnotation->BeginEvent(L"Integrate Stage");
-		deviceContext->Flush();
-
-		deviceContext->CSSetShader(pParticleIntegrateCS, nullptr, 0);
-
-		if (bufferIsSwapped == false)
-		{
-			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVOne);
-			deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAVTwo, nullptr);
-		}
-		else
-		{
-			deviceContext->CSSetShaderResources(0, 1, &pIntegrateSRVTwo);
-			deviceContext->CSSetUnorderedAccessViews(0, 1, &pIntegrateUAVOne, nullptr);
-		}
-
-		deviceContext->CSSetConstantBuffers(1, 1, &pParticleConstantBuffer);
-
-		deviceContext->Dispatch(numberOfParticles, 1, 1);
-
-		deviceContext->CSSetShader(nullptr, nullptr, 0);
-		deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
-		deviceContext->CSSetShaderResources(0, 1, srvNull);
-		deviceContext->CSSetShaderResources(1, 1, srvNull);
-
-		deviceContext->CopyResource(pDebugPositionBuffer, pIntegrateBufferOne);
-		IntegrateParticle* positions = (IntegrateParticle*)MapBuffer(pDebugPositionBuffer, deviceContext);
-		// Integrate
-
-		for (int i = 0; i < numberOfParticles; ++i)
-		{
-			particleList[i]->position.x = positions->position.x;
-			particleList[i]->position.y = positions->position.y;
-			particleList[i]->position.z = positions->position.z;
-		}
-		UnMapBuffer(pDebugPositionBuffer, deviceContext);
-
-		_pAnnotation->EndEvent();
-
-		bufferIsSwapped = !bufferIsSwapped;
-
-	}
-
-	_pAnnotation->EndEvent();
+	deviceContext->CSSetShaderResources(0, 1, srvNull);
+	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
 }
 
-float SPH::SmoothingKernel(float radius, float dst)
+float SPH::SmoothingKernel(float dst, float radius)
 {
-	if (dst >= radius) return 0;
-
-	float volume = PI * pow(radius, 4.0f) / 6.0f;
-	return (radius - dst) * (radius - dst) / volume;
+	if (dst <= radius)
+	{
+		float scale = 15 / (2 * PI * pow(radius, 5));
+		float v = radius - dst;
+		return v * v * scale;
+	}
+	return 0;
 }
 
 float SPH::SmoothingKernelDerivative(float radius, float dst)
 {
-	if (dst >= radius) return 0;
-	float scale = 12 / (pow(radius, 4.0f) * PI);
-	return (dst - radius ) * scale;
+	if (dst <= radius)
+	{
+		float scale = 15 / (pow(radius, 5) * PI);
+		float v = radius - dst;
+		return -v * scale;
+	}
+	return 0;
 }
 
 float SPH::CalculateMagnitude(const XMFLOAT3& vector)
@@ -225,21 +123,23 @@ float SPH::CalculateMagnitude(const XMFLOAT3& vector)
 	return magnitude;
 }
 
-void SPH::CalculateDensity(XMFLOAT3 samplePoint)
+float SPH::CalculateDensity(XMFLOAT3 samplePoint)
 {
-	float density;
+	float density = 1.0f;
 	const float mass = 1.0f;
 
 	for (int i = 0; i < particleList.size(); i++)
 	{
 		float particlePositionMagnitude = CalculateMagnitude(particleList[i]->position);
 		float samplePointMagnitude = CalculateMagnitude(samplePoint);
-
 		float dst = particlePositionMagnitude - samplePointMagnitude;
-		float influence = SmoothingKernel(smoothingRadius, dst);
 
-		particleList[i]->density += mass * influence;
+		float influence = SmoothingKernel(dst, particleList[i]->smoothingRadius);
+
+		density += mass * influence;
 	}
+
+	return density;
 }
 
 float SPH::ConvertDensityToPressure(float density)
@@ -253,12 +153,33 @@ float SPH::CalculateSharedPressure(float densityA, float densityB)
 {
 	float pressureA = ConvertDensityToPressure(densityA);
 	float pressureB = ConvertDensityToPressure(densityB);
-	return(pressureA + densityB) / 2;
+	return(pressureA + pressureB) / 2.0f;
+}
+
+// Function to get a random direction
+XMFLOAT3 GetRandomDir()
+{
+	// Use a random number generator
+	static std::random_device rd;
+	static std::mt19937 gen(rd());
+	static std::uniform_real_distribution<float> dis(-1.0f, 1.0f); // Generate random numbers between -1 and 1
+
+	// Generate random components for x, y, and z
+	float x = dis(gen);
+	float y = dis(gen);
+	float z = dis(gen);
+
+	// Normalize the vector to ensure it's a direction
+	float length = sqrt(x * x + y * y + z * z);
+	return XMFLOAT3(x / length, y / length, z / length);
 }
 
 XMFLOAT3 SPH::CalculatePressureForce(int particleIndex)
 {
-	XMFLOAT3 pressureForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	XMFLOAT3 pressureForce = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	XMFLOAT3 dir = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	float slope = 0.0f;
+
 	for (int otherParticleIndex = 0; otherParticleIndex < particleList.size(); otherParticleIndex++)
 	{
 		if (particleIndex == otherParticleIndex) continue;
@@ -269,22 +190,24 @@ XMFLOAT3 SPH::CalculatePressureForce(int particleIndex)
 		offset.z = particleList[otherParticleIndex]->position.z - particleList[particleIndex]->position.z;
 
 		float dst = CalculateMagnitude(offset);
+
 		float density = particleList[otherParticleIndex]->density;
 
-		float dirX = dst == 0.0f ? -1.0f : offset.x / dst;
-		float dirY = dst == 0.0f ? -1.0f : offset.x / dst;
-		float dirZ = dst == 0.0f ? -1.0f : offset.x / dst;
-		XMFLOAT3 dir = XMFLOAT3(dirX, dirY, dirZ);
-
-		float slope = SmoothingKernelDerivative(dst, smoothingRadius);
+		float dirX = offset.x / dst;
+		float dirY = offset.y / dst;
+		float dirZ = offset.z / dst;
+		dir = XMFLOAT3(dirX, dirY, dirZ);
+		slope = SmoothingKernelDerivative(particleList[particleIndex]->smoothingRadius, -dst);
 
 		float sharedPressure = CalculateSharedPressure(density, particleList[particleIndex]->density);
-		pressureForce.x += sharedPressure * dir.x * slope * 1.0f / density;
-		pressureForce.y += sharedPressure * dir.y * slope * 1.0f / density;
-		pressureForce.z += sharedPressure * dir.z * slope * 1.0f / density;
 
+		pressureForce.x += -sharedPressure * dir.x * slope / density;
+		pressureForce.y += -sharedPressure * dir.y * slope / density;
+		pressureForce.z += -sharedPressure * dir.z * slope / density;
+
+
+		return pressureForce;
 	}
-	return pressureForce;
 }
 
 void SPH::Update(float deltaTime)
@@ -294,29 +217,28 @@ void SPH::Update(float deltaTime)
 
 	float dampingFactor = 0.95f;
 
-	float minX = -10.0f;
-	float maxX = 10.0f;
+	float minX = -20.0f;
+	float maxX = 20.0f;
 	float minY = -10.0f;
 	float maxY = 20.0f;
-	float minZ = -10.0f;
-	float maxZ = 10.0f;
+	float minZ = -20.0f;
+	float maxZ = 20.0f;
 
 	for (int i = 0; i < particleList.size(); i++)
 	{
 		particleList[i]->velocity.y += -9.81f * deltaTime;
+		particleList[i]->density = CalculateDensity(particleList[i]->position);
 
-		CalculateDensity(particleList[i]->position);
+		particleList[i]->pressureForce = CalculatePressureForce(i);
 
-		XMFLOAT3 pressureForce = CalculatePressureForce(i);
+		// A = F / M
+		particleList[i]->acceleration.x += particleList[i]->pressureForce.x / particleList[i]->density;
+		particleList[i]->acceleration.y += particleList[i]->pressureForce.y / particleList[i]->density;
+		particleList[i]->acceleration.z += particleList[i]->pressureForce.z / particleList[i]->density;
 
-		XMFLOAT3 pressureAcceleration;
-		pressureAcceleration.x = pressureForce.x / particleList[i]->density;
-		pressureAcceleration.y = pressureForce.y / particleList[i]->density;
-		pressureAcceleration.z = pressureForce.z / particleList[i]->density;
-
-		particleList[i]->velocity.x += pressureAcceleration.x * deltaTime;
-		particleList[i]->velocity.y += pressureAcceleration.y * deltaTime;
-		particleList[i]->velocity.x += pressureAcceleration.z * deltaTime;
+		particleList[i]->velocity.x += particleList[i]->acceleration.x * deltaTime;
+		particleList[i]->velocity.y += particleList[i]->acceleration.y * deltaTime;
+		particleList[i]->velocity.x += particleList[i]->acceleration.z * deltaTime;
 
 		//particleList[i]->velocity.x += deltaTime;
 		//particleList[i]->velocity.z += deltaTime;
@@ -329,29 +251,29 @@ void SPH::Update(float deltaTime)
 		{
 			if (particleList[i]->position.x < minX) {
 				particleList[i]->position.x = minX;
-				particleList[i]->velocity.x = -particleList[i]->velocity.x * dampingFactor; // Reverse velocity upon collision
+				particleList[i]->velocity.x *= -1 * dampingFactor; // Reverse velocity upon collision
 			}
 			else if (particleList[i]->position.x > maxX) {
 				particleList[i]->position.x = maxX;
-				particleList[i]->velocity.x = -particleList[i]->velocity.x * dampingFactor;
+				particleList[i]->velocity.x *= -1 * dampingFactor;
 			}
 
 			if (particleList[i]->position.y < minY) {
 				particleList[i]->position.y = minY;
-				particleList[i]->velocity.y = -particleList[i]->velocity.y * dampingFactor;
+				particleList[i]->velocity.y *= -1 * dampingFactor;
 			}
 			else if (particleList[i]->position.y > maxY) {
 				particleList[i]->position.y = maxY;
-				particleList[i]->velocity.y = -particleList[i]->velocity.y * dampingFactor;
+				particleList[i]->velocity.y *= -1 * dampingFactor;
 			}
 
 			if (particleList[i]->position.z < minZ) {
 				particleList[i]->position.z = minZ;
-				particleList[i]->velocity.z = -particleList[i]->velocity.z * dampingFactor;
+				particleList[i]->velocity.z *= -1 * dampingFactor;
 			}
 			else if (particleList[i]->position.z > maxZ) {
 				particleList[i]->position.z = maxZ;
-				particleList[i]->velocity.z = -particleList[i]->velocity.z * dampingFactor;
+				particleList[i]->velocity.z *= -1 * dampingFactor;
 			}
 		}
 	}
