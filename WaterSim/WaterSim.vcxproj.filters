@@ -60,6 +60,7 @@
     </ClCompile>
     <ClCompile Include="CompileShader.cpp" />
     <ClCompile Include="CreateID3D11Functions.cpp" />
+    <ClCompile Include="SpatialGrid.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -138,6 +139,7 @@
     <ClInclude Include="Includes.h" />
     <ClInclude Include="CreateID3D11Functions.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="SpatialGrid.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">

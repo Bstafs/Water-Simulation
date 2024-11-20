@@ -1,8 +1,10 @@
 #include "SPH.h"
 
 SPH::SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
+	: spatialGrid(5.0f), // Provide a valid value for `cellSize`
+	deviceContext(contextdevice),
+	device(device)
 {
-
 	deviceContext = contextdevice;
 	this->device = device;
 
@@ -11,21 +13,19 @@ SPH::SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* de
 	particleList.resize(particleResize);
 
 	// Particle Initialization
+	InitRandomDirections();
 	InitParticles();
 }
 
 SPH::~SPH()
 {
 	// Particle Cleanup
-	if (!particleList.empty())
+	for (auto particle : particleList)
 	{
-		particleList.clear();
-		for (auto particlesL : particleList)
-		{
-			delete particlesL;
-			particlesL = nullptr;
-		}
+		delete particle;
+		particle = nullptr;
 	}
+	particleList.clear();
 
 }
 
@@ -34,7 +34,7 @@ void SPH::InitParticles()
 
 	// Particle Initialization
 	float spacing = 5.0f; // Adjust spacing as needed
-	int particlesPerDimension = powf(NUM_OF_PARTICLES, 1.0 / 3.0); // Calculate particles per dimension
+	int particlesPerDimension = static_cast<int>(std::cbrt(NUM_OF_PARTICLES));
 
 	float offsetX = -spacing * (particlesPerDimension - 1) / 2.0f;
 	float offsetY = -spacing * (particlesPerDimension - 1) / 2.0f;
@@ -42,7 +42,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 1.5f, XMFLOAT3(1.0f, 1.0f, 1.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 2.0f, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		int xIndex = i % particlesPerDimension;
 		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
@@ -59,7 +59,7 @@ void SPH::InitParticles()
 		particleList[i] = newParticle;
 	}
 
-	FluidSimComputeShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
+	/*FluidSimComputeShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
 	SetDebugName(FluidSimComputeShader, "Update Positions");
 
 	ParticlePosition* positions = new ParticlePosition[NUM_OF_PARTICLES];
@@ -71,7 +71,7 @@ void SPH::InitParticles()
 		positions[i].positions.z = particleList[i]->position.z;
 	}
 
-	positionBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)positions, NUM_OF_PARTICLES, device);
+	positionBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)positions, NUM_OF_PARTICLES, device);*/
 }
 
 void SPH::SetUpParticleConstantBuffer()
@@ -123,19 +123,29 @@ float SPH::CalculateMagnitude(const XMFLOAT3& vector)
 	return magnitude;
 }
 
-float SPH::CalculateDensity(XMFLOAT3 samplePoint)
-{
-	float density = 1.0f;
-	const float mass = 1.0f;
+XMFLOAT3 Subtract(const XMFLOAT3& a, const XMFLOAT3& b) {
+	return XMFLOAT3(a.x - b.x, a.y - b.y, a.z - b.z);
+}
 
-	for (int i = 0; i < particleList.size(); i++)
-	{
-		float particlePositionMagnitude = CalculateMagnitude(particleList[i]->position);
-		float samplePointMagnitude = CalculateMagnitude(samplePoint);
-		float dst = particlePositionMagnitude - samplePointMagnitude;
+float SPH::CalculateDensity(const XMFLOAT3& samplePoint) {
+	float density = 1.0f; // Starting density
+	const float mass = 1.0f; // Assumed mass for particles
 
-		float influence = SmoothingKernel(dst, particleList[i]->smoothingRadius);
+	// Get the neighboring cells
+	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(samplePoint);
 
+	// Iterate over each neighbor particle
+	for (int neighborIndex : neighbors) {
+		Particle* neighbor = particleList[neighborIndex];
+
+		// Calculate the distance between the sample point and the neighbor's position
+		XMFLOAT3 offset = Subtract(samplePoint, neighbor->position);
+		float dst = CalculateMagnitude(offset); // CalculateMagnitude already implemented
+
+		// Apply the smoothing kernel to determine influence
+		float influence = SmoothingKernel(dst, neighbor->smoothingRadius);
+
+		// Increment the density by the mass * influence
 		density += mass * influence;
 	}
 
@@ -144,9 +154,8 @@ float SPH::CalculateDensity(XMFLOAT3 samplePoint)
 
 float SPH::ConvertDensityToPressure(float density)
 {
-	float densityError = density - targetDensity;
-	float pressure = densityError * pressureMulti;
-	return pressure;
+	float stiffness = 2000.0f; // Adjust as needed
+	return stiffness * (density - targetDensity);
 }
 
 float SPH::CalculateSharedPressure(float densityA, float densityB)
@@ -156,125 +165,136 @@ float SPH::CalculateSharedPressure(float densityA, float densityB)
 	return(pressureA + pressureB) / 2.0f;
 }
 
-// Function to get a random direction
-XMFLOAT3 GetRandomDir()
-{
-	// Use a random number generator
-	static std::random_device rd;
-	static std::mt19937 gen(rd());
-	static std::uniform_real_distribution<float> dis(-1.0f, 1.0f); // Generate random numbers between -1 and 1
+// Initialize random directions once
+void SPH::InitRandomDirections() {
+	randomDirections.resize(numRandomDirections);
 
-	// Generate random components for x, y, and z
-	float x = dis(gen);
-	float y = dis(gen);
-	float z = dis(gen);
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
 
-	// Normalize the vector to ensure it's a direction
-	float length = sqrt(x * x + y * y + z * z);
-	return XMFLOAT3(x / length, y / length, z / length);
-}
-
-XMFLOAT3 SPH::CalculatePressureForce(int particleIndex)
-{
-	XMFLOAT3 pressureForce = XMFLOAT3(1.0f, 1.0f, 1.0f);
-	XMFLOAT3 dir = XMFLOAT3(1.0f, 1.0f, 1.0f);
-	float slope = 0.0f;
-
-	for (int otherParticleIndex = 0; otherParticleIndex < particleList.size(); otherParticleIndex++)
-	{
-		if (particleIndex == otherParticleIndex) continue;
-
-		XMFLOAT3 offset;
-		offset.x = particleList[otherParticleIndex]->position.x - particleList[particleIndex]->position.x;
-		offset.y = particleList[otherParticleIndex]->position.y - particleList[particleIndex]->position.y;
-		offset.z = particleList[otherParticleIndex]->position.z - particleList[particleIndex]->position.z;
-
-		float dst = CalculateMagnitude(offset);
-
-		float density = particleList[otherParticleIndex]->density;
-
-		float dirX = offset.x / dst;
-		float dirY = offset.y / dst;
-		float dirZ = offset.z / dst;
-		dir = XMFLOAT3(dirX, dirY, dirZ);
-		slope = SmoothingKernelDerivative(particleList[particleIndex]->smoothingRadius, -dst);
-
-		float sharedPressure = CalculateSharedPressure(density, particleList[particleIndex]->density);
-
-		pressureForce.x += -sharedPressure * dir.x * slope / density;
-		pressureForce.y += -sharedPressure * dir.y * slope / density;
-		pressureForce.z += -sharedPressure * dir.z * slope / density;
-
-
-		return pressureForce;
+	for (int i = 0; i < numRandomDirections; ++i) {
+		float x = dis(gen);
+		float y = dis(gen);
+		float z = dis(gen);
+		float length = sqrt(x * x + y * y + z * z);
+		randomDirections[i] = XMFLOAT3(x / length, y / length, z / length);
 	}
 }
 
-void SPH::Update(float deltaTime)
+// Function to get a random direction
+XMFLOAT3 SPH::GetRandomDir()
 {
-	// Setup Particle Forces
-	//ParticleForcesSetup();
+	static std::random_device rd;
+	static std::mt19937 gen(rd());
+	std::uniform_int_distribution<int> dis(0, numRandomDirections - 1);
+	return randomDirections[dis(gen)];
+}
 
-	float dampingFactor = 0.95f;
+XMFLOAT3 SPH::CalculatePressureForce(int particleIndex) {
+	XMFLOAT3 pressureForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	Particle* currentParticle = particleList[particleIndex];
 
-	float minX = -20.0f;
-	float maxX = 20.0f;
-	float minY = -10.0f;
-	float maxY = 20.0f;
-	float minZ = -20.0f;
-	float maxZ = 20.0f;
+	// Get neighboring particles
+	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(currentParticle->position);
 
-	for (int i = 0; i < particleList.size(); i++)
+	for (int neighborIndex : neighbors) {
+		Particle* neighbor = particleList[neighborIndex];
+		if (neighbor == currentParticle) continue;
+
+		// Calculate offset
+		XMFLOAT3 offset = Subtract(neighbor->position, currentParticle->position);
+		float dst = CalculateMagnitude(offset);
+
+		// Normalize direction
+		XMFLOAT3 dir = XMFLOAT3(offset.x / dst, offset.y / dst, offset.z / dst);
+
+		// Calculate smoothing kernel derivative
+		float slope = SmoothingKernelDerivative(currentParticle->smoothingRadius, dst);
+
+		// Calculate shared pressure
+		float sharedPressure = CalculateSharedPressure(currentParticle->density, neighbor->density);
+
+		// Accumulate pressure force
+		pressureForce.x += -sharedPressure * dir.x * slope / currentParticle->density;
+		pressureForce.y += -sharedPressure * dir.y * slope / currentParticle->density;
+		pressureForce.z += -sharedPressure * dir.z * slope / currentParticle->density;
+	}
+
+	return pressureForce;
+}
+
+void SPH::UpdateSpatialGrid() 
+{
+	spatialGrid.Clear();
+
+	for (int i = 0; i < particleList.size(); ++i) 
 	{
-		particleList[i]->velocity.y += -9.81f * deltaTime;
-		particleList[i]->density = CalculateDensity(particleList[i]->position);
+		spatialGrid.AddParticle(i, particleList[i]->position);
+	}
+}
 
+void SPH::Update(float deltaTime) {
+	UpdateSpatialGrid();
+
+	float dampingFactor = 0.99;
+
+	float minX = -20.0f, maxX = 20.0f;
+	float minY = -10.0f, maxY = 20.0f;
+	float minZ = -20.0f, maxZ = 20.0f;
+
+	for (int i = 0; i < particleList.size(); ++i) {
+		// Apply forces and update velocity
+		particleList[i]->velocity.y += -9.81f * deltaTime; // Gravity
+		particleList[i]->density = CalculateDensity(particleList[i]->position);
 		particleList[i]->pressureForce = CalculatePressureForce(i);
 
-		// A = F / M
-		particleList[i]->acceleration.x += particleList[i]->pressureForce.x / particleList[i]->density;
-		particleList[i]->acceleration.y += particleList[i]->pressureForce.y / particleList[i]->density;
-		particleList[i]->acceleration.z += particleList[i]->pressureForce.z / particleList[i]->density;
+		// Acceleration = Force / Density
+		particleList[i]->acceleration.x = particleList[i]->pressureForce.x / particleList[i]->density;
+		particleList[i]->acceleration.y = particleList[i]->pressureForce.y / particleList[i]->density;
+		particleList[i]->acceleration.z = particleList[i]->pressureForce.z / particleList[i]->density;
 
+		// Update velocity
 		particleList[i]->velocity.x += particleList[i]->acceleration.x * deltaTime;
 		particleList[i]->velocity.y += particleList[i]->acceleration.y * deltaTime;
-		particleList[i]->velocity.x += particleList[i]->acceleration.z * deltaTime;
+		particleList[i]->velocity.z += particleList[i]->acceleration.z * deltaTime;
 
-		//particleList[i]->velocity.x += deltaTime;
-		//particleList[i]->velocity.z += deltaTime;
-
+		// Update position
 		particleList[i]->position.x += particleList[i]->velocity.x * deltaTime;
 		particleList[i]->position.y += particleList[i]->velocity.y * deltaTime;
-		particleList[i]->position.z += particleList[i]->velocity.x * deltaTime;
+		particleList[i]->position.z += particleList[i]->velocity.z * deltaTime;
 
-		// Basic Bounding Box
-		{
-			if (particleList[i]->position.x < minX) {
-				particleList[i]->position.x = minX;
-				particleList[i]->velocity.x *= -1 * dampingFactor; // Reverse velocity upon collision
-			}
-			else if (particleList[i]->position.x > maxX) {
-				particleList[i]->position.x = maxX;
-				particleList[i]->velocity.x *= -1 * dampingFactor;
-			}
-
-			if (particleList[i]->position.y < minY) {
-				particleList[i]->position.y = minY;
-				particleList[i]->velocity.y *= -1 * dampingFactor;
-			}
-			else if (particleList[i]->position.y > maxY) {
-				particleList[i]->position.y = maxY;
-				particleList[i]->velocity.y *= -1 * dampingFactor;
-			}
-
-			if (particleList[i]->position.z < minZ) {
-				particleList[i]->position.z = minZ;
-				particleList[i]->velocity.z *= -1 * dampingFactor;
-			}
-			else if (particleList[i]->position.z > maxZ) {
-				particleList[i]->position.z = maxZ;
-				particleList[i]->velocity.z *= -1 * dampingFactor;
-			}
+		// Basic Bounding Box with damping applied after updates
+		if (particleList[i]->position.x < minX) {
+			particleList[i]->position.x = minX;
+			particleList[i]->velocity.x *= -1; // Reverse velocity
 		}
+		else if (particleList[i]->position.x > maxX) {
+			particleList[i]->position.x = maxX;
+			particleList[i]->velocity.x *= -1;
+		}
+
+		if (particleList[i]->position.y < minY) {
+			particleList[i]->position.y = minY;
+			particleList[i]->velocity.y *= -1;
+		}
+		else if (particleList[i]->position.y > maxY) {
+			particleList[i]->position.y = maxY;
+			particleList[i]->velocity.y *= -1;
+		}
+
+		if (particleList[i]->position.z < minZ) {
+			particleList[i]->position.z = minZ;
+			particleList[i]->velocity.z *= -1;
+		}
+		else if (particleList[i]->position.z > maxZ) {
+			particleList[i]->position.z = maxZ;
+			particleList[i]->velocity.z *= -1;
+		}
+
+		// Apply damping to velocity after collision
+		particleList[i]->velocity.x *= dampingFactor;
+		particleList[i]->velocity.y *= dampingFactor;
+		particleList[i]->velocity.z *= dampingFactor;
 	}
 }

@@ -3,9 +3,7 @@
 #define PI 3.141592653589793238462643383279502884197
 
 #include "Particle.h"
-#include "Includes.h"
-
-using namespace Microsoft::WRL;
+#include "SpatialGrid.h"
 
 struct ParticlePosition
 {
@@ -18,6 +16,8 @@ public:
 	SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* device);
 	~SPH();
 	void Update(float deltaTime);
+	void UpdateSpatialGrid();
+
 	// Particle Variables
 
 	float sphGravity;
@@ -42,6 +42,7 @@ public:
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 private:
 	// Particle Initialization
+	SpatialGrid spatialGrid;
 
 	void InitParticles();
 
@@ -55,7 +56,7 @@ private:
 	static float SmoothingKernel(float dst, float radius);
 	static float SmoothingKernelDerivative(float radius, float dst);
 
-	float CalculateDensity(XMFLOAT3 samplePoint);
+	float CalculateDensity(const XMFLOAT3& samplePoint);
 	float ConvertDensityToPressure(float density);
 	XMFLOAT3 CalculatePressureForce(int particleIndex);
 	float CalculateSharedPressure(float densityA, float densityB);
@@ -86,5 +87,11 @@ private:
 
 	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };
 	ID3D11ShaderResourceView* srvNull[2] = { nullptr, nullptr };
+
+	std::vector<XMFLOAT3> randomDirections; // Cached random directions
+	int numRandomDirections = 100;          // Adjust as needed
+
+	void InitRandomDirections();
+	XMFLOAT3 GetRandomDir();
 };
 
