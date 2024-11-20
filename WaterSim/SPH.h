@@ -28,8 +28,8 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
-	float targetDensity = 3.0f;
-	float pressureMulti= 0.5f;
+	float targetDensity = 6.0f;
+	float stiffnessValue = 1000.0f;
 
 	float particleDensities[NUM_OF_PARTICLES];
 
