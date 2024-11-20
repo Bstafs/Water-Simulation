@@ -42,7 +42,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 2.0f, XMFLOAT3(1.0f, 1.0f, 1.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 1.5f, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		int xIndex = i % particlesPerDimension;
 		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
@@ -92,26 +92,22 @@ void SPH::ParticleForcesSetup()
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
 }
 
-float SPH::SmoothingKernel(float dst, float radius)
-{
-	if (dst <= radius)
-	{
-		float scale = 15 / (2 * PI * pow(radius, 5));
-		float v = radius - dst;
-		return v * v * scale;
+float SPH::SmoothingKernel(float dst, float radius) {
+	if (dst >= 0 && dst <= radius) {
+		float scale = 315.0f / (64.0f * PI * pow(radius, 9));
+		float diff = radius * radius - dst * dst;
+		return scale * diff * diff * diff;
 	}
-	return 0;
+	return 0.0f;
 }
 
-float SPH::SmoothingKernelDerivative(float radius, float dst)
-{
-	if (dst <= radius)
-	{
-		float scale = 15 / (pow(radius, 5) * PI);
-		float v = radius - dst;
-		return -v * scale;
+float SPH::SmoothingKernelDerivative(float dst, float radius) {
+	if (dst > 0 && dst <= radius) { // dst > 0 to avoid division by zero
+		float scale = -945.0f / (32.0f * PI * pow(radius, 9));
+		float diff = radius * radius - dst * dst;
+		return scale * diff * diff * dst;
 	}
-	return 0;
+	return 0.0f;
 }
 
 float SPH::CalculateMagnitude(const XMFLOAT3& vector)
