@@ -160,7 +160,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	basicLight.DiffuseLight = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	basicLight.SpecularLight = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
 	basicLight.SpecularPower = 20.0f;
-	basicLight.LightVecW = XMFLOAT3(0.0f, 1.0f, -1.0f);
+	basicLight.LightVecW = XMFLOAT3(0.0f, 1.0f, 0.0f);
 
 	Geometry sphereGeometry;
 	sphereGeometry.indexBuffer = _pIndexBuffer;
@@ -184,7 +184,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 
 	for (int i = 0; i < sph->particleList.size(); i++)
 	{
-		GameObject* gameObject = new GameObject("Cube " + i, sphereGeometry, shinyMaterial);
+		GameObject* gameObject = new GameObject("Sphere " + i, sphereGeometry, shinyMaterial);
 		gameObject->GetTransform()->SetScale(1.0f, 1.0f, 1.0f);
 		gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
 		gameObject->GetAppearance()->SetTextureRV(0);

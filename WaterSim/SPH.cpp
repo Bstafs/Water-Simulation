@@ -42,7 +42,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 1.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 1.1f, XMFLOAT3(1.0f, 1.0f, 1.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 0.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 2.5f, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		int xIndex = i % particlesPerDimension;
 		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
@@ -92,17 +92,19 @@ void SPH::ParticleForcesSetup()
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
 }
 
-float SPH::SmoothingKernel(float dst, float radius) {
+float SPH::SmoothingKernel(float dst, float radius)
+{
 	if (dst >= 0 && dst <= radius) {
 		float scale = 315.0f / (64.0f * PI * pow(radius, 9));
 		float diff = radius * radius - dst * dst;
-		return scale * diff * diff * diff;
+		return diff * diff * diff * scale;
 	}
 	return 0.0f;
 }
 
 float SPH::SmoothingKernelDerivative(float dst, float radius) {
-	if (dst > 0 && dst <= radius) { // dst > 0 to avoid division by zero
+
+	if (dst >= 0 && dst <= radius) { // dst > 0 to avoid division by zero
 		float scale = -945.0f / (32.0f * PI * pow(radius, 9));
 		float diff = radius * radius - dst * dst;
 		return scale * diff * diff * dst;
@@ -124,7 +126,7 @@ XMFLOAT3 Subtract(const XMFLOAT3& a, const XMFLOAT3& b) {
 }
 
 float SPH::CalculateDensity(const XMFLOAT3& samplePoint) {
-	float density = 1.0f; // Starting density
+	float density = 0.0f; // Starting density
 	const float mass = 1.0f; // Assumed mass for particles
 
 	// Get the neighboring cells
@@ -150,7 +152,9 @@ float SPH::CalculateDensity(const XMFLOAT3& samplePoint) {
 
 float SPH::ConvertDensityToPressure(float density)
 {
-	return stiffnessValue * (density - targetDensity);
+	float densityError = density - targetDensity;
+	float pressure = densityError * stiffnessValue;
+	return pressure;
 }
 
 float SPH::CalculateSharedPressure(float densityA, float densityB)
@@ -199,31 +203,99 @@ XMFLOAT3 SPH::CalculatePressureForce(int particleIndex) {
 
 		// Calculate offset
 		XMFLOAT3 offset = Subtract(neighbor->position, currentParticle->position);
-		float dst = CalculateMagnitude(offset);
+		double dst = CalculateMagnitude(offset);
 
 		// Normalize direction
 		XMFLOAT3 dir = XMFLOAT3(offset.x / dst, offset.y / dst, offset.z / dst);
 
 		// Calculate smoothing kernel derivative
-		float slope = SmoothingKernelDerivative(currentParticle->smoothingRadius, dst);
+		double slope = SmoothingKernelDerivative(currentParticle->smoothingRadius, dst);
 
 		// Calculate shared pressure
-		float sharedPressure = CalculateSharedPressure(currentParticle->density, neighbor->density);
+		double sharedPressure = CalculateSharedPressure(currentParticle->density, neighbor->density);
+		double sharedNearPressure = CalculateSharedPressure(currentParticle->density, neighbor->density);
+
+		float safeDensity = max(currentParticle->density, 1e-6f);
 
 		// Accumulate pressure force
-		pressureForce.x += -sharedPressure * dir.x * slope / currentParticle->density;
-		pressureForce.y += -sharedPressure * dir.y * slope / currentParticle->density;
-		pressureForce.z += -sharedPressure * dir.z * slope / currentParticle->density;
+		pressureForce.x += -sharedPressure * dir.x * slope / safeDensity;
+		pressureForce.y += -sharedPressure * dir.y * slope / safeDensity;
+		pressureForce.z += -sharedPressure * dir.z * slope / safeDensity;
 	}
 
 	return pressureForce;
 }
 
-void SPH::UpdateSpatialGrid() 
+XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
+	XMFLOAT3 pressureForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	XMFLOAT3 repulsionForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	XMFLOAT3 viscousForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+	Particle* currentParticle = particleList[particleIndex];
+	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(currentParticle->position);
+
+	float k = 0.005f; // Stiffness constant for near-pressure
+	float kNear = 0.02f; // Stiffness constant for near-density
+	float viscosityCoefficient = 0.1f; // Adjust as needed
+
+	for (int neighborIndex : neighbors) {
+		Particle* neighbor = particleList[neighborIndex];
+		if (neighbor == currentParticle) continue;
+
+		// Relative velocity
+		XMFLOAT3 relativeVelocity = Subtract(currentParticle->velocity, neighbor->velocity);
+
+		// Calculate offset and distance
+		XMFLOAT3 offset = Subtract(neighbor->position, currentParticle->position);
+		float distance = CalculateMagnitude(offset);
+
+		// Skip particles too close or too far
+		if (distance < 1e-6f || distance > currentParticle->smoothingRadius) continue;
+
+		// Normalize direction
+		XMFLOAT3 direction = XMFLOAT3(offset.x / distance, offset.y / distance, offset.z / distance);
+
+		// Smoothing kernel derivative
+		float kernelDerivative = SmoothingKernelDerivative(distance, currentParticle->smoothingRadius);
+
+		// Calculate shared pressure
+		float sharedPressure = CalculateSharedPressure(currentParticle->density, neighbor->density);
+
+		// Near-pressure and near-density contributions
+		float q = distance / currentParticle->smoothingRadius; // Normalized distance
+		float densityTerm = (1.0f - q) * (1.0f - q);           // Quadratic dropoff
+		float nearDensityTerm = densityTerm * (1.0f - q);      // Cubic dropoff
+
+		// Compute forces
+		float repulsionNear = k * densityTerm + kNear * nearDensityTerm;
+
+		viscousForce.x += viscosityCoefficient * relativeVelocity.x * kernelDerivative;
+		viscousForce.y += viscosityCoefficient * relativeVelocity.y * kernelDerivative;
+		viscousForce.z += viscosityCoefficient * relativeVelocity.z * kernelDerivative;
+
+		pressureForce.x += -sharedPressure * direction.x * kernelDerivative;
+		pressureForce.y += -sharedPressure * direction.y * kernelDerivative;
+		pressureForce.z += -sharedPressure * direction.z * kernelDerivative;
+
+		repulsionForce.x += repulsionNear * direction.x;
+		repulsionForce.y += repulsionNear * direction.y;
+		repulsionForce.z += repulsionNear * direction.z;
+	}
+
+	// Combine forces
+	XMFLOAT3 totalForce;
+	totalForce.x = pressureForce.x + repulsionForce.x + viscousForce.x;
+	totalForce.y = pressureForce.y + repulsionForce.y + viscousForce.y;
+	totalForce.z = pressureForce.z + repulsionForce.z + viscousForce.z;
+
+	return totalForce;
+}
+
+void SPH::UpdateSpatialGrid()
 {
 	spatialGrid.Clear();
 
-	for (int i = 0; i < particleList.size(); ++i) 
+	for (int i = 0; i < particleList.size(); ++i)
 	{
 		spatialGrid.AddParticle(i, particleList[i]->position);
 	}
@@ -232,17 +304,17 @@ void SPH::UpdateSpatialGrid()
 void SPH::Update(float deltaTime) {
 	UpdateSpatialGrid();
 
-	float dampingFactor = 0.99;
+	float dampingFactor = 0.98;
 
-	float minX = -20.0f, maxX = 20.0f;
+	float minX = -10.0f, maxX = 10.0f;
 	float minY = -10.0f, maxY = 20.0f;
-	float minZ = -20.0f, maxZ = 20.0f;
+	float minZ = -10.0f, maxZ = 10.0f;
 
 	for (int i = 0; i < particleList.size(); ++i) {
 		// Apply forces and update velocity
 		particleList[i]->velocity.y += -9.81f * deltaTime; // Gravity
 		particleList[i]->density = CalculateDensity(particleList[i]->position);
-		particleList[i]->pressureForce = CalculatePressureForce(i);
+		particleList[i]->pressureForce = CalculatePressureForceWithRepulsion(i);
 
 		// Acceleration = Force / Density
 		particleList[i]->acceleration.x = particleList[i]->pressureForce.x / particleList[i]->density;

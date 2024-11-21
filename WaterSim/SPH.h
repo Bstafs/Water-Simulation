@@ -28,8 +28,8 @@ public:
 	// Particle List
 	std::vector <Particle*> particleList;
 
-	float targetDensity = 6.0f;
-	float stiffnessValue = 1000.0f;
+	float targetDensity = 4.0f;
+	float stiffnessValue = 30.0f;
 
 	float particleDensities[NUM_OF_PARTICLES];
 
@@ -60,6 +60,7 @@ private:
 	float ConvertDensityToPressure(float density);
 	XMFLOAT3 CalculatePressureForce(int particleIndex);
 	float CalculateSharedPressure(float densityA, float densityB);
+	XMFLOAT3 CalculatePressureForceWithRepulsion(int particleIndex);
 
 	float* densities;
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#define NUM_OF_PARTICLES 216
+#define NUM_OF_PARTICLES 512
 // DirectX
 #include <windows.h>
 #include <directxmath.h>
@@ -28,6 +28,7 @@
 #include <random>
 #include <cstdlib> 
 #include <ctime>   
+#include <algorithm>
 
 // Physics / Objects
 #include "Quaternion.h"
