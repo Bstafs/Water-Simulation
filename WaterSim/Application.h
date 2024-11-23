@@ -106,9 +106,9 @@ private:
 
 	float currentPosZ = -30.0f;
 	float currentPosX = 0.0f;
-	float currentPosY = 0.0f;
+	float currentPosY = 5.0f;
 	float rotationX = 0.0f;
-	float rotationY = 0.0f;
+	float rotationY = -0.4f;
 
 	ID3D11DepthStencilState* DSLessEqual;
 	ID3D11RasterizerState* RSCullNone;

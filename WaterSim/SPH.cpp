@@ -236,7 +236,7 @@ XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 
 	float k = 0.005f; // Stiffness constant for near-pressure
 	float kNear = 0.02f; // Stiffness constant for near-density
-	float viscosityCoefficient = 0.1f; // Adjust as needed
+	float viscosityCoefficient = 0.05f; // Adjust viscosity as needed
 
 	for (int neighborIndex : neighbors) {
 		Particle* neighbor = particleList[neighborIndex];
@@ -269,14 +269,17 @@ XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 		// Compute forces
 		float repulsionNear = k * densityTerm + kNear * nearDensityTerm;
 
+		// Viscous force (Navier-Stokes viscosity term)
 		viscousForce.x += viscosityCoefficient * relativeVelocity.x * kernelDerivative;
 		viscousForce.y += viscosityCoefficient * relativeVelocity.y * kernelDerivative;
 		viscousForce.z += viscosityCoefficient * relativeVelocity.z * kernelDerivative;
 
+		// Pressure force
 		pressureForce.x += -sharedPressure * direction.x * kernelDerivative;
 		pressureForce.y += -sharedPressure * direction.y * kernelDerivative;
 		pressureForce.z += -sharedPressure * direction.z * kernelDerivative;
 
+		// Repulsion force
 		repulsionForce.x += repulsionNear * direction.x;
 		repulsionForce.y += repulsionNear * direction.y;
 		repulsionForce.z += repulsionNear * direction.z;
