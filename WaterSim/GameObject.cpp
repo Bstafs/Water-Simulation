@@ -16,12 +16,7 @@ void GameObject::Update(const float t)
 	m_transform->Update(t);
 }
 
-void GameObject::DrawIndexed(ID3D11DeviceContext* pImmediateContext)
+void GameObject::Draw(ID3D11DeviceContext* pImmediateContext)
 {
-	m_appearance->DrawIndexed(pImmediateContext);
-}
-
-void GameObject::DrawInstanced(ID3D11DeviceContext* pImmediateContext)
-{
-	m_appearance->DrawInstanced(pImmediateContext);
+	m_appearance->Draw(pImmediateContext);
 }

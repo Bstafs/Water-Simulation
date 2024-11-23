@@ -38,14 +38,6 @@ cbuffer ConstantBuffer : register(b0)
 
     float3 EyePosW;
     float HasTexture;
-    
-    float HasInstance;
-    float3 buffer;
-}
-
-cbuffer InstanceBuffer : register(b1)
-{
-    float4x4 WorldInstance[512];
 }
 
 struct VS_INPUT
@@ -68,32 +60,18 @@ struct VS_OUTPUT
 //--------------------------------------------------------------------------------------
 // Vertex Shader
 //--------------------------------------------------------------------------------------
-VS_OUTPUT VS(VS_INPUT input, uint instanceId : SV_InstanceID)
+VS_OUTPUT VS(VS_INPUT input)
 {
     VS_OUTPUT output = (VS_OUTPUT) 0;
-    
-    float4x4 worldMatrix = WorldInstance[instanceId];
-    
+
     float4 posW = mul(input.PosL, World);
-    
-    if (HasInstance == 1.0f)
-    {
-        posW = mul(input.PosL, worldMatrix);
-    }
-       
     output.PosW = posW.xyz;
 
     output.PosH = mul(posW, View);
     output.PosH = mul(output.PosH, Projection);
     output.Tex = input.Tex;
-    
+
     float3 normalW = mul(float4(input.NormL, 0.0f), World).xyz;
-    
-    if (HasInstance == 1.0f)
-    {
-        normalW = mul(float4(input.NormL, 0.0f), worldMatrix).xyz;
-    }
- 
     output.NormW = normalize(normalW);
 
     return output;

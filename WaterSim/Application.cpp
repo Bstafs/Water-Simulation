@@ -165,10 +165,8 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	sphereGeometry.indexBuffer = _pIndexBuffer;
 	sphereGeometry.vertexBuffer = _pVertexBuffer;
 	sphereGeometry.numberOfIndices = sphereIndices.size();
+	sphereGeometry.vertexBufferOffset = 0;
 	sphereGeometry.vertexBufferStride = sizeof(SimpleVertex);
-	sphereGeometry.instanceBufferStride = sizeof(InstanceData);
-	sphereGeometry.numberOfInstances = NUM_OF_PARTICLES;
-	sphereGeometry.instanceBuffer = _pInstanceBuffer;
 
 	Material shinyMaterial;
 	shinyMaterial.ambient = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
@@ -183,31 +181,14 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	noSpecMaterial.specularPower = 0.0f;
 
 
-	switch ((int)HasInstance)
+	for (int i = 0; i < sph->particleList.size(); i++)
 	{
-	case 0:
-		for (int i = 0; i < NUM_OF_PARTICLES; i++)
-		{
-			GameObject* gameObject = new GameObject("Sphere " + i, sphereGeometry, shinyMaterial);
-			gameObject->GetTransform()->SetScale(1.0f, 1.0f, 1.0f);
-			gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
-			gameObject->GetAppearance()->SetTextureRV(0);
-			m_gameObjects.push_back(gameObject);
-		}
-		break;
-	case 1:
-		for (int i = 0; i < 1; i++)
-		{
-			GameObject* gameObject = new GameObject("Sphere " + i, sphereGeometry, shinyMaterial);
-			gameObject->GetTransform()->SetScale(1.0f, 1.0f, 1.0f);
-			gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
-			gameObject->GetAppearance()->SetTextureRV(0);
-			m_gameObjects.push_back(gameObject);
-		}
-		break;
+		GameObject* gameObject = new GameObject("Sphere " + i, sphereGeometry, shinyMaterial);
+		gameObject->GetTransform()->SetScale(1.0f, 1.0f, 1.0f);
+		gameObject->GetTransform()->SetPosition(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z);
+		gameObject->GetAppearance()->SetTextureRV(0);
+		m_gameObjects.push_back(gameObject);
 	}
-
-
 
 	return S_OK;
 }
@@ -249,7 +230,7 @@ HRESULT Application::InitShadersAndInputLayout()
 }
 
 // Generate vertices and indices for a sphere
-void Application::CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices)
+void Application::CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices) 
 {
 	const float pi = XM_PI;
 	const float twoPi = 2.0f * pi;
@@ -300,8 +281,8 @@ HRESULT Application::InitVertexBuffer()
 {
 	HRESULT hr;
 
-	D3D11_BUFFER_DESC vbDesc, ibDesc, isDesc;
-	D3D11_SUBRESOURCE_DATA vbData, ibData, isData;
+	D3D11_BUFFER_DESC vbDesc, ibDesc;
+	D3D11_SUBRESOURCE_DATA vbData, ibData;
 
 	vbDesc.Usage = D3D11_USAGE_DEFAULT;
 	vbDesc.ByteWidth = sizeof(SimpleVertex) * sphereVertices.size();
@@ -314,18 +295,10 @@ HRESULT Application::InitVertexBuffer()
 	ibDesc.Usage = D3D11_USAGE_DEFAULT;
 	ibDesc.ByteWidth = sizeof(WORD) * sphereIndices.size();
 	ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	ibDesc.CPUAccessFlags = 0; 
+	ibDesc.CPUAccessFlags = 0;
 	ibDesc.MiscFlags = 0;
 	ibData.pSysMem = sphereIndices.data();
 	_pd3dDevice->CreateBuffer(&ibDesc, &ibData, &_pIndexBuffer);
-
-	isDesc.Usage = D3D11_USAGE_DYNAMIC;
-	isDesc.ByteWidth = sizeof(InstanceData);
-	isDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	isDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	isDesc.MiscFlags = 0;
-	ibData.pSysMem = nullptr;
-	_pd3dDevice->CreateBuffer(&isDesc, nullptr, &_pInstanceBuffer);
 
 	return S_OK;
 }
@@ -625,18 +598,11 @@ void Application::Update()
 
 	sph->Update(deltaTime, minX, maxX);
 
-	for (int i = 0; i < m_gameObjects.size(); i++)
-	{
-		for (int j = 0; j < sph->particleList.size() - i; j++)
-		{
-			m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[j]->position);
-		}
-	}
-
 	for (auto gameObject : m_gameObjects)
 	{
 		gameObject->Update(deltaTime);
 	}
+
 }
 
 void Application::ImGui()
@@ -722,8 +688,39 @@ void Application::ImGui()
 
 }
 
-void Application::Indexed()
+void Application::Draw()
 {
+	float ClearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f }; // red,green,blue,alpha
+	_pImmediateContext->ClearRenderTargetView(_pRenderTargetView, ClearColor);
+	_pImmediateContext->ClearDepthStencilView(_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
+
+	_pImmediateContext->IASetInputLayout(_pVertexLayout);
+
+	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
+	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
+
+	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
+	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
+
+	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
+
+	ConstantBuffer cb;
+
+	XMFLOAT4X4 viewAsFloats = _camera->GetView();
+	XMFLOAT4X4 projectionAsFloats = _camera->GetProjection();
+
+	XMMATRIX view = XMLoadFloat4x4(&viewAsFloats);
+	XMMATRIX projection = XMLoadFloat4x4(&projectionAsFloats);
+
+	cb.View = XMMatrixTranspose(view);
+	cb.Projection = XMMatrixTranspose(projection);
+
+	cb.light = basicLight;
+	cb.EyePosW = _camera->GetPosition();
+
+	// Render all scene objects
 	for (auto gameObject : m_gameObjects)
 	{
 		// Get render material
@@ -752,110 +749,16 @@ void Application::Indexed()
 		// Update constant buffer
 		_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
-		gameObject->DrawIndexed(_pImmediateContext);
-	}
-}
-
-void Application::Instanced()
-{
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	HRESULT hr = _pImmediateContext->Map(_pInstanceBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	if (FAILED(hr))
-	{
-		// Handle error
+		// Draw object
+		gameObject->Draw(_pImmediateContext);
 	}
 
-	InstanceData* instanceData = (InstanceData*)mappedResource.pData;
-
-	for (int i = 0; i < NUM_OF_PARTICLES; ++i)
+	for (int i = 0; i < m_gameObjects.size(); i++)
 	{
-		// Fill the world matrix for each instance (e.g., for each particle)
-		XMMATRIX scaleMatrix = XMMatrixScaling(1.0f, 1.0f, 1.0f); // Example scale (you may use your own scale)
-		XMMATRIX translationMatrix = XMMatrixTranslation(
-			sph->particleList[i]->position.x,
-			sph->particleList[i]->position.y,
-			sph->particleList[i]->position.z
-		);
-
-		XMMATRIX worldMatrix = scaleMatrix * translationMatrix;
-		XMStoreFloat4x4(&instanceData->WorldInstance, worldMatrix);  // Store each world matrix
-	}
-
-	_pImmediateContext->Unmap(_pInstanceBuffer, 0);
-
-	// Get render material
-	Material material = m_gameObjects[0]->GetAppearance()->GetMaterial();
-
-	// Copy material to shader
-	cb.surface.AmbientMtrl = material.ambient;
-	cb.surface.DiffuseMtrl = material.diffuse;
-	cb.surface.SpecularMtrl = material.specular;
-
-	// Set world matrix
-	//cb.World = XMMatrixTranspose(m_gameObjects[0]->GetTransform()->GetWorldMatrix());
-
-	// Set texture
-	if (m_gameObjects[0]->GetAppearance()->HasTexture())
-	{
-		ID3D11ShaderResourceView* textureRV = m_gameObjects[0]->GetAppearance()->GetTextureRV();
-		_pImmediateContext->PSSetShaderResources(0, 1, &textureRV);
-		cb.HasTexture = 1.0f;
-	}
-	else
-	{
-		cb.HasTexture = 0.0f;
-	}
-
-	// Update constant buffer
-	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-	_pImmediateContext->UpdateSubresource(_pInstanceBuffer, 1, nullptr, &instanceData, 0, 0);
-
-	m_gameObjects[0]->DrawInstanced(_pImmediateContext);
-}
-
-void Application::Draw()
-{
-	float ClearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f }; // red,green,blue,alpha
-	_pImmediateContext->ClearRenderTargetView(_pRenderTargetView, ClearColor);
-	_pImmediateContext->ClearDepthStencilView(_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
-
-	_pImmediateContext->IASetInputLayout(_pVertexLayout);
-
-	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
-	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
-	_pImmediateContext->VSSetConstantBuffers(1, 1, &_pInstanceBuffer);
-
-	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
-	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
-
-	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
-
-	XMFLOAT4X4 viewAsFloats = _camera->GetView();
-	XMFLOAT4X4 projectionAsFloats = _camera->GetProjection();
-
-	XMMATRIX view = XMLoadFloat4x4(&viewAsFloats);
-	XMMATRIX projection = XMLoadFloat4x4(&projectionAsFloats);
-
-	cb.View = XMMatrixTranspose(view);
-	cb.Projection = XMMatrixTranspose(projection);
-
-	cb.light = basicLight;
-	cb.EyePosW = _camera->GetPosition();
-
-	cb.HasInstance = HasInstance;
-	cb.buffer = XMFLOAT3(0.0f, 0.0f, 0.0f);
-
-	// Render all scene objects
-	switch ((int)HasInstance)
-	{
-	case 0:
-		Indexed();
-		break;
-	case 1:
-		Instanced();
-		break;
+		for (int j = 0; j < sph->particleList.size() - i; j++)
+		{
+			m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[j]->position);
+		}
 	}
 
 	ImGui();
