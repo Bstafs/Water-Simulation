@@ -107,7 +107,7 @@ float SPH::SmoothingKernelDerivative(float dst, float radius) {
 	if (dst >= 0 && dst <= radius) { // dst > 0 to avoid division by zero
 		float scale = (32.0f * PI * pow(radius, 9)) / -945.0f;
 		float diff = radius * radius - dst * dst;
-		return  diff * diff * dst / scale;
+		return  diff * diff * diff / scale;
 	}
 	return 0.0f;
 }
@@ -304,7 +304,7 @@ void SPH::UpdateSpatialGrid()
 	}
 }
 
-void SPH::Update(float deltaTime) {
+void SPH::Update(float deltaTime, float minX, float maxX) {
 	UpdateSpatialGrid();
 
 	for (int i = 0; i < particleList.size(); ++i) {

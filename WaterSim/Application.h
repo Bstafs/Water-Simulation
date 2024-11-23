@@ -127,10 +127,10 @@ private:
 	int frames;
 	int updates;
 
+	float minX = -10.0f, maxX = 10.0f;
+
 	// SPH
-
 	SPH* sph = nullptr;
-
 
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 

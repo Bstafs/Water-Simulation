@@ -596,7 +596,7 @@ void Application::Update()
 
 	_camera->Update();
 
-	sph->Update(deltaTime);
+	sph->Update(deltaTime, minX, maxX);
 
 	for (auto gameObject : m_gameObjects)
 	{
@@ -640,6 +640,10 @@ void Application::ImGui()
 		int particleSize = sph->particleList.size();
 
 		ImGui::DragInt("Number of Particles", &particleSize);
+		ImGui::DragFloat("Min X", &minX, 0.5f, -20.0f, -1.0f);
+		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 20.0f);
+
+
 
 		ImGui::Text("Initial Values");
 

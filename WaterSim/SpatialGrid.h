@@ -31,24 +31,28 @@ struct SpatialGrid {
 
 	SpatialGrid(float cellSize) : cellSize(cellSize) {}
 
-	void Clear() {
+	void Clear() 
+	{
 		grid.clear();
 	}
 
-	std::tuple<int, int, int> GetCellIndex(const DirectX::XMFLOAT3& position) const {
+	std::tuple<int, int, int> GetCellIndex(const DirectX::XMFLOAT3& position) const 
+	{
 		int x = static_cast<int>(std::floor(position.x / cellSize));
 		int y = static_cast<int>(std::floor(position.y / cellSize));
 		int z = static_cast<int>(std::floor(position.z / cellSize));
 		return std::make_tuple(x, y, z);
 	}
 
-	void AddParticle(int particleIndex, const DirectX::XMFLOAT3& position) {
+	void AddParticle(int particleIndex, const DirectX::XMFLOAT3& position) 
+	{
 		auto cellIndex = GetCellIndex(position);
 		grid[cellIndex].push_back(particleIndex);
 	}
 
 	// Get particles in neighboring cells
-	std::vector<int> GetNeighboringParticles(const XMFLOAT3& position) const {
+	std::vector<int> GetNeighboringParticles(const XMFLOAT3& position) const 
+	{
 		std::vector<int> neighbors;
 		auto baseCell = GetCellIndex(position);
 

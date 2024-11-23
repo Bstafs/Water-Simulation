@@ -1,7 +1,5 @@
 #include "Particle.h"
 
-int Particle::particleCount = 0;
-
 Particle::Particle(XMFLOAT3 particlePos, XMFLOAT3 particleVelocity, float particleDensity, XMFLOAT3 particleAcceleration, float particleSmoothingRadius, XMFLOAT3 pressure)
 {
 	position = particlePos;
@@ -11,7 +9,6 @@ Particle::Particle(XMFLOAT3 particlePos, XMFLOAT3 particleVelocity, float partic
 	smoothingRadius = particleSmoothingRadius;
 	pressureForce = pressure;
 }
-
 
 Particle::~Particle()
 {

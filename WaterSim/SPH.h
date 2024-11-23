@@ -5,17 +5,17 @@
 #include "Particle.h"
 #include "SpatialGrid.h"
 
-struct ParticlePosition
-{
-	XMFLOAT3 positions;
-};
+//struct ParticlePosition
+//{
+//	XMFLOAT3 positions;
+//};
 
 class SPH
 {
 public:
 	SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* device);
 	~SPH();
-	void Update(float deltaTime);
+	void Update(float deltaTime, float minX, float maxX);
 
 
 private:
@@ -45,7 +45,7 @@ private:
 	// Particle Initialization
 	float dampingFactor = 0.95;
 
-	float minX = -10.0f, maxX = 10.0f;
+//	float minX = -10.0f, maxX = 10.0f;
 	float minY = -10.0f, maxY = 20.0f;
 	float minZ = -10.0f, maxZ = 10.0f;
 
