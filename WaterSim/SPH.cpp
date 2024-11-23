@@ -95,9 +95,9 @@ void SPH::ParticleForcesSetup()
 float SPH::SmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
-		float scale = 315.0f / (64.0f * PI * pow(radius, 9));
+		float scale = (64.0f * PI * pow(radius, 9)) / 315.0f;
 		float diff = radius * radius - dst * dst;
-		return diff * diff * diff * scale;
+		return diff * diff * diff / scale;
 	}
 	return 0.0f;
 }
@@ -105,9 +105,9 @@ float SPH::SmoothingKernel(float dst, float radius)
 float SPH::SmoothingKernelDerivative(float dst, float radius) {
 
 	if (dst >= 0 && dst <= radius) { // dst > 0 to avoid division by zero
-		float scale = -945.0f / (32.0f * PI * pow(radius, 9));
+		float scale = (32.0f * PI * pow(radius, 9)) / -945.0f;
 		float diff = radius * radius - dst * dst;
-		return scale * diff * diff * dst;
+		return  diff * diff * dst / scale;
 	}
 	return 0.0f;
 }
@@ -234,7 +234,7 @@ XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 	Particle* currentParticle = particleList[particleIndex];
 	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(currentParticle->position);
 
-	float k = 0.005f; // Stiffness constant for near-pressure
+	float k = 0.05f; // Stiffness constant for near-pressure
 	float kNear = 0.02f; // Stiffness constant for near-density
 	float viscosityCoefficient = 0.05f; // Adjust viscosity as needed
 
@@ -306,12 +306,6 @@ void SPH::UpdateSpatialGrid()
 
 void SPH::Update(float deltaTime) {
 	UpdateSpatialGrid();
-
-	float dampingFactor = 0.98;
-
-	float minX = -10.0f, maxX = 10.0f;
-	float minY = -10.0f, maxY = 20.0f;
-	float minZ = -10.0f, maxZ = 10.0f;
 
 	for (int i = 0; i < particleList.size(); ++i) {
 		// Apply forces and update velocity
