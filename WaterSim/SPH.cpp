@@ -95,9 +95,9 @@ void SPH::ParticleForcesSetup()
 float SPH::SmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
-		float scale = (64.0f * PI * pow(radius, 9)) / 315.0f;
+		float scale = 315.0f / (64.0f * PI * pow(radius, 9)) ;
 		float diff = radius * radius - dst * dst;
-		return diff * diff * diff / scale;
+		return diff * diff * diff * scale;
 	}
 	return 0.0f;
 }
@@ -105,9 +105,9 @@ float SPH::SmoothingKernel(float dst, float radius)
 float SPH::SmoothingKernelDerivative(float dst, float radius) {
 
 	if (dst >= 0 && dst <= radius) { // dst > 0 to avoid division by zero
-		float scale = (32.0f * PI * pow(radius, 9)) / -945.0f;
+		float scale = -945.0f / (32.0f * PI * pow(radius, 9)) ;
 		float diff = radius * radius - dst * dst;
-		return  diff * diff * diff / scale;
+		return scale * diff * diff * dst;
 	}
 	return 0.0f;
 }
