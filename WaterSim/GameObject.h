@@ -24,7 +24,8 @@ public:
 	void SetParent(GameObject* parent) { m_parent = parent; }
 
 	void Update(const float t);
-	void Draw(ID3D11DeviceContext* pImmediateContext);
+	void DrawIndexed(ID3D11DeviceContext* pImmediateContext);
+	void DrawInstanced(ID3D11DeviceContext* pImmediateContext);
 
 
 private:
