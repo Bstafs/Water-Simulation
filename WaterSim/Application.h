@@ -44,6 +44,9 @@ struct ConstantBuffer
 
 	XMFLOAT3 EyePosW;
 	float HasTexture;
+
+	float HasInstance;
+	XMFLOAT3 buffer;
 };
 
 struct WaterBuffer
@@ -53,6 +56,10 @@ struct WaterBuffer
 	XMMATRIX Projection;
 };
 
+struct InstanceData
+{
+	XMFLOAT4X4 WorldInstance;
+};
 
 class Application
 {
@@ -75,6 +82,10 @@ private:
 
 	ID3D11Buffer* _pConstantBuffer;
 
+	ID3D11Buffer* _pInstanceBuffer;
+
+	InstanceData id;
+
 	ID3D11DepthStencilView* _depthStencilView = nullptr;
 	ID3D11Texture2D* _depthStencilBuffer = nullptr;
 
@@ -94,6 +105,8 @@ private:
 	Light basicLight;
 
 	vector<GameObject*> m_gameObjects;
+
+	float HasInstance = 1.0f;
 
 	Camera* _camera = nullptr;
 
@@ -155,7 +168,12 @@ private:
 	void moveLeft(int objectNumber);
 	void moveRight(int objectNumber);
 
+	void Indexed();
+	void Instanced();
+
 	std::unique_ptr<DirectX::PrimitiveBatch<VertexType>> m_batch;
+
+	ConstantBuffer cb;
 public:
 	Application();
 	~Application();
