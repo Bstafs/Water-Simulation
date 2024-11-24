@@ -1,6 +1,6 @@
 #pragma once
 
-#define NUM_OF_PARTICLES 512
+#define NUM_OF_PARTICLES 100
 
 // DirectX
 #include <windows.h>
