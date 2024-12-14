@@ -5,7 +5,7 @@
 #include "Timestep.h"
 
 #define NUMBER_OF_CUBES 1
-#define FPS_60 1.0f/60.0f
+#define FPS_60 1.0f/240.0f
 #define THREAD_COUNT 32;
 using namespace DirectX;
 

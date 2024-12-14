@@ -127,10 +127,11 @@ ID3D11Buffer* CreateStructureBuffer(int byteWidth, float* data, int vertexCount,
 	ID3D11Buffer* structureBuffer = nullptr;
 	HRESULT hr;
 	D3D11_BUFFER_DESC constantDataDesc;
-	constantDataDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	constantDataDesc.Usage = D3D11_USAGE_DYNAMIC;
 	constantDataDesc.ByteWidth = byteWidth * vertexCount;
-	constantDataDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-	constantDataDesc.CPUAccessFlags = 0;
+	constantDataDesc.BindFlags =  D3D11_BIND_SHADER_RESOURCE;
+	constantDataDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	constantDataDesc.StructureByteStride = byteWidth;
 	constantDataDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
@@ -156,9 +157,9 @@ ID3D11Buffer* CreateReadableStructureBuffer(int byteWidth, float* data, ID3D11De
 	D3D11_BUFFER_DESC outputDesc;
 	ZeroMemory(&outputDesc, sizeof(outputDesc));
 	outputDesc.Usage = D3D11_USAGE_STAGING;
+	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	outputDesc.ByteWidth = byteWidth;
 	outputDesc.BindFlags = 0;
-	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
 	if (data)
 	{
@@ -200,11 +201,9 @@ ID3D11UnorderedAccessView* CreateUnorderedAccessView(ID3D11Buffer* pBuffer, int 
 {
 	ID3D11UnorderedAccessView* UAV = nullptr;
 	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.Flags = 0;
-	uavDesc.Buffer.NumElements = vertexCount;
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	uavDesc.Buffer.NumElements = vertexCount;
 	HRESULT hr = device->CreateUnorderedAccessView(pBuffer, &uavDesc, &UAV);
 	return UAV;
 }
