@@ -342,13 +342,26 @@ void SPH::UpdateSpatialGrid()
 
 void SPH::UpdateComputeShader()
 {
+	// Tell the Compute Shader most recent values
+	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
+	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
+	if (SUCCEEDED(hr)) 
+	{
+		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		for (int i = 0; i < particleList.size(); ++i) 
+		{
+			inputData[i].velocity = particleList[i]->velocity.y;
+		}
+		deviceContext->Unmap(inputBuffer, 0);
+	}
+
 	// Bind compute shader and buffers
 	deviceContext->CSSetShader(FluidSimComputeShader, nullptr, 0);
 	deviceContext->CSSetShaderResources(0, 1, &inputView);
 	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAV, nullptr);
 
 	// Dispatch compute shader
-	deviceContext->Dispatch(128, 1, 1);
+	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
 
 	// Unbind resources
 	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
@@ -360,18 +373,16 @@ void SPH::UpdateComputeShader()
 
 	deviceContext->CopyResource(outputResultBuffer, outputBuffer);
 
-	// Update particle system data with output from Compute Shader
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	HRESULT hr = deviceContext->Map(outputBuffer, 0, D3D11_MAP_READ, 0, &mappedResource);
-
-	if (SUCCEEDED(hr))
+	// Map output to a new buffer and apply new values to particles
+	D3D11_MAPPED_SUBRESOURCE mappedOutputResource;
+	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
+	if (SUCCEEDED(hr)) 
 	{
-		ParticlePosition* dataView = reinterpret_cast<ParticlePosition*>(mappedResource.pData);
-
-		// Update particle positions and velocities
-
-		mGravity = dataView->velocity;
-
+		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
+		for (int i = 0; i < particleList.size(); ++i) 
+		{
+			particleList[i]->velocity.y = outputData[i].velocity;
+		}
 		deviceContext->Unmap(outputResultBuffer, 0);
 	}
 }
@@ -386,7 +397,7 @@ void SPH::Update(float deltaTime, float minX, float maxX)
 		Particle* particle = particleList[i];
 
 		// Apply forces and update properties
-		particle->velocity.y += -9.81f * deltaTime; // Gravity
+		//particle->velocity.y += -9.81f * deltaTime;
 		particle->density = CalculateDensity(particle->position);
 		particle->nearDensity = CalculateNearDensity(particle->position);
 		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
