@@ -17,4 +17,5 @@ public:
 	float pressure = 0.0f;
 	float nearPressure = 0.0f;
 	float smoothingRadius = 2.5f;
+	XMFLOAT3 predictiedPosition = XMFLOAT3();
 };

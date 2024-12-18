@@ -49,7 +49,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 0.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 2.15f, XMFLOAT3(1.0f, 1.0f, 1.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 0.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 2.5f, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		int xIndex = i % particlesPerDimension;
 		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
@@ -282,7 +282,8 @@ XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 
 	float viscosityCoefficient = 0.05f; // Adjust viscosity as needed
 
-	for (int neighborIndex : neighbors) {
+	for (int neighborIndex : neighbors) 
+	{
 		Particle* neighbor = particleList[neighborIndex];
 		if (neighbor == currentParticle) continue;
 
@@ -355,10 +356,10 @@ void SPH::UpdateComputeShader(float deltaTime)
 		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i) 
 		{
-			inputData[i].position = particleList[i]->position;
-			inputData[i].velocity = particleList[i]->velocity;
-			inputData[i].density = particleList[i]->density;
-			inputData[i].deltaTime = deltaTime;
+			//inputData[i].position = particleList[i]->position;
+			//inputData[i].velocity = particleList[i]->velocity;
+			//inputData[i].density = particleList[i]->density;
+			//inputData[i].deltaTime = deltaTime;
 		}
 		deviceContext->Unmap(inputBuffer, 0);
 	}
@@ -389,9 +390,9 @@ void SPH::UpdateComputeShader(float deltaTime)
 		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i) 
 		{
-			particleList[i]->position = outputData[i].position;
-			particleList[i]->velocity = outputData[i].velocity;
-			particleList[i]->density = outputData[i].density;
+			//particleList[i]->position = outputData[i].position;
+			//particleList[i]->velocity = outputData[i].velocity;
+			//particleList[i]->density = outputData[i].density;
 		}
 		deviceContext->Unmap(outputResultBuffer, 0);
 	}
@@ -406,16 +407,10 @@ void SPH::Update(float deltaTime, float minX, float maxX)
 	{
 		Particle* particle = particleList[i];
 
-		XMFLOAT3 predictedPositions;
-
-		predictedPositions.x = particle->position.x + particle->velocity.x* deltaTime;
-		predictedPositions.y = particle->position.y + particle->velocity.y* deltaTime;
-		predictedPositions.z = particle->position.z + particle->velocity.z* deltaTime;
-
 		// Apply forces and update properties
-		//particle->velocity.y += -9.81f * deltaTime;
-		particle->density = CalculateDensity(predictedPositions);
-		particle->nearDensity = CalculateNearDensity(predictedPositions);
+		particle->velocity.y += -9.81f * deltaTime;
+		particle->density = CalculateDensity(particle->position);
+		particle->nearDensity = CalculateNearDensity(particle->position);
 		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
 
 		// Acceleration = Force / Density

@@ -230,7 +230,7 @@ HRESULT Application::InitShadersAndInputLayout()
 }
 
 // Generate vertices and indices for a sphere
-void Application::CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices) 
+void Application::CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices)
 {
 	const float pi = XM_PI;
 	const float twoPi = 2.0f * pi;
@@ -602,15 +602,19 @@ void Application::Update()
 		{
 			gameObject->Update(deltaTime);
 		}
+
+		// Update camera
+
+		_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
+		_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
+
+		_camera->Update();
+
+		for (int i = 0; i < m_gameObjects.size(); ++i)
+		{
+			m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[i]->position);
+		}
 	}
-
-	// Update camera
-
-	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
-	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
-
-	_camera->Update();
-
 }
 
 void Application::ImGui()
@@ -648,8 +652,8 @@ void Application::ImGui()
 		int particleSize = sph->particleList.size();
 
 		ImGui::DragInt("Number of Particles", &particleSize);
-		ImGui::DragFloat("Min X", &minX, 0.5f, -20.0f, -1.0f);
-		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 20.0f);
+		ImGui::DragFloat("Min X", &minX, 0.5f, -50.0f, -1.0f);
+		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 50.0f);
 		ImGui::Checkbox("Pause", &SimulationControl);
 
 
@@ -762,21 +766,13 @@ void Application::Draw()
 		gameObject->Draw(_pImmediateContext);
 	}
 
-	for (int i = 0; i < m_gameObjects.size(); i++)
-	{
-		for (int j = 0; j < sph->particleList.size() - i; j++)
-		{
-			m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[j]->position);
-		}
-	}
-
 	ImGui();
 
 	_pSwapChain->Present(0, 0);
 
 	// Set Shader Resource to Null / Clear
 	ID3D11ShaderResourceView* const shaderClear[1] = { NULL };
-	for (int i = 0; i < 30; i++)
+	for (int i = 0; i < 1; i++)
 	{
 		_pImmediateContext->PSSetShaderResources(i, 1, shaderClear);
 	}

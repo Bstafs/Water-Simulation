@@ -13,7 +13,6 @@ Camera::~Camera()
 void Camera::Update()
 {
     // Initialize the view matrix
-
 	XMFLOAT4 eye = XMFLOAT4(_eye.x, _eye.y, _eye.z, 0.0f);
 	XMFLOAT4 at = XMFLOAT4(_at.x, _at.y, _at.z, 0.0f);
 	XMFLOAT4 up = XMFLOAT4(_up.x, _up.y, _up.z, 0.0f);

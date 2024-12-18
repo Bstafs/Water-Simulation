@@ -128,7 +128,7 @@ private:
 	int frames;
 	int updates;
 
-	float minX = -10.0f, maxX = 10.0f;
+	float minX = -20.0f, maxX = 20.0f;
 
 	// SPH
 	SPH* sph = nullptr;

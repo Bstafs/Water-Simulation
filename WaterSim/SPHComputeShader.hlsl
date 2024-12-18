@@ -43,7 +43,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 	// Integrate Particle Forces
     const unsigned int threadID = dispatchThreadID.x;
 
-    if (threadID >= 512)
+    if (threadID >= 200)
         return;
     
     float3 inputPosition = InputPosition[threadID].position;
@@ -51,7 +51,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float inputDensity = InputPosition[threadID].density;
     float deltaTime = InputPosition[threadID].deltaTime;
    
-    inputVelocity.y += -9.81f * deltaTime;
+    inputVelocity.y += -12.0f * deltaTime;
     
     inputDensity = CalculateDensity(inputPosition);
 
