@@ -2,7 +2,11 @@
 
 struct ParticlePosition
 {
-    float gravity;
+    float3 position;
+    float deltaTime;
+    
+    float3 velocity;
+    float density;
 };
 
 StructuredBuffer<ParticlePosition> InputPosition : register(t0);
@@ -26,15 +30,32 @@ float CalculateSharedPressure(float densityA, float densityB)
     return (pressureA + pressureB) / 2.0f;
 }
 
+float CalculateDensity(float3 samplePoint)
+{
+    float density = 1.0f;
+    
+    return density;
+}
+
 [numthreads(256, 1, 1)]
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
 	// Integrate Particle Forces
     const unsigned int threadID = dispatchThreadID.x;
 
-    float input = InputPosition[threadID].gravity;
+    if (threadID >= 512)
+        return;
+    
+    float3 inputPosition = InputPosition[threadID].position;
+    float3 inputVelocity = InputPosition[threadID].velocity;
+    float inputDensity = InputPosition[threadID].density;
+    float deltaTime = InputPosition[threadID].deltaTime;
    
-    input += -9.81f * 0.016f;
+    inputVelocity.y += -9.81f * deltaTime;
+    
+    inputDensity = CalculateDensity(inputPosition);
 
-    OutputPosition[threadID].gravity = input;
+    OutputPosition[threadID].position = inputPosition;
+    OutputPosition[threadID].velocity = inputVelocity;
+    OutputPosition[threadID].density = inputDensity;
 }

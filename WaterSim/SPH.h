@@ -8,7 +8,11 @@
 
 struct ParticlePosition
 {
-	float velocity;
+	XMFLOAT3 position;
+	float deltaTime;
+
+	XMFLOAT3 velocity;
+	float density;
 };
 
 class SPH
@@ -25,7 +29,7 @@ private:
 	void InitComputeShader();
 
 	void UpdateSpatialGrid();
-	void UpdateComputeShader();
+	void UpdateComputeShader(float deltaTime);
 
 	static float DensitySmoothingKernel(float dst, float radius);
 	static float PressureSmoothingKernel(float radius, float dst); // Derivative of Density Kernel
@@ -65,7 +69,6 @@ private:
 
 	ParticlePosition* position;
 	float mGravity = 0.0f;
-
 	ID3D11DeviceContext* deviceContext;
 	ID3D11Device* device;
 

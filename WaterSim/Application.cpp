@@ -555,38 +555,53 @@ void Application::Cleanup()
 
 float Application::CalculateDeltaTime60FPS()
 {
-	// Update our time
-	static float deltaTime = 0.0f;
-	static ULONGLONG timeStart = 0;
-	ULONGLONG timeCur = GetTickCount64();
-	if (timeStart == 0)
-		timeStart = timeCur;
-	deltaTime = (timeCur - timeStart) / 1000.0f;
-	timeStart = timeCur;
+	// Constants
+	const float FPS60 = 1.0f / 60.0f;
 
-	float FPS60 = 1.0f / 60.0f;
-	static float cummulativeTime = 0;
+	// Static variables for tracking time
+	static float accumulatedTime = 0.0f;
+	static ULONGLONG previousTime = 0;
 
-	// cap the framerate at 60 fps 
-	cummulativeTime += deltaTime;
-	if (cummulativeTime >= FPS60)
+	// Get the current time
+	ULONGLONG currentTime = GetTickCount64();
+
+	// Initialize previousTime on the first call
+	if (previousTime == 0)
+		previousTime = currentTime;
+
+	// Calculate delta time in seconds
+	float deltaTime = (currentTime - previousTime) / 1000.0f;
+	previousTime = currentTime;
+
+	// Accumulate time
+	accumulatedTime += deltaTime;
+
+	// Fixed timestep: check if enough time has accumulated for one simulation step
+	if (accumulatedTime >= FPS60)
 	{
-		cummulativeTime = cummulativeTime - FPS60;
-	}
-	else
-	{
-		return 0;
+		// Consume time for one frame and keep the remainder
+		accumulatedTime -= FPS60;
+		return FPS60;
 	}
 
-	return FPS60;
+	// Not enough time has passed for the next simulation step
+	return 0.0f;
 }
 
 void Application::Update()
 {
 	float deltaTime = CalculateDeltaTime60FPS();
-	if (deltaTime == 0)
+	if (deltaTime > 0.0f)
 	{
-		return;
+		if (SimulationControl)
+		{
+			sph->Update(deltaTime, minX, maxX);
+		}
+
+		for (auto gameObject : m_gameObjects)
+		{
+			gameObject->Update(deltaTime);
+		}
 	}
 
 	// Update camera
@@ -595,13 +610,6 @@ void Application::Update()
 	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
 
 	_camera->Update();
-
-	sph->Update(deltaTime, minX, maxX);
-
-	for (auto gameObject : m_gameObjects)
-	{
-		gameObject->Update(deltaTime);
-	}
 
 }
 
@@ -642,6 +650,7 @@ void Application::ImGui()
 		ImGui::DragInt("Number of Particles", &particleSize);
 		ImGui::DragFloat("Min X", &minX, 0.5f, -20.0f, -1.0f);
 		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 20.0f);
+		ImGui::Checkbox("Pause", &SimulationControl);
 
 
 

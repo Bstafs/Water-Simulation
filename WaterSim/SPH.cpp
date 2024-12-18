@@ -49,7 +49,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 0.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 2.5f, XMFLOAT3(1.0f, 1.0f, 1.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 0.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), 2.15f, XMFLOAT3(1.0f, 1.0f, 1.0f));
 
 		int xIndex = i % particlesPerDimension;
 		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
@@ -81,7 +81,10 @@ void SPH::InitComputeShader()
 	{
 		Particle* particle = particleList[i];
 
-		position[i].velocity = particle->velocity.y;
+		position[i].position = particle->position;
+		position[i].velocity = particle->velocity;
+		position[i].deltaTime = 0.016f;
+		position[i].density = particle->density;
 	}
 
 	inputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
@@ -110,17 +113,6 @@ void SPH::InitComputeShader()
 	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 
 	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAV);
-}
-
-// Density Force Kernel.
-float SPH::DensitySmoothingKernel(float dst, float radius)
-{
-	if (dst >= 0 && dst <= radius) {
-		const float scale = 15.0f / (2.0f * XM_PI * pow(abs(radius), 5));
-		float diff = radius - dst;
-		return diff * diff * scale;
-	}
-	return 0.0f;
 }
 
 // Pressure Force Kernel
@@ -164,6 +156,17 @@ float SPH::ViscositySmoothingKernel(float dst, float radius)
 	return 0.0f;
 }
 
+// Density Force Kernel.
+float SPH::DensitySmoothingKernel(float dst, float radius)
+{
+	if (dst >= 0 && dst <= radius) {
+		const float scale = 15.0f / (2.0f * XM_PI * pow(abs(radius), 5));
+		float diff = radius - dst;
+		return diff * diff * scale;
+	}
+	return 0.0f;
+}
+
 float SPH::CalculateMagnitude(const XMFLOAT3& vector)
 {
 	XMVECTOR xmVector = XMLoadFloat3(&vector);
@@ -185,7 +188,8 @@ float SPH::CalculateDensity(const XMFLOAT3& samplePoint)
 	// Get neighboring cells
 	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(samplePoint);
 
-	for (int neighborIndex : neighbors) {
+	for (int neighborIndex : neighbors) 
+	{
 		Particle* neighbor = particleList[neighborIndex];
 
 		// Calculate the distance between the sample point and the neighbor's position
@@ -210,7 +214,8 @@ float SPH::CalculateNearDensity(const XMFLOAT3& samplePoint)
 	// Get neighboring cells
 	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(samplePoint);
 
-	for (int neighborIndex : neighbors) {
+	for (int neighborIndex : neighbors) 
+	{
 		Particle* neighbor = particleList[neighborIndex];
 
 		// Calculate the distance between the sample point and the neighbor's position
@@ -340,7 +345,7 @@ void SPH::UpdateSpatialGrid()
 	}
 }
 
-void SPH::UpdateComputeShader()
+void SPH::UpdateComputeShader(float deltaTime)
 {
 	// Tell the Compute Shader most recent values
 	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
@@ -350,7 +355,10 @@ void SPH::UpdateComputeShader()
 		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i) 
 		{
-			inputData[i].velocity = particleList[i]->velocity.y;
+			inputData[i].position = particleList[i]->position;
+			inputData[i].velocity = particleList[i]->velocity;
+			inputData[i].density = particleList[i]->density;
+			inputData[i].deltaTime = deltaTime;
 		}
 		deviceContext->Unmap(inputBuffer, 0);
 	}
@@ -381,7 +389,9 @@ void SPH::UpdateComputeShader()
 		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i) 
 		{
-			particleList[i]->velocity.y = outputData[i].velocity;
+			particleList[i]->position = outputData[i].position;
+			particleList[i]->velocity = outputData[i].velocity;
+			particleList[i]->density = outputData[i].density;
 		}
 		deviceContext->Unmap(outputResultBuffer, 0);
 	}
@@ -389,17 +399,23 @@ void SPH::UpdateComputeShader()
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	UpdateComputeShader();
+	UpdateComputeShader(deltaTime);
 	UpdateSpatialGrid();
 
 	for (int i = 0; i < particleList.size(); ++i) 
 	{
 		Particle* particle = particleList[i];
 
+		XMFLOAT3 predictedPositions;
+
+		predictedPositions.x = particle->position.x + particle->velocity.x* deltaTime;
+		predictedPositions.y = particle->position.y + particle->velocity.y* deltaTime;
+		predictedPositions.z = particle->position.z + particle->velocity.z* deltaTime;
+
 		// Apply forces and update properties
 		//particle->velocity.y += -9.81f * deltaTime;
-		particle->density = CalculateDensity(particle->position);
-		particle->nearDensity = CalculateNearDensity(particle->position);
+		particle->density = CalculateDensity(predictedPositions);
+		particle->nearDensity = CalculateNearDensity(predictedPositions);
 		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
 
 		// Acceleration = Force / Density

@@ -37,6 +37,7 @@ public:
 	Quaternion GetRotation() const { return m_rotation; }
 
 	XMMATRIX GetWorldMatrix() const { return XMLoadFloat4x4(&m_world); }
+	XMFLOAT4X4 GetWorld() const { return m_world; }
 
 protected:
 
