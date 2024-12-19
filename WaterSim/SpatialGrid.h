@@ -1,8 +1,6 @@
 #pragma once
 #include "Includes.h"
 
-using namespace Microsoft::WRL;
-
 namespace std {
 	template<typename T>
 	inline void hash_combine(std::size_t& seed, const T& v) {

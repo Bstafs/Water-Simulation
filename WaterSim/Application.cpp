@@ -152,8 +152,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 
 	_camera = new Camera(eye, at, up, (float)_renderWidth, (float)_renderHeight, 0.01f, 10000.0f);
 
-	m_batch = std::make_unique<PrimitiveBatch<VertexPositionColor>>(_pImmediateContext);
-
 	// Setup the scene's light
 	basicLight.AmbientLight = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 	basicLight.DiffuseLight = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -551,41 +549,6 @@ void Application::Cleanup()
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
-}
-
-float Application::CalculateDeltaTime60FPS()
-{
-	// Constants
-	const float FPS60 = 1.0f / 60.0f;
-
-	// Static variables for tracking time
-	static float accumulatedTime = 0.0f;
-	static ULONGLONG previousTime = 0;
-
-	// Get the current time
-	ULONGLONG currentTime = GetTickCount64();
-
-	// Initialize previousTime on the first call
-	if (previousTime == 0)
-		previousTime = currentTime;
-
-	// Calculate delta time in seconds
-	float deltaTime = (currentTime - previousTime) / 1000.0f;
-	previousTime = currentTime;
-
-	// Accumulate time
-	accumulatedTime += deltaTime;
-
-	// Fixed timestep: check if enough time has accumulated for one simulation step
-	if (accumulatedTime >= FPS60)
-	{
-		// Consume time for one frame and keep the remainder
-		accumulatedTime -= FPS60;
-		return FPS60;
-	}
-
-	// Not enough time has passed for the next simulation step
-	return 0.0f;
 }
 
 void Application::UpdatePhysics(float deltaTime)
