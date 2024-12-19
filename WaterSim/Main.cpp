@@ -40,13 +40,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         // Fixed timestep updates
         while (deltaTime.IsReadyForPhysicsUpdate())
         {
-            theApp->UpdatePhysics(deltaTime.GetFixedTimeStep());
+            theApp->UpdatePhysics(deltaTime.GetFixedTimeStep()); // Physics
             deltaTime.ConsumePhysicsUpdate();
         }
 
         // Handle input, game logic, and rendering
         theApp->HandleKeyboard();    // Input handling
-        theApp->Update();           // Variable timestep logic
+        theApp->Update();           // Camera
         theApp->Draw();             // Rendering
     }
 

@@ -118,7 +118,7 @@ private:
 	Transform* m_transform;
 
 	bool ToggleCollisionsMode = true;
-	bool SimulationControl = false;
+	bool SimulationControl = true;
 
 	double lastTime;
 	double timer;

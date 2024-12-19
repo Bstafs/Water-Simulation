@@ -590,7 +590,7 @@ float Application::CalculateDeltaTime60FPS()
 
 void Application::UpdatePhysics(float deltaTime)
 {
-	if (SimulationControl)
+	if (SimulationControl == false)
 	{
 		sph->Update(deltaTime, minX, maxX);
 	}
@@ -604,7 +604,6 @@ void Application::UpdatePhysics(float deltaTime)
 void Application::Update()
 {
 	// Update camera
-
 	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
 	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
 
@@ -614,7 +613,6 @@ void Application::Update()
 	{
 		m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[i]->position);
 	}
-
 }
 
 void Application::ImGui()
