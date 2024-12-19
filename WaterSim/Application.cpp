@@ -333,7 +333,7 @@ HRESULT Application::InitWindow(HINSTANCE hInstance, int nCmdShow)
 	_hInst = hInstance;
 	RECT rc = { 0, 0, _renderWidth, _renderHeight };
 	AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
-	_hWnd = CreateWindow(L"WaterSim", L"Water Simulation Marching Cubes & SPH", WS_OVERLAPPEDWINDOW,
+	_hWnd = CreateWindow(L"WaterSim", L"Water Simulation", WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance,
 		nullptr);
 	if (!_hWnd)
@@ -588,33 +588,33 @@ float Application::CalculateDeltaTime60FPS()
 	return 0.0f;
 }
 
+void Application::UpdatePhysics(float deltaTime)
+{
+	if (SimulationControl)
+	{
+		sph->Update(deltaTime, minX, maxX);
+	}
+
+	for (auto gameObject : m_gameObjects)
+	{
+		gameObject->Update(deltaTime);
+	}
+}
+
 void Application::Update()
 {
-	float deltaTime = CalculateDeltaTime60FPS();
-	if (deltaTime > 0.0f)
+	// Update camera
+
+	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
+	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
+
+	_camera->Update();
+
+	for (int i = 0; i < m_gameObjects.size(); ++i)
 	{
-		if (SimulationControl)
-		{
-			sph->Update(deltaTime, minX, maxX);
-		}
-
-		for (auto gameObject : m_gameObjects)
-		{
-			gameObject->Update(deltaTime);
-		}
-
-		// Update camera
-
-		_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
-		_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
-
-		_camera->Update();
-
-		for (int i = 0; i < m_gameObjects.size(); ++i)
-		{
-			m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[i]->position);
-		}
+		m_gameObjects[i]->GetTransform()->SetPosition(sph->particleList[i]->position);
 	}
+
 }
 
 void Application::ImGui()

@@ -53,7 +53,7 @@ public:
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 private:
 	// Particle Initialization
-	float dampingFactor = 0.95;
+	float dampingFactor = 0.99f;
 
 //	float minX = -10.0f, maxX = 10.0f;
 	float minY = -10.0f, maxY = 20.0f;

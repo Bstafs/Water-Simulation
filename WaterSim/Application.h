@@ -2,7 +2,6 @@
 
 #include "Includes.h"
 #include "SPH.h"
-#include "Timestep.h"
 
 #define NUMBER_OF_CUBES 1
 #define FPS_60 1.0f/60.0f
@@ -135,8 +134,6 @@ private:
 
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 
-	Timestep* _timestep;
-
 private:
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow);
 	HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow);
@@ -166,7 +163,7 @@ public:
 	bool HandleKeyboard();
 
 	void Update();
-	void UpdatePhysics();
+	void UpdatePhysics(float deltaTime);
 	void Draw();
 };
 
