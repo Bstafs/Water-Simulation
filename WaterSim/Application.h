@@ -50,7 +50,7 @@ struct WaterBuffer
 
 class Application
 {
-private:
+public:
 	// Public Functions
 	Application();
 	~Application();
