@@ -15,6 +15,14 @@ struct ParticlePosition
 	float density;
 };
 
+struct SimulationParams 
+{
+	float cellSize; // Size of each grid cell
+	int gridResolution; // Number of cells along one axis
+	int maxParticlesPerCell; // Maximum particles a cell can hold
+	int numParticles; // Total number of particles
+};
+
 class SPH
 {
 public:
@@ -26,10 +34,14 @@ public:
 private:
 	
 	void InitParticles();
-	void InitComputeShader();
+	void InitComputeIntegrateShader();
+	void InitSpatialGridClear();
+	void InitAddParticlesToSpatialGrid();
 
 	void UpdateSpatialGrid();
-	void UpdateComputeShader(float deltaTime);
+	void UpdateIntegrateComputeShader(float deltaTime);
+	void UpdateSpatialGridClear(float deltaTime);
+	void UpdateAddParticlesToSpatialGrid(float deltaTime);
 
 	static float DensitySmoothingKernel(float dst, float radius);
 	static float PressureSmoothingKernel(float radius, float dst); // Derivative of Density Kernel
@@ -44,9 +56,6 @@ private:
 	float ConvertDensityToPressure(float density);
 	float CalculateSharedPressure(float densityA, float densityB);
 	XMFLOAT3 CalculatePressureForceWithRepulsion(int particleIndex);
-
-	void InitRandomDirections();
-	XMFLOAT3 GetRandomDir();
 
 public:
 	std::vector <Particle*> particleList;
@@ -77,16 +86,31 @@ private:
 	ID3D11ShaderResourceView* _ppSRVNULL[2] = { nullptr, nullptr };
 	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
 
-	ID3D11ComputeShader* FluidSimComputeShader = nullptr;
+	ID3D11ComputeShader* FluidSimIntegrateShader = nullptr;
+	ID3D11ComputeShader* SpatialGridClearShader = nullptr;
+	ID3D11ComputeShader* SpatialGridAddParticleShader = nullptr;
+
 
 	// Buffers
 	ID3D11Buffer* inputBuffer = nullptr;
 	ID3D11Buffer* outputBuffer = nullptr;
 	ID3D11Buffer*  outputResultBuffer = nullptr;
 
+	ID3D11Buffer*  SpatialGridConstantBuffer = nullptr;
+
+	ID3D11Buffer* SpatialGridOutputBuffer = nullptr;
+	ID3D11Buffer* SpatialGridResultOutputBuffer = nullptr;
+
+	ID3D11Buffer* SpatialGridOutputBufferCount = nullptr;
+	ID3D11Buffer* SpatialGridResultOutputBufferCount = nullptr;
+
+
 	// SRV & UAV
-	ID3D11ShaderResourceView* inputView = nullptr;
-	ID3D11UnorderedAccessView* outputUAV = nullptr;
+	ID3D11ShaderResourceView* inputViewIntegrate = nullptr;
+	ID3D11UnorderedAccessView* outputUAVIntegrate = nullptr;
+
+	ID3D11UnorderedAccessView* outputUAVSpatialGrid = nullptr;
+	ID3D11UnorderedAccessView* outputUAVSpatialGridCount = nullptr;
 
 	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };
 	ID3D11ShaderResourceView* srvNull[2] = { nullptr, nullptr };

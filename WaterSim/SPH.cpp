@@ -9,13 +9,13 @@ SPH::SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* de
 	this->device = device;
 
 	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
-	int particleResize = NUM_OF_PARTICLES;
-	particleList.resize(particleResize);
+	particleList.resize(NUM_OF_PARTICLES);
 
 	// Particle Initialization
-	InitRandomDirections();
 	InitParticles();
-	InitComputeShader();
+	InitSpatialGridClear();
+	InitAddParticlesToSpatialGrid();
+	InitComputeIntegrateShader();
 }
 
 SPH::~SPH()
@@ -28,12 +28,16 @@ SPH::~SPH()
 	}
 	particleList.clear();
 
-	if (FluidSimComputeShader) FluidSimComputeShader->Release();
+	// Integrate Shader
+	if (FluidSimIntegrateShader) FluidSimIntegrateShader->Release();
 	if (inputBuffer) inputBuffer->Release();
-	if (inputView) inputView->Release();
-	if (outputUAV) outputUAV->Release();
+	if (inputViewIntegrate) inputViewIntegrate->Release();
+	if (outputUAVIntegrate) outputUAVIntegrate->Release();
 	if (outputBuffer) outputBuffer->Release();
 
+	// Spatial Grid Shader
+	if (SpatialGridClearShader) SpatialGridClearShader->Release();
+	if (SpatialGridConstantBuffer) SpatialGridConstantBuffer->Release();
 }
 
 void SPH::InitParticles()
@@ -68,51 +72,127 @@ void SPH::InitParticles()
 
 }
 
-void SPH::InitComputeShader()
+void SPH::InitSpatialGridClear()
 {
 	HRESULT hr;
 
-	FluidSimComputeShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
-	SetDebugName(FluidSimComputeShader, "Update Positions");
-
-	ParticlePosition* position = new ParticlePosition[NUM_OF_PARTICLES];
-
-	for (int i = 0; i < particleList.size(); i++)
+	// Spatial Grid Shader (Clear)
 	{
-		Particle* particle = particleList[i];
+		SpatialGridClearShader = CreateComputeShader(L"SpatialGrid.hlsl", "ClearGrid", device);
+		SetDebugName(SpatialGridClearShader, "Spatial Grid Shader");
 
-		position[i].position = particle->position;
-		position[i].velocity = particle->velocity;
-		position[i].deltaTime = 0.016f;
-		position[i].density = particle->density;
+		SpatialGridConstantBuffer = CreateConstantBuffer(sizeof(SimulationParams), device, true);
+
+		// Spatial Grid
+		D3D11_BUFFER_DESC outputDesc;
+		outputDesc.Usage = D3D11_USAGE_DEFAULT;
+		outputDesc.ByteWidth = sizeof(unsigned int) * NUM_OF_PARTICLES;
+		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+		outputDesc.CPUAccessFlags = 0;
+		outputDesc.StructureByteStride = sizeof(unsigned int);
+		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		device->CreateBuffer(&outputDesc, 0, &SpatialGridOutputBuffer);
+
+		outputDesc.Usage = D3D11_USAGE_STAGING;
+		outputDesc.BindFlags = 0;
+		outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		hr = device->CreateBuffer(&outputDesc, 0, &SpatialGridResultOutputBuffer);
+
+		D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+		uavDesc.Buffer.FirstElement = 0;
+		uavDesc.Buffer.Flags = 0;
+		uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+
+		hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGrid);
+
+		// Spatial Grid Count
+		outputDesc.Usage = D3D11_USAGE_DEFAULT;
+		outputDesc.ByteWidth = sizeof(int) * NUM_OF_PARTICLES;
+		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+		outputDesc.CPUAccessFlags = 0;
+		outputDesc.StructureByteStride = sizeof(int);
+		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		device->CreateBuffer(&outputDesc, 0, &SpatialGridOutputBufferCount);
+
+		outputDesc.Usage = D3D11_USAGE_STAGING;
+		outputDesc.BindFlags = 0;
+		outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		hr = device->CreateBuffer(&outputDesc, 0, &SpatialGridResultOutputBufferCount);
+
+		uavDesc.Buffer.FirstElement = 0;
+		uavDesc.Buffer.Flags = 0;
+		uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+
+		hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCount);
 	}
+}
 
-	inputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
+void SPH::InitAddParticlesToSpatialGrid()
+{
+	HRESULT hr;
 
-	inputView = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
+	// Add Particles TO Spatial Grid Shader
+	{
+		SpatialGridAddParticleShader = CreateComputeShader(L"SpatialGrid.hlsl", "AddParticlesToGrid", device);
+		SetDebugName(SpatialGridAddParticleShader, "AddParticlesToGrid");
 
-	D3D11_BUFFER_DESC outputDesc;
-	outputDesc.Usage = D3D11_USAGE_DEFAULT;
-	outputDesc.ByteWidth = sizeof(ParticlePosition) * NUM_OF_PARTICLES;
-	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-	outputDesc.CPUAccessFlags = 0;
-	outputDesc.StructureByteStride = sizeof(ParticlePosition);
-	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	device->CreateBuffer(&outputDesc, 0, &outputBuffer);
+	}
+}
 
-	outputDesc.Usage = D3D11_USAGE_STAGING;
-	outputDesc.BindFlags = 0;
-	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	hr = device->CreateBuffer(&outputDesc, 0, &outputResultBuffer);
+void SPH::InitComputeIntegrateShader()
+{
+	HRESULT hr;
 
-	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.Flags = 0;
-	uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
-	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	// Integrate Shader
+	{
+		FluidSimIntegrateShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
+		SetDebugName(FluidSimIntegrateShader, "Integrate Shader");
 
-	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAV);
+		ParticlePosition* position = new ParticlePosition[NUM_OF_PARTICLES];
+
+		for (int i = 0; i < particleList.size(); i++)
+		{
+			Particle* particle = particleList[i];
+
+			position[i].position = particle->position;
+			position[i].velocity = particle->velocity;
+			position[i].deltaTime = 0.016f;
+			position[i].density = particle->density;
+		}
+
+		inputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
+
+		inputViewIntegrate = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
+
+		D3D11_BUFFER_DESC outputDesc;
+		outputDesc.Usage = D3D11_USAGE_DEFAULT;
+		outputDesc.ByteWidth = sizeof(ParticlePosition) * NUM_OF_PARTICLES;
+		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+		outputDesc.CPUAccessFlags = 0;
+		outputDesc.StructureByteStride = sizeof(ParticlePosition);
+		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		device->CreateBuffer(&outputDesc, 0, &outputBuffer);
+
+		outputDesc.Usage = D3D11_USAGE_STAGING;
+		outputDesc.BindFlags = 0;
+		outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		hr = device->CreateBuffer(&outputDesc, 0, &outputResultBuffer);
+
+		D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+		uavDesc.Buffer.FirstElement = 0;
+		uavDesc.Buffer.Flags = 0;
+		uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+
+		hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrate);
+
+		delete[] position;
+	}
 }
 
 // Pressure Force Kernel
@@ -188,7 +268,7 @@ float SPH::CalculateDensity(const XMFLOAT3& samplePoint)
 	// Get neighboring cells
 	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(samplePoint);
 
-	for (int neighborIndex : neighbors) 
+	for (int neighborIndex : neighbors)
 	{
 		Particle* neighbor = particleList[neighborIndex];
 
@@ -214,7 +294,7 @@ float SPH::CalculateNearDensity(const XMFLOAT3& samplePoint)
 	// Get neighboring cells
 	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(samplePoint);
 
-	for (int neighborIndex : neighbors) 
+	for (int neighborIndex : neighbors)
 	{
 		Particle* neighbor = particleList[neighborIndex];
 
@@ -246,32 +326,6 @@ float SPH::CalculateSharedPressure(float densityA, float densityB)
 	return(pressureA + pressureB) / 2.0f;
 }
 
-// Initialize random directions once
-void SPH::InitRandomDirections() {
-	randomDirections.resize(numRandomDirections);
-
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
-
-	for (int i = 0; i < numRandomDirections; ++i) {
-		float x = dis(gen);
-		float y = dis(gen);
-		float z = dis(gen);
-		float length = sqrt(x * x + y * y + z * z);
-		randomDirections[i] = XMFLOAT3(x / length, y / length, z / length);
-	}
-}
-
-// Function to get a random direction
-XMFLOAT3 SPH::GetRandomDir()
-{
-	static std::random_device rd;
-	static std::mt19937 gen(rd());
-	std::uniform_int_distribution<int> dis(0, numRandomDirections - 1);
-	return randomDirections[dis(gen)];
-}
-
 XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 	XMFLOAT3 pressureForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	XMFLOAT3 repulsionForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -282,7 +336,7 @@ XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 
 	float viscosityCoefficient = 0.05f; // Adjust viscosity as needed
 
-	for (int neighborIndex : neighbors) 
+	for (int neighborIndex : neighbors)
 	{
 		Particle* neighbor = particleList[neighborIndex];
 		if (neighbor == currentParticle) continue;
@@ -346,28 +400,84 @@ void SPH::UpdateSpatialGrid()
 	}
 }
 
-void SPH::UpdateComputeShader(float deltaTime)
+void SPH::UpdateSpatialGridClear(float deltaTime)
+{
+	SimulationParams cb = {};
+	cb.cellSize = 5.0f;
+	cb.gridResolution = 10;
+	cb.maxParticlesPerCell = 100;
+	cb.numParticles = NUM_OF_PARTICLES;
+
+	// Map the buffer to update it
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	HRESULT hr = deviceContext->Map(SpatialGridConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if (SUCCEEDED(hr))
+	{
+		// Copy the new data into the constant buffer
+		memcpy(mappedResource.pData, &cb, sizeof(SimulationParams));
+
+		// Unmap the buffer to finalize the update
+		deviceContext->Unmap(SpatialGridConstantBuffer, 0);
+	}
+
+	// Bind compute shader and buffers
+	deviceContext->CSSetShader(SpatialGridClearShader, nullptr, 0);
+
+	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVSpatialGrid, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridCount, nullptr);
+
+	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
+
+	// Dispatch compute shader
+	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+
+	// Unbind resources
+	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
+	deviceContext->CSSetShaderResources(0, 1, nullSRV);
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+}
+
+void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
+{
+	// Bind compute shader and buffers
+	deviceContext->CSSetShader(SpatialGridAddParticleShader, nullptr, 0);
+
+	// Dispatch compute shader
+	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+
+	//// Unbind resources
+	//ID3D11ShaderResourceView* nullSRV[] = { nullptr };
+	//ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
+	//deviceContext->CSSetShaderResources(0, 1, nullSRV);
+	//deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
+
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+}
+
+void SPH::UpdateIntegrateComputeShader(float deltaTime)
 {
 	// Tell the Compute Shader most recent values
 	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
 	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
-	if (SUCCEEDED(hr)) 
+	if (SUCCEEDED(hr))
 	{
 		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
-		for (int i = 0; i < particleList.size(); ++i) 
+		for (int i = 0; i < particleList.size(); ++i)
 		{
-			//inputData[i].position = particleList[i]->position;
-			//inputData[i].velocity = particleList[i]->velocity;
-			//inputData[i].density = particleList[i]->density;
-			//inputData[i].deltaTime = deltaTime;
+			inputData[i].position = particleList[i]->position;
+			inputData[i].velocity = particleList[i]->velocity;
+			inputData[i].density = particleList[i]->density;
+			inputData[i].deltaTime = deltaTime;
 		}
 		deviceContext->Unmap(inputBuffer, 0);
 	}
 
 	// Bind compute shader and buffers
-	deviceContext->CSSetShader(FluidSimComputeShader, nullptr, 0);
-	deviceContext->CSSetShaderResources(0, 1, &inputView);
-	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAV, nullptr);
+	deviceContext->CSSetShader(FluidSimIntegrateShader, nullptr, 0);
+
+	deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrate);
+
+	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrate, nullptr);
 
 	// Dispatch compute shader
 	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
@@ -385,30 +495,35 @@ void SPH::UpdateComputeShader(float deltaTime)
 	// Map output to a new buffer and apply new values to particles
 	D3D11_MAPPED_SUBRESOURCE mappedOutputResource;
 	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
-	if (SUCCEEDED(hr)) 
+	if (SUCCEEDED(hr))
 	{
 		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
-		for (int i = 0; i < particleList.size(); ++i) 
+		for (int i = 0; i < particleList.size(); ++i)
 		{
-			//particleList[i]->position = outputData[i].position;
-			//particleList[i]->velocity = outputData[i].velocity;
-			//particleList[i]->density = outputData[i].density;
+			particleList[i]->position = outputData[i].position;
+			particleList[i]->velocity = outputData[i].velocity;
+			particleList[i]->density = outputData[i].density;
 		}
 		deviceContext->Unmap(outputResultBuffer, 0);
 	}
+
+
 }
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	UpdateComputeShader(deltaTime);
+	UpdateSpatialGridClear(deltaTime);
+	UpdateAddParticlesToSpatialGrid(deltaTime);
+	UpdateIntegrateComputeShader(deltaTime);
+
 	UpdateSpatialGrid();
 
-	for (int i = 0; i < particleList.size(); ++i) 
+	for (int i = 0; i < particleList.size(); ++i)
 	{
 		Particle* particle = particleList[i];
 
 		// Apply forces and update properties
-		particle->velocity.y += -9.81f * deltaTime;
+		//particle->velocity.y += -9.81f * deltaTime;
 		particle->density = CalculateDensity(particle->position);
 		particle->nearDensity = CalculateNearDensity(particle->position);
 		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
