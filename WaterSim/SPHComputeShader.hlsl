@@ -10,7 +10,6 @@ struct ParticlePosition
 };
 
 StructuredBuffer<ParticlePosition> InputPosition : register(t0);
-
 RWStructuredBuffer<ParticlePosition> OutputPosition : register(u0); // Output // UAV
 
 float targetDensity = 8.0f;
@@ -43,7 +42,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 	// Integrate Particle Forces
     const unsigned int threadID = dispatchThreadID.x;
 
-    if (threadID >= 200)
+    if (threadID >= 2048)
         return;
     
     float3 inputPosition = InputPosition[threadID].position;
@@ -51,7 +50,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float inputDensity = InputPosition[threadID].density;
     float deltaTime = InputPosition[threadID].deltaTime;
    
-    inputVelocity.y += -12.0f * deltaTime;
+    inputVelocity.y += -9.81f * deltaTime;
     
     //inputDensity = CalculateDensity(inputPosition);
 

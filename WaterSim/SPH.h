@@ -78,6 +78,8 @@ private:
 
 	ParticlePosition* position;
 	float mGravity = 0.0f;
+	vector<XMFLOAT3> predictedPositions;
+
 	ID3D11DeviceContext* deviceContext;
 	ID3D11Device* device;
 

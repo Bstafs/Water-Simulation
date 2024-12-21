@@ -21,6 +21,8 @@ StructuredBuffer<ParticlePosition> particlePositions : register(t0); // Input: p
 RWStructuredBuffer<uint> grid : register(u0); // Grid buffer: holds indices to particles
 RWStructuredBuffer<int> gridCount : register(u1); // Tracks number of particles per cell
 
+float interactionRadius = sqrt(3.0f) * 5;
+
 // Utility functions
 int3 ComputeGridIndex(float3 position)
 {
@@ -70,8 +72,59 @@ void AddParticlesToGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
 }
 
 [numthreads(256, 1, 1)]
-void FindNeighbors(uint3 dispatchThreadId : SV_DispatchThreadID)
+void NeighborSearch(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    // Implement neighbor searching here (e.g., iterate over nearby grid cells).
-    // This would typically write results to another buffer for density/pressure calculations.
+    uint particleIndex = dispatchThreadId.x;
+    if (particleIndex >= numParticles)
+        return;
+
+    // Current particle's position
+    float3 position = particlePositions[particleIndex].position;
+
+    // Compute the current particle's grid cell index
+    int3 gridIndex = ComputeGridIndex(position);
+
+    // Loop through the current cell and its neighbors (3x3x3 cells in total)
+    for (int z = -1; z <= 1; z++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int x = -1; x <= 1; x++)
+            {
+                // Neighbor cell index
+                int3 neighborIndex = gridIndex + int3(x, y, z);
+
+                // Flatten the neighbor index
+                uint flatIndex = FlattenIndex(neighborIndex);
+
+                // Fetch the number of particles in the neighbor cell
+                int neighborCount = gridCount[flatIndex];
+
+                // Loop through all particles in the neighbor cell
+                for (int i = 0; i < neighborCount; i++)
+                {
+                    // Get the particle index from the grid
+                    uint neighborParticleIndex = grid[flatIndex * maxParticlesPerCell + i];
+                    
+                    if (neighborParticleIndex == uint(-1))
+                        continue; // Skip empty slots
+
+                    // Access the neighbor particle's position
+                    float3 neighborPosition = particlePositions[neighborParticleIndex].position;
+
+                    // Compute the interaction between the current particle and the neighbor
+                    float3 direction = neighborPosition - position;
+                    float distance = length(direction);
+
+                    if (distance > 0.0f && distance < interactionRadius)
+                    {
+                        // Perform desired computation (e.g., force calculation, density update)
+                        // Example: accumulate force
+                       // float3 force = normalize(direction) * SomeForceFunction(distance);
+                        // Store or apply force as needed
+                    }
+                }
+            }
+        }
+    }
 }

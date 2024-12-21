@@ -5,7 +5,7 @@ class Timestep
 {
 public:
     // Constructor to set custom fixed timestep
-    Timestep(float targetFPS = 60.0f)
+    Timestep(float targetFPS = 120.0f)
         : accumulatedTime(0.0f), m_deltaTime(0.0f), m_fixedTimeStep(1.0f / targetFPS),
         m_readyForPhysicsUpdate(false), previousTime(0)
     {

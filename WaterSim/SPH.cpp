@@ -10,6 +10,7 @@ SPH::SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* de
 
 	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
 	particleList.resize(NUM_OF_PARTICLES);
+	predictedPositions.resize(NUM_OF_PARTICLES);
 
 	// Particle Initialization
 	InitParticles();
@@ -423,10 +424,12 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 	// Bind compute shader and buffers
 	deviceContext->CSSetShader(SpatialGridClearShader, nullptr, 0);
 
+	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
+
 	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVSpatialGrid, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridCount, nullptr);
 
-	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
+
 
 	// Dispatch compute shader
 	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
@@ -445,12 +448,7 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 	// Dispatch compute shader
 	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
 
-	//// Unbind resources
-	//ID3D11ShaderResourceView* nullSRV[] = { nullptr };
-	//ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
-	//deviceContext->CSSetShaderResources(0, 1, nullSRV);
-	//deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
-
+	// Unbind resources
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
 }
 
@@ -523,9 +521,13 @@ void SPH::Update(float deltaTime, float minX, float maxX)
 		Particle* particle = particleList[i];
 
 		// Apply forces and update properties
+		predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
+		predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
+		predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
+
 		//particle->velocity.y += -9.81f * deltaTime;
-		particle->density = CalculateDensity(particle->position);
-		particle->nearDensity = CalculateNearDensity(particle->position);
+		particle->density = CalculateDensity(predictedPositions[i]);
+		particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
 		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
 
 		// Acceleration = Force / Density
@@ -575,5 +577,4 @@ void SPH::Update(float deltaTime, float minX, float maxX)
 		particle->velocity.y *= dampingFactor;
 		particle->velocity.z *= dampingFactor;
 	}
-
 }
