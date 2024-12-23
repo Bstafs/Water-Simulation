@@ -596,7 +596,7 @@ void Application::ImGui()
 
 	ImGuiIO& io = ImGui::GetIO();
 
-	ImGui::Text("Frames Per Second: %.1f MS / %.3f FPS", 1000.0f / io.Framerate, io.Framerate);
+	ImGui::Text("Render Frames Per Second: %.1f MS / %.3f FPS", 1000.0f / io.Framerate, io.Framerate);
 
 	if (ImGui::CollapsingHeader("Camera"))
 	{

@@ -42,7 +42,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 	// Integrate Particle Forces
     const unsigned int threadID = dispatchThreadID.x;
 
-    if (threadID >= 2048)
+    if (threadID >= 200)
         return;
     
     float3 inputPosition = InputPosition[threadID].position;

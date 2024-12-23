@@ -141,6 +141,19 @@ void SPH::InitAddParticlesToSpatialGrid()
 		SpatialGridAddParticleShader = CreateComputeShader(L"SpatialGrid.hlsl", "AddParticlesToGrid", device);
 		SetDebugName(SpatialGridAddParticleShader, "AddParticlesToGrid");
 
+		ParticlePosition* position = new ParticlePosition[NUM_OF_PARTICLES];
+
+		for (int i = 0; i < particleList.size(); i++)
+		{
+			Particle* particle = particleList[i];
+
+			position[i].position = particle->position;
+		}
+
+		SpatialGridInputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
+
+		inputViewGrid = CreateShaderResourceView(SpatialGridInputBuffer, NUM_OF_PARTICLES, device);
+
 	}
 }
 
@@ -404,9 +417,9 @@ void SPH::UpdateSpatialGrid()
 void SPH::UpdateSpatialGridClear(float deltaTime)
 {
 	SimulationParams cb = {};
-	cb.cellSize = 5.0f;
-	cb.gridResolution = 10;
-	cb.maxParticlesPerCell = 100;
+	cb.cellSize = 0.3f;
+	cb.gridResolution = 17;
+	cb.maxParticlesPerCell = 20;
 	cb.numParticles = NUM_OF_PARTICLES;
 
 	// Map the buffer to update it
@@ -429,27 +442,52 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVSpatialGrid, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridCount, nullptr);
 
+	// Dispatch compute shader
+	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
 
+	// Unbind resources
+	ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
+	deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(1, 1, nullUAV, nullptr);
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+}
+
+void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
+{
+	// Tell the Compute Shader most recent values
+	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
+	HRESULT hr = deviceContext->Map(SpatialGridInputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
+	if (SUCCEEDED(hr))
+	{
+		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		for (int i = 0; i < particleList.size(); ++i)
+		{
+			inputData[i].position = particleList[i]->position;
+			inputData[i].velocity = particleList[i]->velocity;
+			inputData[i].density = particleList[i]->density;
+			inputData[i].deltaTime = deltaTime;
+		}
+		deviceContext->Unmap(SpatialGridInputBuffer, 0);
+	}
+
+	// Bind compute shader and buffers
+	deviceContext->CSSetShader(SpatialGridAddParticleShader, nullptr, 0);
+
+	deviceContext->CSSetShaderResources(0, 1, &inputViewGrid);
+	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVSpatialGrid, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridCount, nullptr);
 
 	// Dispatch compute shader
 	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
 
 	// Unbind resources
 	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
+	ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
 	deviceContext->CSSetShaderResources(0, 1, nullSRV);
+	deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(1, 1, nullUAV, nullptr);
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
-}
 
-void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
-{
-	// Bind compute shader and buffers
-	deviceContext->CSSetShader(SpatialGridAddParticleShader, nullptr, 0);
-
-	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
-
-	// Unbind resources
-	deviceContext->CSSetShader(nullptr, nullptr, 0);
 }
 
 void SPH::UpdateIntegrateComputeShader(float deltaTime)

@@ -99,6 +99,8 @@ private:
 	ID3D11Buffer*  outputResultBuffer = nullptr;
 
 	ID3D11Buffer*  SpatialGridConstantBuffer = nullptr;
+	ID3D11Buffer* SpatialGridInputBuffer = nullptr;
+
 
 	ID3D11Buffer* SpatialGridOutputBuffer = nullptr;
 	ID3D11Buffer* SpatialGridResultOutputBuffer = nullptr;
@@ -111,6 +113,7 @@ private:
 	ID3D11ShaderResourceView* inputViewIntegrate = nullptr;
 	ID3D11UnorderedAccessView* outputUAVIntegrate = nullptr;
 
+	ID3D11ShaderResourceView* inputViewGrid = nullptr;
 	ID3D11UnorderedAccessView* outputUAVSpatialGrid = nullptr;
 	ID3D11UnorderedAccessView* outputUAVSpatialGridCount = nullptr;
 
