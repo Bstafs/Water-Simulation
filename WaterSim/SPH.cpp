@@ -16,6 +16,7 @@ SPH::SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* de
 	InitParticles();
 	InitSpatialGridClear();
 	InitAddParticlesToSpatialGrid();
+	InitParticleDensities();
 	InitComputeIntegrateShader();
 }
 
@@ -32,8 +33,8 @@ SPH::~SPH()
 	// Integrate Shader
 	if (FluidSimIntegrateShader) FluidSimIntegrateShader->Release();
 	if (inputBuffer) inputBuffer->Release();
-	if (inputViewIntegrate) inputViewIntegrate->Release();
-	if (outputUAVIntegrate) outputUAVIntegrate->Release();
+	if (inputViewIntegrateA) inputViewIntegrateA->Release();
+	if (outputUAVIntegrateA) outputUAVIntegrateA->Release();
 	if (outputBuffer) outputBuffer->Release();
 
 	// Spatial Grid Shader
@@ -79,8 +80,7 @@ void SPH::InitSpatialGridClear()
 
 	// Spatial Grid Shader (Clear)
 	{
-		SpatialGridClearShader = CreateComputeShader(L"SpatialGrid.hlsl", "ClearGrid", device);
-		SetDebugName(SpatialGridClearShader, "Spatial Grid Shader");
+		SpatialGridClearShader = CreateComputeShader(L"SPHComputeShader.hlsl", "ClearGrid", device);
 
 		SpatialGridConstantBuffer = CreateConstantBuffer(sizeof(SimulationParams), device, true);
 
@@ -106,7 +106,8 @@ void SPH::InitSpatialGridClear()
 		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 
-		hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGrid);
+		hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGridA);
+		hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGridB);
 
 		// Spatial Grid Count
 		outputDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -128,7 +129,8 @@ void SPH::InitSpatialGridClear()
 		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 
-		hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCount);
+		hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCountA);
+		hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCountB);
 	}
 }
 
@@ -138,8 +140,7 @@ void SPH::InitAddParticlesToSpatialGrid()
 
 	// Add Particles TO Spatial Grid Shader
 	{
-		SpatialGridAddParticleShader = CreateComputeShader(L"SpatialGrid.hlsl", "AddParticlesToGrid", device);
-		SetDebugName(SpatialGridAddParticleShader, "AddParticlesToGrid");
+		SpatialGridAddParticleShader = CreateComputeShader(L"SPHComputeShader.hlsl", "AddParticlesToGrid", device);
 
 		ParticlePosition* position = new ParticlePosition[NUM_OF_PARTICLES];
 
@@ -153,8 +154,27 @@ void SPH::InitAddParticlesToSpatialGrid()
 		SpatialGridInputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
 
 		inputViewGrid = CreateShaderResourceView(SpatialGridInputBuffer, NUM_OF_PARTICLES, device);
-
 	}
+}
+
+void SPH::InitParticleDensities()
+{
+	FluidSimCalculateDensity = CreateComputeShader(L"SPHComputeShader.hlsl", "CalculateDensity", device);
+
+	ParticlePosition* position = new ParticlePosition[NUM_OF_PARTICLES];
+
+	for (int i = 0; i < particleList.size(); i++)
+	{
+		Particle* particle = particleList[i];
+
+		position[i].position = particle->position;
+		position[i].density = particle->density;
+		position[i].nearDensity = particle->nearDensity;
+	}
+
+	DensityInputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
+
+	DesnityViewInput = CreateShaderResourceView(DensityInputBuffer, NUM_OF_PARTICLES, device);
 }
 
 void SPH::InitComputeIntegrateShader()
@@ -180,7 +200,8 @@ void SPH::InitComputeIntegrateShader()
 
 		inputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
 
-		inputViewIntegrate = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
+		inputViewIntegrateA = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
+		inputViewIntegrateB = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
 
 		D3D11_BUFFER_DESC outputDesc;
 		outputDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -203,7 +224,8 @@ void SPH::InitComputeIntegrateShader()
 		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 
-		hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrate);
+		hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateA);
+		hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateB);
 
 		delete[] position;
 	}
@@ -223,7 +245,7 @@ float SPH::PressureSmoothingKernel(float dst, float radius)
 float SPH::NearDensitySmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
-		const float scale = 15.0f / (XM_PI * pow(abs(radius), 6));
+		const float scale = 15.0f / (XM_PI * pow(abs(radius), 6.0f));
 		float diff = radius - dst;
 		return diff * diff * diff * scale;
 	}
@@ -414,85 +436,72 @@ void SPH::UpdateSpatialGrid()
 	}
 }
 
+void SPH::SwapBuffersSpatialGrid()
+{
+	std::swap(outputUAVSpatialGridA, outputUAVSpatialGridB);
+	std::swap(outputUAVSpatialGridCountA, outputUAVSpatialGridCountB);
+}
+
+void SPH::SwapBuffersIntegrate()
+{
+	std::swap(inputViewIntegrateA, inputViewIntegrateB);
+	std::swap(outputUAVIntegrateA, outputUAVIntegrateB);
+}
+
+
 void SPH::UpdateSpatialGridClear(float deltaTime)
 {
 	SimulationParams cb = {};
-	cb.cellSize = 0.3f;
-	cb.gridResolution = 17;
-	cb.maxParticlesPerCell = 20;
+	cb.cellSize = 0.625f;
+	cb.gridResolution = 8;
+	cb.maxParticlesPerCell = 10;
 	cb.numParticles = NUM_OF_PARTICLES;
 
-	// Map the buffer to update it
+	// Update constant buffer
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	HRESULT hr = deviceContext->Map(SpatialGridConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	if (SUCCEEDED(hr))
 	{
-		// Copy the new data into the constant buffer
 		memcpy(mappedResource.pData, &cb, sizeof(SimulationParams));
-
-		// Unmap the buffer to finalize the update
 		deviceContext->Unmap(SpatialGridConstantBuffer, 0);
 	}
 
-	// Bind compute shader and buffers
+	// Bind compute shader and buffers (double buffer the grid)
 	deviceContext->CSSetShader(SpatialGridClearShader, nullptr, 0);
-
 	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
 
-	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVSpatialGrid, nullptr);
-	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridCount, nullptr);
+	// Double buffer for spatial grid and counts
+	if (isBufferSwapped == false)
+	{
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridA, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountA, nullptr);
+	}
+	else
+	{
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridB, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountB, nullptr);
+	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+	deviceContext->Dispatch(256, 1, 1);
 
-	// Unbind resources
+	// Unbind UAVs
 	ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
-	deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(1, 1, nullUAV, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(2, 1, nullUAV, nullptr);
+
+	// Ensure the pipeline is flushed (optional for debugging)
+	deviceContext->Flush();
+
+	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
+
+	isBufferSwapped = !isBufferSwapped;
 }
 
 void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 {
-	// Tell the Compute Shader most recent values
-	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
-	HRESULT hr = deviceContext->Map(SpatialGridInputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
-	if (SUCCEEDED(hr))
-	{
-		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
-		for (int i = 0; i < particleList.size(); ++i)
-		{
-			inputData[i].position = particleList[i]->position;
-			inputData[i].velocity = particleList[i]->velocity;
-			inputData[i].density = particleList[i]->density;
-			inputData[i].deltaTime = deltaTime;
-		}
-		deviceContext->Unmap(SpatialGridInputBuffer, 0);
-	}
-
-	// Bind compute shader and buffers
-	deviceContext->CSSetShader(SpatialGridAddParticleShader, nullptr, 0);
-
-	deviceContext->CSSetShaderResources(0, 1, &inputViewGrid);
-	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVSpatialGrid, nullptr);
-	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridCount, nullptr);
-
-	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
-
-	// Unbind resources
-	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
-	ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
-	deviceContext->CSSetShaderResources(0, 1, nullSRV);
-	deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
-	deviceContext->CSSetUnorderedAccessViews(1, 1, nullUAV, nullptr);
-	deviceContext->CSSetShader(nullptr, nullptr, 0);
-
-}
-
-void SPH::UpdateIntegrateComputeShader(float deltaTime)
-{
-	// Tell the Compute Shader most recent values
+	// Update input buffer with latest particle data
 	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
 	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
@@ -501,22 +510,163 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime)
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			inputData[i].position = particleList[i]->position;
+			inputData[i].deltaTime = deltaTime;
 			inputData[i].velocity = particleList[i]->velocity;
 			inputData[i].density = particleList[i]->density;
-			inputData[i].deltaTime = deltaTime;
+			inputData[i].pack = XMFLOAT3();
+			inputData[i].nearDensity = particleList[i]->nearDensity;
 		}
 		deviceContext->Unmap(inputBuffer, 0);
 	}
 
-	// Bind compute shader and buffers
-	deviceContext->CSSetShader(FluidSimIntegrateShader, nullptr, 0);
+	// Bind compute shader and resources
+	deviceContext->CSSetShader(SpatialGridAddParticleShader, nullptr, 0);
 
-	deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrate);
-
-	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrate, nullptr);
+	if (isBufferSwapped == false)
+	{
+		deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrateA);
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridA, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountA, nullptr);
+	}
+	else
+	{
+		deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrateB);
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridB, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountB, nullptr);
+	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+	deviceContext->Dispatch(256, 1, 1);
+
+	// Unbind resources
+	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
+	ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
+	deviceContext->CSSetShaderResources(0, 1, nullSRV);
+	deviceContext->CSSetUnorderedAccessViews(1, 1, nullUAV, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(2, 1, nullUAV, nullptr);
+
+	// Optional flush for debugging
+	deviceContext->Flush();
+
+	// Unbind compute shader
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+
+	isBufferSwapped = !isBufferSwapped;
+}
+
+void SPH::UpdateParticleDensities()
+{
+	// Update input buffer with particle data
+	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
+	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
+	if (SUCCEEDED(hr))
+	{
+		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		for (int i = 0; i < particleList.size(); ++i)
+		{
+			inputData[i].position = particleList[i]->position;
+			inputData[i].deltaTime = 1.0f / 120.0f;
+			inputData[i].velocity = particleList[i]->velocity;
+			inputData[i].density = particleList[i]->density;
+			inputData[i].pack = XMFLOAT3();
+			inputData[i].nearDensity = particleList[i]->nearDensity;
+		}
+		deviceContext->Unmap(inputBuffer, 0);
+	}
+
+	// Bind compute shader and resources
+	deviceContext->CSSetShader(FluidSimCalculateDensity, nullptr, 0);
+
+	if (isBufferSwapped == false)
+	{
+		deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrateA);
+		deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrateA, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridA, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountA, nullptr);
+	}
+	else
+	{
+		deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrateB);
+		deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrateB, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridB, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountB, nullptr);
+	}
+
+	// Dispatch compute shader
+	deviceContext->Dispatch(256, 1, 1);
+
+	// Unbind resources
+	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
+	ID3D11UnorderedAccessView* nullUAV[] = { nullptr };
+	deviceContext->CSSetShaderResources(0, 1, nullSRV);
+	deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(1, 1, nullUAV, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(2, 1, nullUAV, nullptr);
+
+	// Optional flush for debugging
+	deviceContext->Flush();
+
+	// Unbind compute shader
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+
+	// Copy result for CPU access
+	deviceContext->CopyResource(outputResultBuffer, outputBuffer);
+
+	// Map output buffer to apply results to particles
+	D3D11_MAPPED_SUBRESOURCE mappedOutputResource;
+	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
+	if (SUCCEEDED(hr))
+	{
+		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
+		for (int i = 0; i < particleList.size(); ++i)
+		{
+			particleList[i]->position = outputData[i].position;
+			particleList[i]->velocity = outputData[i].velocity;
+			particleList[i]->density = outputData[i].density;
+			particleList[i]->nearDensity = outputData[i].nearDensity;
+		}
+		deviceContext->Unmap(outputResultBuffer, 0);
+	}
+
+	isBufferSwapped = !isBufferSwapped;
+}
+
+void SPH::UpdateIntegrateComputeShader(float deltaTime)
+{
+	// Update input buffer with latest particle data
+	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
+	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
+	if (SUCCEEDED(hr))
+	{
+		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		for (int i = 0; i < particleList.size(); ++i)
+		{
+			inputData[i].position = particleList[i]->position;
+			inputData[i].deltaTime = deltaTime;
+			inputData[i].velocity = particleList[i]->velocity;
+			inputData[i].density = particleList[i]->density;
+			inputData[i].pack = XMFLOAT3();
+			inputData[i].nearDensity = particleList[i]->nearDensity;
+		}
+		deviceContext->Unmap(inputBuffer, 0);
+	}
+
+	// Bind compute shader and resources
+	deviceContext->CSSetShader(FluidSimIntegrateShader, nullptr, 0);
+
+	if (isBufferSwapped == false)
+	{
+		deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrateA);
+		deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrateA, nullptr);
+	}
+	else
+	{
+		deviceContext->CSSetShaderResources(0, 1, &inputViewIntegrateB);
+		deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrateB, nullptr);
+	}
+
+	// Dispatch compute shader
+	deviceContext->Dispatch(256, 1, 1);
 
 	// Unbind resources
 	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
@@ -524,11 +674,16 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime)
 	deviceContext->CSSetShaderResources(0, 1, nullSRV);
 	deviceContext->CSSetUnorderedAccessViews(0, 1, nullUAV, nullptr);
 
+	// Optional flush for debugging
+	deviceContext->Flush();
+
+	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
 
+	// Copy result for CPU access
 	deviceContext->CopyResource(outputResultBuffer, outputBuffer);
 
-	// Map output to a new buffer and apply new values to particles
+	// Map output buffer to apply results to particles
 	D3D11_MAPPED_SUBRESOURCE mappedOutputResource;
 	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
 	if (SUCCEEDED(hr))
@@ -543,14 +698,20 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime)
 		deviceContext->Unmap(outputResultBuffer, 0);
 	}
 
-
+	isBufferSwapped = !isBufferSwapped;
 }
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	UpdateSpatialGridClear(deltaTime);
-	UpdateAddParticlesToSpatialGrid(deltaTime);
+
+    UpdateSpatialGridClear(deltaTime);
+    UpdateAddParticlesToSpatialGrid(deltaTime);
+   // UpdateParticleDensities();
+   // UpdateParticlePressure();
+   // UpdateParticleViscosity();
 	UpdateIntegrateComputeShader(deltaTime);
+
+	deviceContext->Flush();
 
 	UpdateSpatialGrid();
 

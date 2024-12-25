@@ -174,9 +174,6 @@
     <FxCompile Include="FluidMaths.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="SpatialGrid.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

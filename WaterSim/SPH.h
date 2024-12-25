@@ -13,6 +13,9 @@ struct ParticlePosition
 
 	XMFLOAT3 velocity;
 	float density;
+
+	XMFLOAT3 pack;
+	float nearDensity;
 };
 
 struct SimulationParams 
@@ -33,22 +36,30 @@ public:
 
 private:
 	
+	// Initial Particle Positions
 	void InitParticles();
-	void InitComputeIntegrateShader();
+
+	// GPU Side
 	void InitSpatialGridClear();
 	void InitAddParticlesToSpatialGrid();
+	void InitParticleDensities();
+	void InitComputeIntegrateShader();
 
 	void UpdateSpatialGrid();
-	void UpdateIntegrateComputeShader(float deltaTime);
 	void UpdateSpatialGridClear(float deltaTime);
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
+	void UpdateParticleDensities();
+	void UpdateIntegrateComputeShader(float deltaTime);
 
+	void SwapBuffersSpatialGrid();
+	void SwapBuffersIntegrate();
+	bool isBufferSwapped = false;
+	// CPU Side
 	static float DensitySmoothingKernel(float dst, float radius);
 	static float PressureSmoothingKernel(float radius, float dst); // Derivative of Density Kernel
 	static float NearDensitySmoothingKernel(float radius, float dst);
 	static float NearDensitySmoothingKernelDerivative(float radius, float dst);
 	static float ViscositySmoothingKernel(float radius, float dst);
-
 
 	float CalculateMagnitude(const XMFLOAT3& vector);
 	float CalculateDensity(const XMFLOAT3& samplePoint);
@@ -91,6 +102,7 @@ private:
 	ID3D11ComputeShader* FluidSimIntegrateShader = nullptr;
 	ID3D11ComputeShader* SpatialGridClearShader = nullptr;
 	ID3D11ComputeShader* SpatialGridAddParticleShader = nullptr;
+	ID3D11ComputeShader* FluidSimCalculateDensity = nullptr;
 
 
 	// Buffers
@@ -101,21 +113,38 @@ private:
 	ID3D11Buffer*  SpatialGridConstantBuffer = nullptr;
 	ID3D11Buffer* SpatialGridInputBuffer = nullptr;
 
-
+	// Grid Buffer
 	ID3D11Buffer* SpatialGridOutputBuffer = nullptr;
 	ID3D11Buffer* SpatialGridResultOutputBuffer = nullptr;
 
+	// Grid Count Buffer
 	ID3D11Buffer* SpatialGridOutputBufferCount = nullptr;
 	ID3D11Buffer* SpatialGridResultOutputBufferCount = nullptr;
 
+	// Density
+	ID3D11Buffer* DensityInputBuffer = nullptr;
+
 
 	// SRV & UAV
-	ID3D11ShaderResourceView* inputViewIntegrate = nullptr;
-	ID3D11UnorderedAccessView* outputUAVIntegrate = nullptr;
+	ID3D11ShaderResourceView* inputViewIntegrateA = nullptr;
+	ID3D11UnorderedAccessView* outputUAVIntegrateA = nullptr;
+
+	ID3D11ShaderResourceView* inputViewIntegrateB = nullptr;
+	ID3D11UnorderedAccessView* outputUAVIntegrateB = nullptr;
 
 	ID3D11ShaderResourceView* inputViewGrid = nullptr;
-	ID3D11UnorderedAccessView* outputUAVSpatialGrid = nullptr;
-	ID3D11UnorderedAccessView* outputUAVSpatialGridCount = nullptr;
+
+	ID3D11UnorderedAccessView* outputUAVSpatialGridA = nullptr;
+	ID3D11UnorderedAccessView* outputUAVSpatialGridCountA = nullptr;
+
+	ID3D11UnorderedAccessView* outputUAVSpatialGridB = nullptr;
+	ID3D11UnorderedAccessView* outputUAVSpatialGridCountB = nullptr;
+
+	// Density
+	ID3D11ShaderResourceView* DesnityViewInput = nullptr;
+	ID3D11UnorderedAccessView* DensityUAVOutput = nullptr;
+	ID3D11UnorderedAccessView* DensityGrid = nullptr;
+	ID3D11UnorderedAccessView* DensityGridCount = nullptr;
 
 	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };
 	ID3D11ShaderResourceView* srvNull[2] = { nullptr, nullptr };
