@@ -43,12 +43,14 @@ private:
 	void InitSpatialGridClear();
 	void InitAddParticlesToSpatialGrid();
 	void InitParticleDensities();
+	void InitParticlePressure();
 	void InitComputeIntegrateShader();
 
 	void UpdateSpatialGrid();
 	void UpdateSpatialGridClear(float deltaTime);
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
-	void UpdateParticleDensities();
+	void UpdateParticleDensities(float deltaTime);
+	void UpdateParticlePressure(float deltaTime);
 	void UpdateIntegrateComputeShader(float deltaTime);
 
 	void SwapBuffersSpatialGrid();
@@ -103,6 +105,7 @@ private:
 	ID3D11ComputeShader* SpatialGridClearShader = nullptr;
 	ID3D11ComputeShader* SpatialGridAddParticleShader = nullptr;
 	ID3D11ComputeShader* FluidSimCalculateDensity = nullptr;
+	ID3D11ComputeShader* FluidSimCalculatePressure = nullptr;
 
 
 	// Buffers
@@ -111,7 +114,6 @@ private:
 	ID3D11Buffer*  outputResultBuffer = nullptr;
 
 	ID3D11Buffer*  SpatialGridConstantBuffer = nullptr;
-	ID3D11Buffer* SpatialGridInputBuffer = nullptr;
 
 	// Grid Buffer
 	ID3D11Buffer* SpatialGridOutputBuffer = nullptr;
@@ -121,32 +123,21 @@ private:
 	ID3D11Buffer* SpatialGridOutputBufferCount = nullptr;
 	ID3D11Buffer* SpatialGridResultOutputBufferCount = nullptr;
 
-	// Density
-	ID3D11Buffer* DensityInputBuffer = nullptr;
-
-
-	// SRV & UAV
+	// Particle Positions SRV & UAV
 	ID3D11ShaderResourceView* inputViewIntegrateA = nullptr;
 	ID3D11UnorderedAccessView* outputUAVIntegrateA = nullptr;
 
 	ID3D11ShaderResourceView* inputViewIntegrateB = nullptr;
 	ID3D11UnorderedAccessView* outputUAVIntegrateB = nullptr;
 
-	ID3D11ShaderResourceView* inputViewGrid = nullptr;
-
+	// Grid SRV & UAV
 	ID3D11UnorderedAccessView* outputUAVSpatialGridA = nullptr;
 	ID3D11UnorderedAccessView* outputUAVSpatialGridCountA = nullptr;
 
 	ID3D11UnorderedAccessView* outputUAVSpatialGridB = nullptr;
 	ID3D11UnorderedAccessView* outputUAVSpatialGridCountB = nullptr;
 
-	// Density
-	ID3D11ShaderResourceView* DesnityViewInput = nullptr;
-	ID3D11UnorderedAccessView* DensityUAVOutput = nullptr;
-	ID3D11UnorderedAccessView* DensityGrid = nullptr;
-	ID3D11UnorderedAccessView* DensityGridCount = nullptr;
-
+	ID3D11ShaderResourceView* srvNull[1] = { nullptr };
 	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };
-	ID3D11ShaderResourceView* srvNull[2] = { nullptr, nullptr };
 };
 
