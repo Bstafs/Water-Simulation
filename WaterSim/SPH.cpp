@@ -47,7 +47,7 @@ void SPH::InitParticles()
 {
 
 	// Particle Initialization
-	float spacing = 5.0f; // Adjust spacing as needed
+	float spacing = 2.5f; // Adjust spacing as needed
 	int particlesPerDimension = static_cast<int>(std::cbrt(NUM_OF_PARTICLES));
 
 	float offsetX = -spacing * (particlesPerDimension - 1) / 2.0f;
@@ -430,7 +430,7 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 	SimulationParams cb = {};
 	cb.cellSize = 0.6f;
 	cb.gridResolution = 20;
-	cb.maxParticlesPerCell = 10;
+	cb.maxParticlesPerCell = 15;
 	cb.numParticles = particleList.size();
 
 	// Update constant buffer
@@ -459,7 +459,7 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((8 * 8 * 8 + 255) / 256, 1, 1);
+	deviceContext->Dispatch((cb.gridResolution * cb.gridResolution * cb.gridResolution + 255) / 256, 1, 1);
 
 	// Unbind UAVs
 	deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
@@ -476,9 +476,24 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 
 void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 {
+	SimulationParams cb = {};
+	cb.cellSize = 2.5f;
+	cb.gridResolution = 8;
+	cb.maxParticlesPerCell = 15;
+	cb.numParticles = NUM_OF_PARTICLES;
+
+	// Update constant buffer
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	HRESULT hr = deviceContext->Map(SpatialGridConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if (SUCCEEDED(hr))
+	{
+		memcpy(mappedResource.pData, &cb, sizeof(SimulationParams));
+		deviceContext->Unmap(SpatialGridConstantBuffer, 0);
+	}
+
 	// Update input buffer with latest particle data
 	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
-	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
+	 hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
 	{
 		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
@@ -491,6 +506,7 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 
 	// Bind compute shader and resources
 	deviceContext->CSSetShader(SpatialGridAddParticleShader, nullptr, 0);
+	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
 
 	if (isBufferSwapped == false)
 	{
@@ -524,9 +540,24 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 
 void SPH::UpdateParticleDensities(float deltaTime)
 {
+	SimulationParams cb = {};
+	cb.cellSize = 2.5f;
+	cb.gridResolution = 17;
+	cb.maxParticlesPerCell = 15;
+	cb.numParticles = NUM_OF_PARTICLES;
+
+	// Update constant buffer
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	HRESULT hr = deviceContext->Map(SpatialGridConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if (SUCCEEDED(hr))
+	{
+		memcpy(mappedResource.pData, &cb, sizeof(SimulationParams));
+		deviceContext->Unmap(SpatialGridConstantBuffer, 0);
+	}
+
 	// Update input buffer with particle data
 	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
-	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
+	 hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
 	{
 		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
@@ -539,6 +570,7 @@ void SPH::UpdateParticleDensities(float deltaTime)
 
 	// Bind compute shader and resources
 	deviceContext->CSSetShader(FluidSimCalculateDensity, nullptr, 0);
+	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
 
 	if (isBufferSwapped == false)
 	{
@@ -592,15 +624,31 @@ void SPH::UpdateParticleDensities(float deltaTime)
 
 void SPH::UpdateParticlePressure(float deltaTime)
 {
+	SimulationParams cb = {};
+	cb.cellSize = 2.5f;
+	cb.gridResolution = 8;
+	cb.maxParticlesPerCell = 40;
+	cb.numParticles = NUM_OF_PARTICLES;
+
+	// Update constant buffer
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	HRESULT hr = deviceContext->Map(SpatialGridConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if (SUCCEEDED(hr))
+	{
+		memcpy(mappedResource.pData, &cb, sizeof(SimulationParams));
+		deviceContext->Unmap(SpatialGridConstantBuffer, 0);
+	}
+
 	// Update input buffer with particle data
 	D3D11_MAPPED_SUBRESOURCE mappedInputResource;
-	HRESULT hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
+	 hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
 	{
 		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			inputData[i].position = particleList[i]->position;
+			inputData[i].velocity = particleList[i]->velocity;
 			inputData[i].deltaTime = deltaTime;
 			inputData[i].density = particleList[i]->density;
 			inputData[i].nearDensity = particleList[i]->nearDensity;
@@ -610,6 +658,7 @@ void SPH::UpdateParticlePressure(float deltaTime)
 
 	// Bind compute shader and resources
 	deviceContext->CSSetShader(FluidSimCalculatePressure, nullptr, 0);
+	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
 
 	if (isBufferSwapped == false)
 	{
@@ -729,42 +778,42 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime)
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	//UpdateSpatialGridClear(deltaTime);
-	//UpdateAddParticlesToSpatialGrid(deltaTime);
-	//UpdateParticleDensities(deltaTime);
-	//UpdateParticlePressure(deltaTime);
+	UpdateSpatialGridClear(deltaTime);
+	UpdateAddParticlesToSpatialGrid(deltaTime);
+	UpdateParticleDensities(deltaTime);
+	UpdateParticlePressure(deltaTime);
 	// UpdateParticleViscosity();
-	//UpdateIntegrateComputeShader(deltaTime);
+	UpdateIntegrateComputeShader(deltaTime);
 
-	UpdateSpatialGrid();
+	//UpdateSpatialGrid();
 
 	for (int i = 0; i < particleList.size(); ++i)
 	{
 		Particle* particle = particleList[i];
 
-		// Apply forces and update properties
-		predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
-		predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
-		predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
+		//// Apply forces and update properties
+		//predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
+		//predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
+		//predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
 
-		particle->velocity.y += -9.81f * deltaTime;
-		particle->density = CalculateDensity(predictedPositions[i]);
-		particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
-		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
+		//particle->velocity.y += -9.81f * deltaTime;
+		//particle->density = CalculateDensity(predictedPositions[i]);
+		//particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
+		//particle->pressureForce = CalculatePressureForceWithRepulsion(i);
 
-		// Acceleration = Force / Density
-		particle->acceleration.x = particle->pressureForce.x / particle->density;
-		particle->acceleration.y = particle->pressureForce.y / particle->density;
-		particle->acceleration.z = particle->pressureForce.z / particle->density;
+		//// Acceleration = Force / Density
+		//particle->acceleration.x = particle->pressureForce.x / particle->density;
+		//particle->acceleration.y = particle->pressureForce.y / particle->density;
+		//particle->acceleration.z = particle->pressureForce.z / particle->density;
 
-		// Update velocity and position
-		particle->velocity.x += particle->acceleration.x * deltaTime;
-		particle->velocity.y += particle->acceleration.y * deltaTime;
-		particle->velocity.z += particle->acceleration.z * deltaTime;
+		//// Update velocity and position
+		//particle->velocity.x += particle->acceleration.x * deltaTime;
+		//particle->velocity.y += particle->acceleration.y * deltaTime;
+		//particle->velocity.z += particle->acceleration.z * deltaTime;
 
-		particle->position.x += particle->velocity.x * deltaTime;
-		particle->position.y += particle->velocity.y * deltaTime;
-		particle->position.z += particle->velocity.z * deltaTime;
+		//particle->position.x += particle->velocity.x * deltaTime;
+		//particle->position.y += particle->velocity.y * deltaTime;
+		//particle->position.z += particle->velocity.z * deltaTime;
 
 		// Handle boundary collisions with damping (as in the existing implementation)
 		if (particle->position.x < minX) {
