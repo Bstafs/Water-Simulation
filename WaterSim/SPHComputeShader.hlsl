@@ -8,8 +8,10 @@ struct ParticlePosition
     float3 velocity; // 12 bytes
     float density; // 4 bytes (16-byte aligned)
 
-    float3 pack; // 12 bytes
+    float padding; // 12 bytes
     float nearDensity; // 4 bytes (16-byte aligned)
+    float minX; 
+    float maxX;
 };
 
 cbuffer SimulationParams : register(b0)
@@ -23,7 +25,7 @@ cbuffer SimulationParams : register(b0)
 StructuredBuffer<ParticlePosition> InputPosition : register(t0);
 
 RWStructuredBuffer<ParticlePosition> OutputPosition : register(u0); // Output UAV
-RWStructuredBuffer<uint> grid : register(u1); // Grid buffer: holds indices to particles
+RWStructuredBuffer<uint3> grid : register(u1); // Grid buffer: holds indices to particles
 RWStructuredBuffer<int> gridCount : register(u2); // Tracks number of particles per cell
 
 static const float targetDensity = 8.0f;
@@ -31,104 +33,139 @@ static const float stiffnessValue = 30.0f;
 static const float nearStiffnessValue = 30.0f;
 static const float smoothingRadius = 2.5f;
 
-// Utility functions
-int3 ComputeGridIndex(float3 position)
+static const int3 offsets3D[27] =
 {
-    return (int3)floor(position / cellSize);
+    int3(-1, -1, -1),
+	int3(-1, -1, 0),
+	int3(-1, -1, 1),
+	int3(-1, 0, -1),
+	int3(-1, 0, 0),
+	int3(-1, 0, 1),
+	int3(-1, 1, -1),
+	int3(-1, 1, 0),
+	int3(-1, 1, 1),
+	int3(0, -1, -1),
+	int3(0, -1, 0),
+	int3(0, -1, 1),
+	int3(0, 0, -1),
+	int3(0, 0, 0),
+	int3(0, 0, 1),
+	int3(0, 1, -1),
+	int3(0, 1, 0),
+	int3(0, 1, 1),
+	int3(1, -1, -1),
+	int3(1, -1, 0),
+	int3(1, -1, 1),
+	int3(1, 0, -1),
+	int3(1, 0, 0),
+	int3(1, 0, 1),
+	int3(1, 1, -1),
+	int3(1, 1, 0),
+	int3(1, 1, 1)
+};
+
+
+static const uint hashK1 = 15823;
+static const uint hashK2 = 9737333;
+static const uint hashK3 = 440817757;
+// Utility functions
+int3 GetCell3D(float3 position, float radius)
+{
+    return (int3) floor(position / radius);
 }
 
-uint FlattenIndex(int3 index)
+uint HashCell3D(int3 cell)
 {
-    int resolution = gridResolution;
-    index = index + resolution; // Ensure indices are positive
-    index = index % resolution; // Now safely wrap the indices
-    return index.z * resolution * resolution + index.y * resolution + index.x;
+    cell = (uint3) cell;
+    return (cell.x * hashK1) + (cell.y * hashK2) + (cell.z * hashK3);
+}
+
+uint KeyFromHash(uint hash, uint tableSize)
+{
+    return hash % tableSize;
 }
 
 [numthreads(256, 1, 1)]
 void ClearGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    uint index = dispatchThreadId.x;
-    if (index >= 200)
-        return;
-
-    if (index < gridResolution * gridResolution * gridResolution * maxParticlesPerCell)
+    if (dispatchThreadId.x < gridResolution * gridResolution * gridResolution)
     {
-        grid[index] = 0xFFFFFFFF; // Initialize as empty
-    }
-
-    if (index < gridResolution * gridResolution * gridResolution)
-    {
-        gridCount[index] = 0; // Reset count
+        gridCount[dispatchThreadId.x] = 0;
     }
 }
 
 [numthreads(256, 1, 1)]
 void AddParticlesToGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    uint particleIndex = dispatchThreadId.x;
-    if (particleIndex >= 200)
+    if (dispatchThreadId.x >= numParticles)
         return;
-
-    float3 position = InputPosition[particleIndex].position;
-    int3 gridIndex = ComputeGridIndex(position);
-    uint flatIndex = FlattenIndex(gridIndex);
-
-    uint particleSlot;
-    InterlockedAdd(gridCount[flatIndex], 1, particleSlot); // Atomically increment count
-    if (particleSlot < maxParticlesPerCell)
-    {
-        grid[flatIndex * maxParticlesPerCell + particleSlot] = particleIndex;
-    }
+    
+    gridCount[dispatchThreadId.x] = numParticles;
+    uint index = dispatchThreadId.x;
+    int3 cell = GetCell3D(InputPosition[index].position, smoothingRadius);
+    uint hash = HashCell3D(cell);
+    uint key = KeyFromHash(hash, numParticles);
+       
+        // Populate the grid buffer with particle information
+    grid[dispatchThreadId.x] = uint3(
+            index, // Store the particle index
+            hash, // Store the flat grid index (or a hash key)
+            key // Reserved for key
+        );
 }
+
 
 [numthreads(256, 1, 1)]
 void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    uint particleIndex = dispatchThreadId.x;
-    if (particleIndex >= 200)
+    if (dispatchThreadId.x >= numParticles)
         return;
 
-    float3 position = InputPosition[particleIndex].position;
+    float3 position = InputPosition[dispatchThreadId.x].position;
     float density = 0.0001f;
     float nearDensity = 0.0001f;
+    float SqrRadius = smoothingRadius * smoothingRadius;
 
-    int3 gridIndex = ComputeGridIndex(position);
+    int3 gridIndex = GetCell3D(position, smoothingRadius);
 
-    for (int z = -1; z <= 1; z++)
+    for (int i = 0; i < 27; i++)
     {
-        for (int y = -1; y <= 1; y++)
+        uint hash = HashCell3D(gridIndex + offsets3D[i]);
+        uint key = KeyFromHash(hash, numParticles);
+        int currentIndex = gridCount[key];
+
+        while (currentIndex < numParticles)
         {
-            for (int x = -1; x <= 1; x++)
-            {
-                int3 neighborIndex = gridIndex + int3(x, y, z);
-                uint flatIndex = FlattenIndex(neighborIndex);
+            uint3 indexData = grid[currentIndex];
+            currentIndex++;
+			// Exit if no longer looking at correct bin
+            if (indexData[2] != key)
+                break;
+			// Skip if hash does not match
+            if (indexData[1] != hash)
+                continue;
+                    
+            uint neighborParticleIndex = indexData[0];
 
-                int neighborCount = gridCount[flatIndex];
+            float3 neighborPosition = InputPosition[neighborParticleIndex].position;
+            float3 offsetToNeighbor = neighborPosition - position;
+            float sqrDstToNeighbour = dot(offsetToNeighbor, offsetToNeighbor);
 
-                for (int i = 0; i < neighborCount; i++)
-                {
-                    uint neighborParticleIndex = grid[flatIndex * maxParticlesPerCell + i];
-                    if (neighborParticleIndex == 0xFFFFFFFF)
-                        continue;
+ // Skip if not within radius
+            if (sqrDstToNeighbour > SqrRadius)
+                continue;
+            
+            float dst = sqrt(sqrDstToNeighbour);
 
-                    float3 neighborPosition = InputPosition[neighborParticleIndex].position;
-                    float3 direction = neighborPosition - position;
-                    float distance = length(direction);
-
-                    // Skip particles that are too far
-                    if (distance == 0.0f || distance >= smoothingRadius) // Use interaction radius here
-                        continue;
-                                       
-                    density += DensitySmoothingKernel(distance, smoothingRadius);
-                    nearDensity += NearDensitySmoothingKernel(distance, smoothingRadius);                  
-                }
-            }
+            density += DensitySmoothingKernel(dst, smoothingRadius);
+            nearDensity += NearDensitySmoothingKernel(dst, smoothingRadius);
         }
+            
+        
     }
 
-    OutputPosition[particleIndex].density = density;
-    OutputPosition[particleIndex].nearDensity = nearDensity;
+    OutputPosition[dispatchThreadId.x].density = density;
+    OutputPosition[dispatchThreadId.x].nearDensity = nearDensity;
 }
 
 float ConvertDensityToPressure(float density)
@@ -153,15 +190,14 @@ float CalculateSharedPressure(float densityA, float densityB)
 [numthreads(256, 1, 1)]
 void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    uint particleIndex = dispatchThreadId.x;
-    if (particleIndex >= 200)
+    if (dispatchThreadId.x >= numParticles)
         return;
 
-    float deltaTime = InputPosition[particleIndex].deltaTime;
-    float3 position = InputPosition[particleIndex].position;
-    float3 velocity = InputPosition[particleIndex].velocity;
-    float density = InputPosition[particleIndex].density;
-    float nearDensity = InputPosition[particleIndex].nearDensity;
+    float deltaTime = InputPosition[dispatchThreadId.x].deltaTime;
+    float3 position = InputPosition[dispatchThreadId.x].position;
+    float3 velocity = InputPosition[dispatchThreadId.x].velocity;
+    float density = InputPosition[dispatchThreadId.x].density;
+    float nearDensity = InputPosition[dispatchThreadId.x].nearDensity;
     
     // Pressure values for the current particle
     float pressure = ConvertDensityToPressure(density);
@@ -170,55 +206,60 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 pressureForce = float3(0.0f, 0.0f, 0.0f);
     float3 repulsionForce = float3(0.0f, 0.0f, 0.0f);
     float3 viscousForce = float3(0.0f, 0.0f, 0.0f);
-    int3 gridIndex = ComputeGridIndex(position);
+    int3 gridIndex = GetCell3D(position, smoothingRadius);
     float viscosityCoefficient = 0.01f;
-    for (int z = -1; z <= 1; z++)
-    {
-        for (int y = -1; y <= 1; y++)
+    
+    for (int i = 0; i < 27; i++)
+    { 
+        uint hash = HashCell3D(gridIndex + offsets3D[i]);
+        uint key = KeyFromHash(hash, numParticles);
+        uint currIndex = gridCount[key];
+     
+        while (currIndex < numParticles)
         {
-            for (int x = -1; x <= 1; x++)
-            {
-                int3 neighborIndex = gridIndex + int3(x, y, z);
-                uint flatIndex = FlattenIndex(neighborIndex);
+            uint3 indexData = grid[currIndex];
+            currIndex++;
+			// Exit if no longer looking at correct bin
+            if (indexData[2] != key)
+                break;
+			// Skip if hash does not match
+            if (indexData[1] != hash)
+                continue;
 
-                int neighborCount = gridCount[flatIndex];
-
-                for (int i = 0; i < neighborCount; i++)
-                {
-                    uint neighborParticleIndex = grid[flatIndex * maxParticlesPerCell + i];
-                    if (neighborParticleIndex == 0xFFFFFFFF)
-                        continue;
+            uint neighbourIndex = indexData[0];
+			// Skip if looking at self
+            if (neighbourIndex == dispatchThreadId.x)
+                continue;
 
                     // Get the neighbor's position, velocity, and other properties
-                    float3 neighborPosition = InputPosition[neighborParticleIndex].position;
-                    float3 neighborVelocity = InputPosition[neighborParticleIndex].velocity;
-                    float3 direction = neighborPosition - position;
-                    float distance = length(direction);
+            float3 neighborPosition = InputPosition[neighbourIndex].position;
+            float3 neighborVelocity = InputPosition[neighbourIndex].velocity;
+            float3 direction = neighborPosition - position;
+            float distance = length(direction);
                     
-                    float3 relativeVelocity = neighborVelocity - velocity;
-                    
-   
+                                   // Skip particles that are too far
+            if (distance == 0.0f || distance >= smoothingRadius) // Use interaction radius here
+                continue;
+            
+            float3 relativeVelocity = neighborVelocity - velocity;
+                      
                     // Calculate pressure gradient (force) between particles
-                    float3 pressureDirection = direction / (distance * distance);
-                    float sharedPressure = CalculateSharedPressure(density, InputPosition[neighborParticleIndex].density);
-                    float sharedNearPressure = CalculateSharedPressure(nearDensity, InputPosition[neighborParticleIndex].nearDensity);
+            float3 pressureDirection = direction / (distance * distance);
+            float sharedPressure = CalculateSharedPressure(density, InputPosition[neighbourIndex].density);
+            float sharedNearPressure = CalculateSharedPressure(nearDensity, InputPosition[neighbourIndex].nearDensity);
                     
-                       // Skip particles that are too far
-                    if (distance == 0.0f || distance >= smoothingRadius) // Use interaction radius here
-                        continue;
-                    
-                  
+                                   
                     // Apply pressure force based on pressure difference and direction
-                        pressureForce += pressureDirection * PressureSmoothingKernel(distance, smoothingRadius) * sharedPressure;
+            pressureForce += pressureDirection * PressureSmoothingKernel(distance, smoothingRadius) * sharedPressure;
 
                     // Calculate repulsion force using near-density
-                        repulsionForce += pressureDirection * NearDensitySmoothingKernelDerivative(distance, smoothingRadius) * sharedNearPressure;
+            repulsionForce += pressureDirection * NearDensitySmoothingKernelDerivative(distance, smoothingRadius) * sharedNearPressure;
                     
-                        viscousForce += viscosityCoefficient * relativeVelocity * ViscositySmoothingKernel(distance, smoothingRadius);
+            viscousForce += viscosityCoefficient * relativeVelocity * ViscositySmoothingKernel(distance, smoothingRadius);
                     
-                }
-            }
         }
+            
+        
     }
 
     // Sum up the forces from pressure and repulsion
@@ -226,26 +267,77 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     
     // Apply the calculated force to update the particle's velocity (acceleration = force / density)
     float3 acceleration = totalForce / density;
-    OutputPosition[particleIndex].velocity.xyz += acceleration * deltaTime;
+    OutputPosition[dispatchThreadId.x].velocity.xyz += acceleration * deltaTime;
+}
+
+void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX)
+{
+    float minY = -10.0f;
+    float minZ = -10.0f;
+
+    float maxY = 20.0f;
+    float maxZ = 10.0f;
+    
+    float dampingFactor = 0.99f;
+    
+    if (pos.x < minX)
+    {
+        pos.x = minX;
+        velocity.x *= -1;
+    }
+    else if (pos.x > maxX)
+    {
+        pos.x = maxX;
+        velocity.x *= -1;
+    }
+
+    if (pos.y < minY)
+    {
+        pos.y = minY;
+        velocity.y *= -1;
+    }
+    else if (pos.y > maxY)
+    {
+        pos.y = maxY;
+        velocity.y *= -1;
+    }
+
+    if (pos.z < minZ)
+    {
+        pos.z = minZ;
+        velocity.z *= -1;
+    }
+    else if (pos.z > maxZ)
+    {
+        pos.z = maxZ;
+        velocity.z *= -1;
+    }
+
+		// Apply damping to velocity after collision
+    velocity.x *= dampingFactor;
+    velocity.y *= dampingFactor;
+    velocity.z *= dampingFactor;
 }
 
 [numthreads(256, 1, 1)]
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
 	// Integrate Particle Forces
-    const unsigned int threadID = dispatchThreadID.x;
-
-    if (threadID >= 200)
+    if (dispatchThreadID.x >= numParticles)
         return;
              
-    float3 inputPosition = InputPosition[threadID].position;
-    float3 inputVelocity = InputPosition[threadID].velocity;
-    float deltaTime = InputPosition[threadID].deltaTime;
+    float3 inputPosition = InputPosition[dispatchThreadID.x].position;
+    float3 inputVelocity = InputPosition[dispatchThreadID.x].velocity;
+    float deltaTime = InputPosition[dispatchThreadID.x].deltaTime;
+    float minX = InputPosition[dispatchThreadID.x].minX;
+    float maxX = InputPosition[dispatchThreadID.x].maxX;
    
     inputVelocity.y += -9.81f * deltaTime;
     
     inputPosition += inputVelocity * deltaTime;
     
-    OutputPosition[threadID].position = inputPosition;
-    OutputPosition[threadID].velocity = inputVelocity;
+    CollisionBox(inputPosition, inputVelocity, minX, maxX);
+    
+    OutputPosition[dispatchThreadID.x].position = inputPosition;
+    OutputPosition[dispatchThreadID.x].velocity = inputVelocity;
 }

@@ -14,8 +14,10 @@ struct ParticlePosition
 	XMFLOAT3 velocity;
 	float density;
 
-	XMFLOAT3 pack;
-	float nearDensity;
+	float padding; // 12 bytes
+	float nearDensity; // 4 bytes (16-byte aligned)
+	float minX;
+	float maxX;
 };
 
 struct SimulationParams 
@@ -51,7 +53,7 @@ private:
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
 	void UpdateParticleDensities(float deltaTime);
 	void UpdateParticlePressure(float deltaTime);
-	void UpdateIntegrateComputeShader(float deltaTime);
+	void UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX);
 
 	void SwapBuffersSpatialGrid();
 	void SwapBuffersIntegrate();
