@@ -1,29 +1,28 @@
 #pragma once
 #include <d3d11_1.h>
 
-#include <chrono>
-
 class Timestep
 {
 public:
     // Constructor to set custom fixed timestep
-    Timestep(float targetFPS)
+    Timestep(float targetFPS = 60.0f)
         : accumulatedTime(0.0f), m_deltaTime(0.0f), m_fixedTimeStep(1.0f / targetFPS),
-          m_readyForPhysicsUpdate(false)
+        m_readyForPhysicsUpdate(false), previousTime(0)
     {
-        // Get the starting time using high_resolution_clock
-        previousTime = std::chrono::high_resolution_clock::now();
     }
 
     // Calculates time steps for both fixed updates and variable rendering
     void CalculateTimestep()
     {
         // Get the current time
-        auto currentTime = std::chrono::high_resolution_clock::now();
+        ULONGLONG currentTime = GetTickCount64();
+
+        // Initialize previousTime on the first call
+        if (previousTime == 0)
+            previousTime = currentTime;
 
         // Calculate frame time in seconds
-        std::chrono::duration<float> frameDuration = currentTime - previousTime;
-        float frameTime = frameDuration.count();
+        float frameTime = (currentTime - previousTime) / 1000.0f;
         previousTime = currentTime;
 
         // Cap frame time to prevent instability during long frames
@@ -73,12 +72,15 @@ public:
     {
         if (targetFPS > 0.0f)
             m_fixedTimeStep = 1.0f / targetFPS;
+        else
+            targetFPS = 60.0f;
     }
 
 private:
-    float accumulatedTime;            // Accumulated time for fixed updates
-    float m_deltaTime;                // Variable time step for rendering
-    float m_fixedTimeStep;            // Fixed timestep duration
-    bool m_readyForPhysicsUpdate;     // Flag for physics update readiness
-    std::chrono::time_point<std::chrono::high_resolution_clock> previousTime; // Tracks the last frame time
+    float accumulatedTime;          // Accumulated time for fixed updates
+    float m_deltaTime;              // Variable time step for rendering
+    float m_fixedTimeStep;          // Fixed timestep duration
+    bool m_readyForPhysicsUpdate;   // Flag for physics update readiness
+    ULONGLONG previousTime;         // Tracks the last frame time
 };
+
