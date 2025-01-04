@@ -9,6 +9,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     // Initialize the application
     Application* theApp = new Application();
     Timestep deltaTime(120.0f);
+    deltaTime.SetTargetFPS(120.0f);
 
     if (FAILED(theApp->Initialise(hInstance, nCmdShow)))
     {
@@ -26,12 +27,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         {
             if (msg.message == WM_QUIT)
             {
-                delete theApp;
-                return (int)msg.wParam;
+                break; // Exit the loop if the quit message is received
             }
 
             TranslateMessage(&msg);
             DispatchMessage(&msg);
+        }
+
+        // If we received a quit message, break the main loop
+        if (msg.message == WM_QUIT)
+        {
+            break;
         }
 
         // Calculate timestep
@@ -41,16 +47,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         while (deltaTime.IsReadyForPhysicsUpdate())
         {
             theApp->UpdatePhysics(deltaTime.GetFixedTimeStep()); // Physics
+            theApp->HandleKeyboard(deltaTime.GetFixedTimeStep());    // Input handling
             deltaTime.ConsumePhysicsUpdate();
         }
 
         // Handle input, game logic, and rendering
-        theApp->HandleKeyboard();    // Input handling
         theApp->Update();           // Camera
         theApp->Draw();             // Rendering
     }
 
-    // Cleanup (unreachable in this structure)
+    // Cleanup
     delete theApp;
     return (int)msg.wParam;
 }

@@ -1,28 +1,29 @@
 #pragma once
 #include <d3d11_1.h>
 
+#include <chrono>
+
 class Timestep
 {
 public:
     // Constructor to set custom fixed timestep
-    Timestep(float targetFPS = 120.0f)
+    Timestep(float targetFPS)
         : accumulatedTime(0.0f), m_deltaTime(0.0f), m_fixedTimeStep(1.0f / targetFPS),
-        m_readyForPhysicsUpdate(false), previousTime(0)
+          m_readyForPhysicsUpdate(false)
     {
+        // Get the starting time using high_resolution_clock
+        previousTime = std::chrono::high_resolution_clock::now();
     }
 
     // Calculates time steps for both fixed updates and variable rendering
     void CalculateTimestep()
     {
         // Get the current time
-        ULONGLONG currentTime = GetTickCount64();
-
-        // Initialize previousTime on the first call
-        if (previousTime == 0)
-            previousTime = currentTime;
+        auto currentTime = std::chrono::high_resolution_clock::now();
 
         // Calculate frame time in seconds
-        float frameTime = (currentTime - previousTime) / 1000.0f;
+        std::chrono::duration<float> frameDuration = currentTime - previousTime;
+        float frameTime = frameDuration.count();
         previousTime = currentTime;
 
         // Cap frame time to prevent instability during long frames
@@ -75,10 +76,9 @@ public:
     }
 
 private:
-    float accumulatedTime;          // Accumulated time for fixed updates
-    float m_deltaTime;              // Variable time step for rendering
-    float m_fixedTimeStep;          // Fixed timestep duration
-    bool m_readyForPhysicsUpdate;   // Flag for physics update readiness
-    ULONGLONG previousTime;         // Tracks the last frame time
+    float accumulatedTime;            // Accumulated time for fixed updates
+    float m_deltaTime;                // Variable time step for rendering
+    float m_fixedTimeStep;            // Fixed timestep duration
+    bool m_readyForPhysicsUpdate;     // Flag for physics update readiness
+    std::chrono::time_point<std::chrono::high_resolution_clock> previousTime; // Tracks the last frame time
 };
-

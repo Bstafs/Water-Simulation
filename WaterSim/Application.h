@@ -54,7 +54,7 @@ public:
 
 	HRESULT Initialise(HINSTANCE hInstance, int nCmdShow);
 
-	bool HandleKeyboard();
+	bool HandleKeyboard(float deltaTime);
 
 	void Update();
 	void UpdatePhysics(float deltaTime);

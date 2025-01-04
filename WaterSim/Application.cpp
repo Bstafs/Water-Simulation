@@ -39,42 +39,48 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-bool Application::HandleKeyboard()
+bool Application::HandleKeyboard(float deltaTime)
 {
-	float mCameraSpeed = 0.008f;
-	float mTurnCameraSpeed = 0.008f;
+	float mCameraSpeed = 50.0f;        // Movement speed in units per second
+	float mTurnCameraSpeed = 1.0f;   // Rotation speed in radians per second
 
 	// Forward (W)
 	if (GetAsyncKeyState('W'))
 	{
 		if (GetAsyncKeyState(VK_LBUTTON)) // Only move if Mouse1 is also held
 		{
-			currentPosX += mCameraSpeed * sin(rotationX) * cos(rotationY);
-			currentPosZ += mCameraSpeed * cos(rotationX) * cos(rotationY);
-			currentPosY += mCameraSpeed * sin(rotationY); // Moves up or down if looking up or down
+			currentPosX += mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
+			currentPosZ += mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
+			currentPosY += mCameraSpeed * deltaTime * sin(rotationY);
+		}
+		else
+		{
+			currentPosX += mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
+			currentPosZ += mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
+			currentPosY += mCameraSpeed * deltaTime * sin(rotationY);
 		}
 	}
 
 	// Backward (S)
 	if (GetAsyncKeyState('S'))
 	{
-		currentPosX -= mCameraSpeed * sin(rotationX) * cos(rotationY);
-		currentPosZ -= mCameraSpeed * cos(rotationX) * cos(rotationY);
-		currentPosY -= mCameraSpeed * sin(rotationY);
+		currentPosX -= mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
+		currentPosZ -= mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
+		currentPosY -= mCameraSpeed * deltaTime * sin(rotationY);
 	}
 
 	// Left (A - Strafe)
 	if (GetAsyncKeyState('A'))
 	{
-		currentPosX -= mCameraSpeed * cos(rotationX);
-		currentPosZ += mCameraSpeed * sin(rotationX);
+		currentPosX -= mCameraSpeed * deltaTime * cos(rotationX);
+		currentPosZ += mCameraSpeed * deltaTime * sin(rotationX);
 	}
 
 	// Right (D - Strafe)
 	if (GetAsyncKeyState('D'))
 	{
-		currentPosX += mCameraSpeed * cos(rotationX);
-		currentPosZ -= mCameraSpeed * sin(rotationX);
+		currentPosX += mCameraSpeed * deltaTime * cos(rotationX);
+		currentPosZ -= mCameraSpeed * deltaTime * sin(rotationX);
 	}
 
 	// Look Around (Mouse Movement)
@@ -85,8 +91,8 @@ bool Application::HandleKeyboard()
 	if (GetAsyncKeyState(VK_LBUTTON)) // Left Mouse Button
 	{
 		// Update rotation based on mouse movement
-		rotationX += mTurnCameraSpeed * (mousePos.x - prevMousePos.x); // Horizontal look
-		rotationY -= mTurnCameraSpeed * (mousePos.y - prevMousePos.y); // Invert vertical look
+		rotationX += mTurnCameraSpeed * deltaTime * (mousePos.x - prevMousePos.x); // Horizontal look
+		rotationY -= mTurnCameraSpeed * deltaTime * (mousePos.y - prevMousePos.y); // Invert vertical look
 
 		// Clamp vertical rotation to avoid gimbal lock
 		if (rotationY > XM_PIDIV2) rotationY = XM_PIDIV2; // Look up limit
