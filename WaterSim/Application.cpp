@@ -291,10 +291,13 @@ void Application::CreateSphere(float radius, int numSubdivisions, std::vector<Si
 	const float twoPi = 2.0f * pi;
 
 	// Generate vertices
-	for (int i = 0; i <= numSubdivisions; ++i) {
+	for (int i = 0; i <= numSubdivisions; ++i) 
+	{
+		// Golden Ratio
 		float phi = pi * static_cast<float>(i) / numSubdivisions;
 
-		for (int j = 0; j <= numSubdivisions; ++j) {
+		for (int j = 0; j <= numSubdivisions; ++j) 
+		{
 			float theta = twoPi * static_cast<float>(j) / numSubdivisions;
 
 			SimpleVertex vertex;
@@ -686,6 +689,7 @@ void Application::ImGui()
 						ImGui::DragFloat("Acceleration", &part->acceleration.x, 0.01f);
 						ImGui::DragFloat("Pressure", &part->pressureForce.x, 0.01f);
 						ImGui::DragFloat("Density", &part->density, 0.01f);
+						ImGui::DragFloat("Near Density", &part->nearDensity, 0.01f);
 
 					}
 				}
@@ -745,7 +749,8 @@ void Application::Draw()
 	cb.surface.DiffuseMtrl = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	cb.surface.SpecularMtrl = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 
-	cb.HasTexture = 0.0f;
+	_pImmediateContext->PSSetShaderResources(0, 1, &_pTextureRV);
+	cb.HasTexture = 1.0f;
 
 	cb.World = XMMATRIX();
 

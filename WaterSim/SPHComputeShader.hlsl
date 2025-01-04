@@ -272,10 +272,10 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
 
 void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX)
 {
-    float minY = -10.0f;
+    float minY = -30.0f;
     float minZ = -10.0f;
 
-    float maxY = 20.0f;
+    float maxY = 50.0f;
     float maxZ = 10.0f;
     
     float dampingFactor = 0.99f;

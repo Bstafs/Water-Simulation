@@ -45,9 +45,8 @@ SPH::~SPH()
 
 void SPH::InitParticles()
 {
-
 	// Particle Initialization
-	float spacing = SMOOTHING_RADIUS; // Adjust spacing as needed
+	float spacing = SMOOTHING_RADIUS; 
 	int particlesPerDimension = static_cast<int>(std::cbrt(NUM_OF_PARTICLES));
 
 	float offsetX = -spacing * (particlesPerDimension - 1) / 2.0f;
@@ -56,7 +55,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 0.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), SMOOTHING_RADIUS, XMFLOAT3(0.0f, 0.0f, 0.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), 0.0f, XMFLOAT3(0.0f, 0.0f, 0.0f), SMOOTHING_RADIUS, XMFLOAT3(0.0f, 0.0f, 0.0f));
 
 		int xIndex = i % particlesPerDimension;
 		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
@@ -72,7 +71,6 @@ void SPH::InitParticles()
 
 		particleList[i] = newParticle;
 	}
-
 }
 
 void SPH::InitSpatialGridClear()
