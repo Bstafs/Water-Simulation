@@ -44,42 +44,57 @@ bool Application::HandleKeyboard()
 	float mCameraSpeed = 0.008f;
 	float mTurnCameraSpeed = 0.008f;
 
-	// Forward
+	// Forward (W)
 	if (GetAsyncKeyState('W'))
 	{
-		currentPosZ += mCameraSpeed * cos(rotationX);
-		currentPosX += mCameraSpeed * sin(rotationX);
-		currentPosY += mCameraSpeed * sin(rotationY);
+		if (GetAsyncKeyState(VK_LBUTTON)) // Only move if Mouse1 is also held
+		{
+			currentPosX += mCameraSpeed * sin(rotationX) * cos(rotationY);
+			currentPosZ += mCameraSpeed * cos(rotationX) * cos(rotationY);
+			currentPosY += mCameraSpeed * sin(rotationY); // Moves up or down if looking up or down
+		}
 	}
-	// Backwards
+
+	// Backward (S)
 	if (GetAsyncKeyState('S'))
 	{
-		currentPosZ -= mCameraSpeed * cos(rotationX);
-		currentPosX -= mCameraSpeed * sin(rotationX);
-		currentPosY += mCameraSpeed * sin(rotationY);
+		currentPosX -= mCameraSpeed * sin(rotationX) * cos(rotationY);
+		currentPosZ -= mCameraSpeed * cos(rotationX) * cos(rotationY);
+		currentPosY -= mCameraSpeed * sin(rotationY);
 	}
 
-	// Right
-	if (GetAsyncKeyState('D'))
-	{
-		rotationX += mTurnCameraSpeed;
-	}
-	// Left
+	// Left (A - Strafe)
 	if (GetAsyncKeyState('A'))
 	{
-		rotationX -= mTurnCameraSpeed;
+		currentPosX -= mCameraSpeed * cos(rotationX);
+		currentPosZ += mCameraSpeed * sin(rotationX);
 	}
 
-	// Up
-	if (GetAsyncKeyState('E'))
+	// Right (D - Strafe)
+	if (GetAsyncKeyState('D'))
 	{
-		rotationY += mCameraSpeed * cos(rotationY);
+		currentPosX += mCameraSpeed * cos(rotationX);
+		currentPosZ -= mCameraSpeed * sin(rotationX);
 	}
-	// Down
-	if (GetAsyncKeyState('Q'))
+
+	// Look Around (Mouse Movement)
+	POINT mousePos;
+	GetCursorPos(&mousePos);
+	static POINT prevMousePos = mousePos;
+
+	if (GetAsyncKeyState(VK_LBUTTON)) // Left Mouse Button
 	{
-		rotationY -= mCameraSpeed * cos(rotationY);
+		// Update rotation based on mouse movement
+		rotationX += mTurnCameraSpeed * (mousePos.x - prevMousePos.x); // Horizontal look
+		rotationY -= mTurnCameraSpeed * (mousePos.y - prevMousePos.y); // Invert vertical look
+
+		// Clamp vertical rotation to avoid gimbal lock
+		if (rotationY > XM_PIDIV2) rotationY = XM_PIDIV2; // Look up limit
+		if (rotationY < -XM_PIDIV2) rotationY = -XM_PIDIV2; // Look down limit
 	}
+
+	// Update previous mouse position
+	prevMousePos = mousePos;
 
 	return false;
 }
@@ -207,7 +222,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	D3D11_SUBRESOURCE_DATA vbData, ibData, iData;
 
 	// Create and bind a structured buffer:
-	iDesc.Usage = D3D11_USAGE_DYNAMIC; // Dynamic so we can update per frame
+	iDesc.Usage = D3D11_USAGE_DYNAMIC; 
 	iDesc.ByteWidth = sizeof(InstanceData) * instanceData.size();
 	iDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	iDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -215,7 +230,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	iData.pSysMem = instanceData.data();
 
 	// Create buffer and populate it.
-	_pd3dDevice->CreateBuffer(&iDesc, nullptr, &_pInstanceBuffer);
+	_pd3dDevice->CreateBuffer(&iDesc, &iData, &_pInstanceBuffer);
 
 	return S_OK;
 }
