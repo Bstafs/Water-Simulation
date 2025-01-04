@@ -31,7 +31,7 @@ struct SimulationParams
 class SPH
 {
 public:
-	SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* device);
+	SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device);
 	~SPH();
 	void Update(float deltaTime, float minX, float maxX);
 
@@ -81,7 +81,7 @@ private:
 
 //	float minX = -10.0f, maxX = 10.0f;
 	float minY = -10.0f, maxY = 20.0f;
-	float minZ = -10.0f, maxZ = 10.0f;
+	float minZ = -15.0f, maxZ = 15.0f;
 
 	float targetDensity = 8.0f;
 	float stiffnessValue = 30.0f;

@@ -97,7 +97,9 @@ private:
 	std::vector<SimpleVertex> sphereVertices;
 	std::vector<WORD> sphereIndices;
 
+	// Instancing
 	std::vector<InstanceData> instanceData;
+	ID3D11ShaderResourceView* instanceBufferSRV = nullptr;
 
 	// Shaders + Textures
 	ID3D11RenderTargetView* _pRenderTargetView;
@@ -139,7 +141,7 @@ private:
 	float rotationY = -0.4f;
 
 	// Collision Box
-	float minX = -20.0f, maxX = 20.0f;
+	float minX = -50.0f, maxX = 50.0f;
 
 	// SPH
 	SPH* sph = nullptr;

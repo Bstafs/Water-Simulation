@@ -9,7 +9,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     // Initialize the application
     Application* theApp = new Application();
     Timestep deltaTime(120.0f);
-    deltaTime.SetTargetFPS(120.0f);
 
     if (FAILED(theApp->Initialise(hInstance, nCmdShow)))
     {

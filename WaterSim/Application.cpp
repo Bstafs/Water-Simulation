@@ -146,7 +146,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	_WindowWidth = rc.right - rc.left;
 	_WindowHeight = rc.bottom - rc.top;
 
-	//instanceData.resize(NUM_OF_PARTICLES);
+	instanceData.resize(NUM_OF_PARTICLES);
 
 	if (FAILED(InitDevice()))
 	{
@@ -164,7 +164,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
 	ImGui::StyleColorsDark();
 
-	sph = new SPH(NUM_OF_PARTICLES, _pImmediateContext, _pd3dDevice);
+	sph = new SPH(_pImmediateContext, _pd3dDevice);
 
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
@@ -205,38 +205,34 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	noSpecMaterial.specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
 	noSpecMaterial.specularPower = 0.0f;
 
-	// Assume you want to create multiple instances at different positions
-	for (int i = 0; i < NUM_OF_PARTICLES; i++)
-	{
-		InstanceData data;
+	D3D11_BUFFER_DESC iDesc = {};
 
-		// Set a world matrix for the instance (e.g., translate it)
-		XMMATRIX translationMatrix = XMMatrixTranslation(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z); 
-		XMMATRIX scaleMatrix = XMMatrixScaling(1.0f, 1.0f, 1.0f);
-		XMMATRIX rotX = XMMatrixRotationX(0.0f);
-		XMMATRIX rotY = XMMatrixRotationY(0.0f);
-		XMMATRIX rotZ = XMMatrixRotationZ(0.0f);
-		XMMATRIX RotationMatrix = rotX * rotY * rotZ;
-
-		XMStoreFloat4x4(&data.World, scaleMatrix * RotationMatrix * translationMatrix);
-
-		// Add the populated data to the vector
-		instanceData.push_back(data);
-	}
-	
-	D3D11_BUFFER_DESC vbDesc, ibDesc, iDesc;
-	D3D11_SUBRESOURCE_DATA vbData, ibData, iData;
-
-	// Create and bind a structured buffer:
-	iDesc.Usage = D3D11_USAGE_DYNAMIC; 
-	iDesc.ByteWidth = sizeof(InstanceData) * instanceData.size();
-	iDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	// Set up the buffer description for a structured buffer
+	iDesc.Usage = D3D11_USAGE_DYNAMIC;
+	iDesc.ByteWidth = sizeof(InstanceData) * static_cast<UINT>(instanceData.size());
+	iDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	iDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	iDesc.MiscFlags = 0;
-	iData.pSysMem = instanceData.data();
+	iDesc.StructureByteStride = sizeof(InstanceData);
+	iDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
-	// Create buffer and populate it.
-	_pd3dDevice->CreateBuffer(&iDesc, &iData, &_pInstanceBuffer);
+	HRESULT hr = _pd3dDevice->CreateBuffer(&iDesc, nullptr, &_pInstanceBuffer);
+	if (FAILED(hr))
+	{
+		OutputDebugStringA("Failed to create instance buffer.\n");
+	}
+
+	// Create the shader resource view
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN; // Structured buffers must use UNKNOWN
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	srvDesc.Buffer.FirstElement = 0;
+	srvDesc.Buffer.NumElements = static_cast<UINT>(instanceData.size());
+
+	hr = _pd3dDevice->CreateShaderResourceView(_pInstanceBuffer, &srvDesc, &instanceBufferSRV);
+	if (FAILED(hr))
+	{
+		OutputDebugStringA("Failed to create shader resource view for instance buffer.\n");
+	}
 
 	return S_OK;
 }
@@ -291,12 +287,12 @@ void Application::CreateSphere(float radius, int numSubdivisions, std::vector<Si
 	const float twoPi = 2.0f * pi;
 
 	// Generate vertices
-	for (int i = 0; i <= numSubdivisions; ++i) 
+	for (int i = 0; i <= numSubdivisions; ++i)
 	{
 		// Golden Ratio
 		float phi = pi * static_cast<float>(i) / numSubdivisions;
 
-		for (int j = 0; j <= numSubdivisions; ++j) 
+		for (int j = 0; j <= numSubdivisions; ++j)
 		{
 			float theta = twoPi * static_cast<float>(j) / numSubdivisions;
 
@@ -557,14 +553,16 @@ void Application::Cleanup()
 	if (_pSamplerLinear) _pSamplerLinear->Release();
 
 	if (_pTextureRV) _pTextureRV->Release();
-
 	if (_pGroundTextureRV) _pGroundTextureRV->Release();
+	if (_pHerculesTextureRV) _pHerculesTextureRV->Release();
+	if (instanceBufferSRV) instanceBufferSRV->Release();
 
 	if (_pConstantBuffer) _pConstantBuffer->Release();
 
 	if (_pVertexBuffer) _pVertexBuffer->Release();
 	if (_pIndexBuffer) _pIndexBuffer->Release();
-	//if (_pInstanceBuffer) _pInstanceBuffer->Release();
+	if (_pInstanceBuffer) _pInstanceBuffer->Release();
+
 
 	if (_pVertexLayout) _pVertexLayout->Release();
 	if (_pVertexShader) _pVertexShader->Release();
@@ -583,11 +581,9 @@ void Application::Cleanup()
 	if (CCWcullMode) CCWcullMode->Release();
 	if (CWcullMode) CWcullMode->Release();
 
-	if (_camera)
-	{
-		delete _camera;
-		_camera = nullptr;
-	}
+
+	delete _camera;
+	_camera = nullptr;
 
 	delete sph;
 	sph = nullptr;
@@ -619,7 +615,7 @@ void Application::Update()
 		InstanceData& instance = instanceData[i];
 
 		// Update the position based on velocity and deltaTime
-	    XMStoreFloat4x4(&instance.World, XMMatrixTranspose(XMMatrixTranslation(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z)));
+		XMStoreFloat4x4(&instance.World, XMMatrixTranspose(XMMatrixTranslation(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z)));
 	}
 
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -666,8 +662,6 @@ void Application::ImGui()
 		ImGui::DragFloat("Min X", &minX, 0.5f, -50.0f, -1.0f);
 		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 50.0f);
 		ImGui::Checkbox("Pause", &SimulationControl);
-
-
 
 		ImGui::Text("Initial Values");
 
@@ -721,10 +715,17 @@ void Application::Draw()
 
 	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
 
+	UINT strides = sizeof(SimpleVertex);
+	UINT offsets = 0;
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
+	_pImmediateContext->IASetVertexBuffers(0, 1, &_pVertexBuffer, &strides, &offsets);
+	_pImmediateContext->IASetIndexBuffer(_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
 	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
+	_pImmediateContext->VSSetShaderResources(0, 1, &instanceBufferSRV);
 
 	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
@@ -750,20 +751,12 @@ void Application::Draw()
 	cb.surface.SpecularMtrl = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 
 	_pImmediateContext->PSSetShaderResources(0, 1, &_pTextureRV);
-	cb.HasTexture = 1.0f;
+	cb.HasTexture = 0.0f;
 
 	cb.World = XMMATRIX();
 
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-
-	UINT strides[2] = { sizeof(SimpleVertex), sizeof(InstanceData)};
-	UINT offsets[2] = { 0,0 };
-	ID3D11Buffer* buffers[2] = { _pVertexBuffer, _pInstanceBuffer };
-
-	_pImmediateContext->IASetVertexBuffers(0, 2, buffers, strides, offsets);
-	_pImmediateContext->IASetIndexBuffer(_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
-
-	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	_pImmediateContext->UpdateSubresource(_pInstanceBuffer, 0, nullptr, instanceData.data(), 0, 0);
 
 	_pImmediateContext->DrawIndexedInstanced(sphereIndices.size(), (UINT)instanceData.size(), 0, 0, 0);
 

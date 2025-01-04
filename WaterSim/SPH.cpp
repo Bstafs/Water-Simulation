@@ -1,6 +1,6 @@
 #include "SPH.h"
 
-SPH::SPH(int numbParticles, ID3D11DeviceContext* contextdevice, ID3D11Device* device)
+SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 	: spatialGrid(SMOOTHING_RADIUS), // Provide a valid value for `cellSize`
 	deviceContext(contextdevice),
 	device(device)
@@ -33,13 +33,26 @@ SPH::~SPH()
 
 	// Integrate Shader
 	if (FluidSimIntegrateShader) FluidSimIntegrateShader->Release();
+	if (SpatialGridClearShader) SpatialGridClearShader->Release();
+	if (SpatialGridAddParticleShader) SpatialGridAddParticleShader->Release();
+	if (FluidSimCalculateDensity) FluidSimCalculateDensity->Release();
+	if (FluidSimCalculatePressure) FluidSimCalculatePressure->Release();
+
+
 	if (inputBuffer) inputBuffer->Release();
+	if (outputBuffer) outputBuffer->Release();
+	if (outputResultBuffer) outputResultBuffer->Release();
+
 	if (inputViewIntegrateA) inputViewIntegrateA->Release();
 	if (outputUAVIntegrateA) outputUAVIntegrateA->Release();
-	if (outputBuffer) outputBuffer->Release();
+	if (inputViewIntegrateB) inputViewIntegrateB->Release();
+	if (outputUAVIntegrateB) outputUAVIntegrateB->Release();
 
-	// Spatial Grid Shader
-	if (SpatialGridClearShader) SpatialGridClearShader->Release();
+	if (outputUAVSpatialGridA) outputUAVSpatialGridA->Release();
+	if (outputUAVSpatialGridCountA) outputUAVSpatialGridCountA->Release();
+	if (outputUAVSpatialGridB) outputUAVSpatialGridB->Release();
+	if (outputUAVSpatialGridCountB) outputUAVSpatialGridCountB->Release();
+
 	if (SpatialGridConstantBuffer) SpatialGridConstantBuffer->Release();
 }
 
@@ -55,7 +68,7 @@ void SPH::InitParticles()
 
 	for (int i = 0; i < NUM_OF_PARTICLES; i++)
 	{
-		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), 0.0f, XMFLOAT3(0.0f, 0.0f, 0.0f), SMOOTHING_RADIUS, XMFLOAT3(0.0f, 0.0f, 0.0f));
+		Particle* newParticle = new Particle(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 1.0f), 0.0f, XMFLOAT3(1.0f, 1.0f, 1.0f), SMOOTHING_RADIUS, XMFLOAT3(0.0f, 0.0f, 0.0f));
 
 		int xIndex = i % particlesPerDimension;
 		int yIndex = (i / particlesPerDimension) % particlesPerDimension;
@@ -409,19 +422,6 @@ void SPH::UpdateSpatialGrid()
 		spatialGrid.AddParticle(i, particleList[i]->position);
 	}
 }
-
-void SPH::SwapBuffersSpatialGrid()
-{
-	std::swap(outputUAVSpatialGridA, outputUAVSpatialGridB);
-	std::swap(outputUAVSpatialGridCountA, outputUAVSpatialGridCountB);
-}
-
-void SPH::SwapBuffersIntegrate()
-{
-	std::swap(inputViewIntegrateA, inputViewIntegrateB);
-	std::swap(outputUAVIntegrateA, outputUAVIntegrateB);
-}
-
 
 void SPH::UpdateSpatialGridClear(float deltaTime)
 {
