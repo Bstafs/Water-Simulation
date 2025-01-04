@@ -812,7 +812,7 @@ void SPH::Update(float deltaTime, float minX, float maxX)
 		predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
 		predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
 
-	//	particle->velocity.y += -9.81f * deltaTime;
+		//particle->velocity.y += -9.81f * deltaTime;
 		particle->density = CalculateDensity(predictedPositions[i]);
 		particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
 		particle->pressureForce = CalculatePressureForceWithRepulsion(i);

@@ -3,16 +3,22 @@
 #include <directxmath.h>
 #include <d3d11_1.h>
 #include <string>
+#include <vector>
+
 using namespace DirectX;
 
 struct Geometry
 {
 	ID3D11Buffer* vertexBuffer;
 	ID3D11Buffer* indexBuffer;
+	ID3D11Buffer* instanceBuffer;
 	int numberOfIndices;
 
 	UINT vertexBufferStride;
 	UINT vertexBufferOffset;
+
+	UINT instanceBufferStride;
+	UINT instanceBufferOffset;
 };
 
 struct Material
@@ -37,6 +43,7 @@ public:
 	bool HasTexture() const { return _textureRV ? true : false; }
 
 	void Draw(ID3D11DeviceContext* pImmediateContext);
+	void DrawInstanced(ID3D11DeviceContext* pImmediateContext, UINT instances);
 
 
 private:

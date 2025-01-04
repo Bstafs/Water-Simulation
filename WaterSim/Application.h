@@ -40,13 +40,10 @@ struct ConstantBuffer
 	float HasTexture;
 };
 
-struct WaterBuffer
+struct alignas(16) InstanceData
 {
-	XMMATRIX World;
-	XMMATRIX View;
-	XMMATRIX Projection;
+	XMFLOAT4X4 World;   
 };
-
 
 class Application
 {
@@ -73,17 +70,11 @@ private:
 	HRESULT InitDevice();
 	void Cleanup();
 	HRESULT InitShadersAndInputLayout();
-	HRESULT InitVertexBuffer();
-	HRESULT InitIndexBuffer();
+	HRESULT InitBuffers();
 
 	void CreateSphere(float radius, int numSubdivisions, std::vector<SimpleVertex>& vertices, std::vector<WORD>& indices);
 
 	void ImGui();
-
-	void moveForward(int objectNumber);
-	void moveBackward(int objectNumber);
-	void moveLeft(int objectNumber);
-	void moveRight(int objectNumber);
 
 private:
 	// Private Variables
@@ -101,9 +92,12 @@ private:
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;
 	ID3D11Buffer* _pConstantBuffer;
+	ID3D11Buffer* _pInstanceBuffer;
 
 	std::vector<SimpleVertex> sphereVertices;
 	std::vector<WORD> sphereIndices;
+
+	std::vector<InstanceData> instanceData;
 
 	// Shaders + Textures
 	ID3D11RenderTargetView* _pRenderTargetView;
@@ -146,9 +140,6 @@ private:
 
 	// Collision Box
 	float minX = -20.0f, maxX = 20.0f;
-
-	// GameObjects
-	vector<GameObject*> m_gameObjects;
 
 	// SPH
 	SPH* sph = nullptr;

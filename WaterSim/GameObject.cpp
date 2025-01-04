@@ -16,7 +16,11 @@ void GameObject::Update(const float t)
 	m_transform->Update(t);
 }
 
-void GameObject::Draw(ID3D11DeviceContext* pImmediateContext)
+void GameObject::Draw(ID3D11DeviceContext* pImmediateContext, bool isInstanced, UINT numOfInstances)
 {
+	if(isInstanced == false)
 	m_appearance->Draw(pImmediateContext);
+
+	if (isInstanced == true)
+	m_appearance->DrawInstanced(pImmediateContext, numOfInstances);
 }

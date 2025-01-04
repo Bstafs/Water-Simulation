@@ -45,6 +45,7 @@ struct VS_INPUT
     float4 PosL : POSITION;
     float3 NormL : NORMAL;
     float2 Tex : TEXCOORD0;
+    float4x4 InstanceTransform : INSTANCE_TRANSFORM;
 };
 
 //--------------------------------------------------------------------------------------
@@ -64,16 +65,20 @@ VS_OUTPUT VS(VS_INPUT input)
 {
     VS_OUTPUT output = (VS_OUTPUT) 0;
 
-    float4 posW = mul(input.PosL, World);
+    // Apply the instance transformation to the position (world space)
+    float4 posW = mul(input.PosL, input.InstanceTransform);
     output.PosW = posW.xyz;
 
+    // Transform the position from world space to homogeneous clip space (using View and Projection matrices)
     output.PosH = mul(posW, View);
     output.PosH = mul(output.PosH, Projection);
+
+    // Pass the texture coordinates unchanged
     output.Tex = input.Tex;
 
-    float3 normalW = mul(float4(input.NormL, 0.0f), World).xyz;
+    float3 normalW = mul(float4(input.NormL, 0.0f), input.InstanceTransform).xyz;
     output.NormW = normalize(normalW);
-
+    
     return output;
 }
 
