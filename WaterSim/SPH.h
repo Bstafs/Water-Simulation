@@ -79,8 +79,7 @@ private:
 	// Particle Initialization
 	float dampingFactor = 0.99f;
 
-//	float minX = -10.0f, maxX = 10.0f;
-	float minY = -10.0f, maxY = 20.0f;
+	float minY = -30.0f, maxY = 50.0f;
 	float minZ = -15.0f, maxZ = 15.0f;
 
 	float targetDensity = 8.0f;

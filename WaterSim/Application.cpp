@@ -251,12 +251,6 @@ HRESULT Application::InitShadersAndInputLayout()
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },   // Vertex position
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },     // Vertex normal
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },       // Texture coordinates
-
-		// Per-instance data (INSTANCE_TRANSFORM as a matrix)
-		{ "INSTANCE_TRANSFORM", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1 },  // Instance matrix row 1
-		{ "INSTANCE_TRANSFORM", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 16, D3D11_INPUT_PER_INSTANCE_DATA, 1 }, // Instance matrix row 2
-		{ "INSTANCE_TRANSFORM", 2, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 32, D3D11_INPUT_PER_INSTANCE_DATA, 1 }, // Instance matrix row 3
-		{ "INSTANCE_TRANSFORM", 3, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 48, D3D11_INPUT_PER_INSTANCE_DATA, 1 }  // Instance matrix row 4
 	};
 
 	UINT numElements = ARRAYSIZE(layout);
@@ -659,8 +653,8 @@ void Application::ImGui()
 		int particleSize = sph->particleList.size();
 
 		ImGui::DragInt("Number of Particles", &particleSize);
-		ImGui::DragFloat("Min X", &minX, 0.5f, -50.0f, -1.0f);
-		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 50.0f);
+		ImGui::DragFloat("Min X", &minX, 0.5f, -150.0f, -1.0f);
+		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 150.0f);
 		ImGui::Checkbox("Pause", &SimulationControl);
 
 		ImGui::Text("Initial Values");

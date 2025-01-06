@@ -123,10 +123,10 @@ void SPH::InitSpatialGridClear()
 
 		// Spatial Grid Count
 		outputDesc.Usage = D3D11_USAGE_DEFAULT;
-		outputDesc.ByteWidth = sizeof(int) * NUM_OF_PARTICLES;
+		outputDesc.ByteWidth = sizeof(unsigned int) * NUM_OF_PARTICLES;
 		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
 		outputDesc.CPUAccessFlags = 0;
-		outputDesc.StructureByteStride = sizeof(int);
+		outputDesc.StructureByteStride = sizeof(unsigned int);
 		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 		device->CreateBuffer(&outputDesc, 0, &SpatialGridOutputBufferCount);
 
@@ -457,7 +457,7 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((cb.gridResolution * cb.gridResolution * cb.gridResolution + 255) / 256, 1, 1);
+	deviceContext->Dispatch(50, 1, 1);
 
 	// Unbind UAVs
 	deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
@@ -520,7 +520,7 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+	deviceContext->Dispatch(50, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
@@ -586,7 +586,7 @@ void SPH::UpdateParticleDensities(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+	deviceContext->Dispatch(50, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
@@ -674,7 +674,7 @@ void SPH::UpdateParticlePressure(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+	deviceContext->Dispatch(50, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
@@ -756,7 +756,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch((NUM_OF_PARTICLES + 255) / 256, 1, 1);
+	deviceContext->Dispatch(50, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
@@ -792,41 +792,73 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	//UpdateSpatialGridClear(deltaTime);
-	//UpdateAddParticlesToSpatialGrid(deltaTime);
-	//UpdateParticleDensities(deltaTime);
-//	UpdateParticlePressure(deltaTime);
-	// UpdateParticleViscosity();
+	UpdateSpatialGridClear(deltaTime);
+	UpdateAddParticlesToSpatialGrid(deltaTime);
+    UpdateParticleDensities(deltaTime);
+	UpdateParticlePressure(deltaTime);
 	UpdateIntegrateComputeShader(deltaTime, minX, maxX);
 
-	UpdateSpatialGrid();
+	//UpdateSpatialGrid();
 
-	for (int i = 0; i < particleList.size(); ++i)
-	{
-		Particle* particle = particleList[i];
+	//for (int i = 0; i < particleList.size(); ++i)
+	//{
+	//	Particle* particle = particleList[i];
 
-		// Apply forces and update properties
-		predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
-		predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
-		predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
+	//	// Apply forces and update properties
+	//	predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
+	//	predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
+	//	predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
 
-		//particle->velocity.y += -9.81f * deltaTime;
-		particle->density = CalculateDensity(predictedPositions[i]);
-		particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
-		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
+	//	//particle->velocity.y += -9.81f * deltaTime;
+	//    particle->density = CalculateDensity(predictedPositions[i]);
+	//	particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
+	//	particle->pressureForce = CalculatePressureForceWithRepulsion(i);
 
-		// Acceleration = Force / Density
-		particle->acceleration.x = particle->pressureForce.x / particle->density;
-		particle->acceleration.y = particle->pressureForce.y / particle->density;
-		particle->acceleration.z = particle->pressureForce.z / particle->density;
+	//	// Acceleration = Force / Density
+	//	particle->acceleration.x = particle->pressureForce.x / particle->density;
+	//	particle->acceleration.y = particle->pressureForce.y / particle->density;
+	//	particle->acceleration.z = particle->pressureForce.z / particle->density;
 
-		// Update velocity and position
-		particle->velocity.x += particle->acceleration.x * deltaTime;
-		particle->velocity.y += particle->acceleration.y * deltaTime;
-		particle->velocity.z += particle->acceleration.z * deltaTime;
+	//	// Update velocity and position
+	//	particle->velocity.x += particle->acceleration.x * deltaTime;
+	//	particle->velocity.y += particle->acceleration.y * deltaTime;
+	//	particle->velocity.z += particle->acceleration.z * deltaTime;
 
-		//particle->position.x += particle->velocity.x * deltaTime;
-		//particle->position.y += particle->velocity.y * deltaTime;
-		//particle->position.z += particle->velocity.z * deltaTime;
-	}
+	//	particle->position.x += particle->velocity.x * deltaTime;
+	//	particle->position.y += particle->velocity.y * deltaTime;
+	//	particle->position.z += particle->velocity.z * deltaTime;
+
+	//	// Handle boundary collisions with damping (as in the existing implementation)
+	//	if (particle->position.x < minX) {
+	//		particle->position.x = minX;
+	//		particle->velocity.x *= -1; // Reverse velocity
+	//	}
+	//	else if (particle->position.x > maxX) {
+	//		particle->position.x = maxX;
+	//		particle->velocity.x *= -1;
+	//	}
+
+	//	if (particle->position.y < minY) {
+	//		particle->position.y = minY;
+	//		particle->velocity.y *= -1;
+	//	}
+	//	else if (particle->position.y > maxY) {
+	//		particle->position.y = maxY;
+	//		particle->velocity.y *= -1;
+	//	}
+
+	//	if (particle->position.z < minZ) {
+	//		particle->position.z = minZ;
+	//		particle->velocity.z *= -1;
+	//	}
+	//	else if (particle->position.z > maxZ) {
+	//		particle->position.z = maxZ;
+	//		particle->velocity.z *= -1;
+	//	}
+
+	//	// Apply damping to velocity after collision
+	//	particle->velocity.x *= dampingFactor;
+	//	particle->velocity.y *= dampingFactor;
+	//	particle->velocity.z *= dampingFactor;
+	//}
 }
