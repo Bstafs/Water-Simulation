@@ -141,7 +141,7 @@ private:
 	float rotationY = -0.4f;
 
 	// Collision Box
-	float minX = -150.0f, maxX = 150.0f;
+	float minX = -50.0f, maxX = 50.0f;
 
 	// SPH
 	SPH* sph = nullptr;

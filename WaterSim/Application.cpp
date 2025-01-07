@@ -603,19 +603,25 @@ void Application::Update()
 
 	_camera->Update();
 
-	// Iterate through each instance and update its position
 	for (size_t i = 0; i < NUM_OF_PARTICLES; ++i)
 	{
 		InstanceData& instance = instanceData[i];
 
-		// Update the position based on velocity and deltaTime
-		XMStoreFloat4x4(&instance.World, XMMatrixTranspose(XMMatrixTranslation(sph->particleList[i]->position.x, sph->particleList[i]->position.y, sph->particleList[i]->position.z)));
+		// Update the world matrix based on particle position
+		XMVECTOR position = XMLoadFloat3(&sph->particleList[i]->position);
+		XMStoreFloat4x4(&instance.World, XMMatrixTranspose(XMMatrixTranslationFromVector(position)));
 	}
 
+	// Map and update the GPU buffer
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	HRESULT hr = _pImmediateContext->Map(_pInstanceBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	memcpy(mappedResource.pData, instanceData.data(), sizeof(InstanceData) * instanceData.size());
-	_pImmediateContext->Unmap(_pInstanceBuffer, 0);
+
+	if (SUCCEEDED(hr))
+	{
+		// Copy data efficiently
+		memcpy(mappedResource.pData, instanceData.data(), sizeof(InstanceData) * instanceData.size());
+		_pImmediateContext->Unmap(_pInstanceBuffer, 0);
+	}
 }
 
 void Application::ImGui()
@@ -653,8 +659,8 @@ void Application::ImGui()
 		int particleSize = sph->particleList.size();
 
 		ImGui::DragInt("Number of Particles", &particleSize);
-		ImGui::DragFloat("Min X", &minX, 0.5f, -150.0f, -1.0f);
-		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 150.0f);
+		ImGui::DragFloat("Min X", &minX, 0.5f, -50.0f, -1.0f);
+		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 50.0f);
 		ImGui::Checkbox("Pause", &SimulationControl);
 
 		ImGui::Text("Initial Values");

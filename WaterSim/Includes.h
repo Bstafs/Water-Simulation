@@ -1,7 +1,7 @@
 #pragma once
 
 #define NUM_OF_PARTICLES 5000
-#define SMOOTHING_RADIUS 2.0f
+#define SMOOTHING_RADIUS 2.01f
 
 // DirectX
 #include <windows.h>

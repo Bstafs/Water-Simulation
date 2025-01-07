@@ -426,9 +426,6 @@ void SPH::UpdateSpatialGrid()
 void SPH::UpdateSpatialGridClear(float deltaTime)
 {
 	SimulationParams cb = {};
-	cb.cellSize = 2.5f;
-	cb.gridResolution = 8;
-	cb.maxParticlesPerCell = 15;
 	cb.numParticles = NUM_OF_PARTICLES;
 
 	// Update constant buffer
@@ -457,14 +454,11 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch(50, 1, 1);
+	deviceContext->Dispatch(threadGroupCountX, 1, 1);
 
 	// Unbind UAVs
 	deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(2, 1, uavViewNull, nullptr);
-
-	// Ensure the pipeline is flushed (optional for debugging)
-	deviceContext->Flush();
 
 	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
@@ -475,9 +469,6 @@ void SPH::UpdateSpatialGridClear(float deltaTime)
 void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 {
 	SimulationParams cb = {};
-	cb.cellSize = 2.5f;
-	cb.gridResolution = 8;
-	cb.maxParticlesPerCell = 15;
 	cb.numParticles = NUM_OF_PARTICLES;
 
 	// Update constant buffer
@@ -520,15 +511,12 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch(50, 1, 1);
+	deviceContext->Dispatch(threadGroupCountX, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
 	deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(2, 1, uavViewNull, nullptr);
-
-	// Optional flush for debugging
-	deviceContext->Flush();
 
 	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
@@ -539,9 +527,6 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 void SPH::UpdateParticleDensities(float deltaTime)
 {
 	SimulationParams cb = {};
-	cb.cellSize = 2.5f;
-	cb.gridResolution = 8;
-	cb.maxParticlesPerCell = 15;
 	cb.numParticles = NUM_OF_PARTICLES;
 
 	// Update constant buffer
@@ -586,16 +571,13 @@ void SPH::UpdateParticleDensities(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch(50, 1, 1);
+	deviceContext->Dispatch(threadGroupCountX, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(2, 1, uavViewNull, nullptr);
-
-	// Optional flush for debugging
-	deviceContext->Flush();
 
 	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
@@ -623,9 +605,6 @@ void SPH::UpdateParticleDensities(float deltaTime)
 void SPH::UpdateParticlePressure(float deltaTime)
 {
 	SimulationParams cb = {};
-	cb.cellSize = 2.5f;
-	cb.gridResolution = 8;
-	cb.maxParticlesPerCell = 15;
 	cb.numParticles = NUM_OF_PARTICLES;
 
 	// Update constant buffer
@@ -674,16 +653,13 @@ void SPH::UpdateParticlePressure(float deltaTime)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch(50, 1, 1);
+	deviceContext->Dispatch(threadGroupCountX, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(2, 1, uavViewNull, nullptr);
-
-	// Optional flush for debugging
-	deviceContext->Flush();
 
 	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
@@ -710,9 +686,6 @@ void SPH::UpdateParticlePressure(float deltaTime)
 void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 {
 	SimulationParams cb = {};
-	cb.cellSize = 2.5f;
-	cb.gridResolution = 8;
-	cb.maxParticlesPerCell = 15;
 	cb.numParticles = NUM_OF_PARTICLES;
 
 	// Update constant buffer
@@ -756,14 +729,11 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 	}
 
 	// Dispatch compute shader
-	deviceContext->Dispatch(50, 1, 1);
+	deviceContext->Dispatch(threadGroupCountX, 1, 1);
 
 	// Unbind resources
 	deviceContext->CSSetShaderResources(0, 1, srvNull);
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
-
-	// Optional flush for debugging
-	deviceContext->Flush();
 
 	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
@@ -782,7 +752,6 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 			Particle* particle = particleList[i];
 
 			particle->position = outputData[i].position;
-			particle->velocity = outputData[i].velocity;
 		}
 		deviceContext->Unmap(outputResultBuffer, 0);
 	}
@@ -809,7 +778,7 @@ void SPH::Update(float deltaTime, float minX, float maxX)
 	//	predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
 	//	predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
 
-	//	//particle->velocity.y += -9.81f * deltaTime;
+	//	particle->velocity.y += -9.81f * deltaTime;
 	//    particle->density = CalculateDensity(predictedPositions[i]);
 	//	particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
 	//	particle->pressureForce = CalculatePressureForceWithRepulsion(i);

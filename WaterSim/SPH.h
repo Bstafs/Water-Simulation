@@ -22,10 +22,8 @@ struct ParticlePosition
 
 struct SimulationParams 
 {
-	float cellSize; // Size of each grid cell
-	int gridResolution; // Number of cells along one axis
-	int maxParticlesPerCell; // Maximum particles a cell can hold
 	int numParticles; // Total number of particles
+	XMFLOAT3 padding01;
 };
 
 class SPH
@@ -55,8 +53,6 @@ private:
 	void UpdateParticlePressure(float deltaTime);
 	void UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX);
 
-	void SwapBuffersSpatialGrid();
-	void SwapBuffersIntegrate();
 	bool isBufferSwapped = false;
 	// CPU Side
 	static float DensitySmoothingKernel(float dst, float radius);
@@ -89,6 +85,9 @@ private:
 	int numRandomDirections = 1000;
 
 	SpatialGrid spatialGrid;
+
+	int THREADS_PER_GROUPs = 256;
+	int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 
 	ParticlePosition* position;
 	float mGravity = 0.0f;
