@@ -143,8 +143,9 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
             
             float3 offset =  InputPosition[neighborParticleIndex].position - position;
             float dst = length(offset);
+            float sqrDst = dot(offset, offset);
                      
-            if (dst > smoothingRadius)
+            if (sqrDst > smoothingRadius * smoothingRadius)
                 continue;
                           
             density += mass * DensitySmoothingKernel(dst, smoothingRadius);
@@ -218,9 +219,9 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
             float3 relativeVelocity = velocity - neighborVelocity;
             
             float3 offset = neighborPosition - position;
-            float dst = length(offset);
-                                    
-            if (dst > smoothingRadius)
+            float sqrDst = dot(offset, offset);
+                                      
+            if (sqrDst > smoothingRadius * smoothingRadius)
                 continue;
             
             float neighborDensity = InputPosition[neighbourIndex].density;
@@ -228,6 +229,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
             float neighbourPressure = ConvertDensityToPressure(neighborDensity);
             float neighbourPressureNear = ConvertDensityToPressure(neighborNearDensity);
                        
+            float dst = length(offset);
             float3 direction = normalize(offset);
             
             float poly6 = ViscositySmoothingKernel(dst, smoothingRadius);
