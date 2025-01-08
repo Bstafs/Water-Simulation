@@ -6,7 +6,7 @@
 #include "Particle.h"
 #include "SpatialGrid.h"
 
-struct ParticlePosition
+struct ParticleAttributes
 {
 	XMFLOAT3 position;
 	float deltaTime;
@@ -70,7 +70,6 @@ private:
 
 public:
 	std::vector <Particle*> particleList;
-	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 private:
 	// Particle Initialization
 	float dampingFactor = 0.99f;
@@ -81,15 +80,12 @@ private:
 	float targetDensity = 8.0f;
 	float stiffnessValue = 30.0f;
 
-	std::vector<XMFLOAT3> randomDirections;
-	int numRandomDirections = 1000;
-
 	SpatialGrid spatialGrid;
 
 	int THREADS_PER_GROUPs = 256;
 	int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 
-	ParticlePosition* position;
+	ParticleAttributes* position;
 	float mGravity = 0.0f;
 	vector<XMFLOAT3> predictedPositions;
 
@@ -97,16 +93,11 @@ private:
 	ID3D11Device* device;
 
 	// Compute Shaders
-
-	ID3D11ShaderResourceView* _ppSRVNULL[2] = { nullptr, nullptr };
-	ID3D11UnorderedAccessView* _ppUAVViewNULL[1] = { nullptr };
-
 	ID3D11ComputeShader* FluidSimIntegrateShader = nullptr;
 	ID3D11ComputeShader* SpatialGridClearShader = nullptr;
 	ID3D11ComputeShader* SpatialGridAddParticleShader = nullptr;
 	ID3D11ComputeShader* FluidSimCalculateDensity = nullptr;
 	ID3D11ComputeShader* FluidSimCalculatePressure = nullptr;
-
 
 	// Buffers
 	ID3D11Buffer* inputBuffer = nullptr;

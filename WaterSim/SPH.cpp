@@ -174,7 +174,7 @@ void SPH::InitComputeIntegrateShader()
 		FluidSimIntegrateShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
 		SetDebugName(FluidSimIntegrateShader, "Integrate Shader");
 
-		ParticlePosition* position = new ParticlePosition[NUM_OF_PARTICLES];
+		ParticleAttributes* position = new ParticleAttributes[NUM_OF_PARTICLES];
 
 		for (int i = 0; i < particleList.size(); i++)
 		{
@@ -187,17 +187,17 @@ void SPH::InitComputeIntegrateShader()
 			position[i].nearDensity = particle->nearDensity;
 		}
 
-		inputBuffer = CreateStructureBuffer(sizeof(ParticlePosition), (float*)position, NUM_OF_PARTICLES, device);
+		inputBuffer = CreateStructureBuffer(sizeof(ParticleAttributes), (float*)position, NUM_OF_PARTICLES, device);
 
 		inputViewIntegrateA = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
 		inputViewIntegrateB = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
 
 		D3D11_BUFFER_DESC outputDesc;
 		outputDesc.Usage = D3D11_USAGE_DEFAULT;
-		outputDesc.ByteWidth = sizeof(ParticlePosition) * NUM_OF_PARTICLES;
+		outputDesc.ByteWidth = sizeof(ParticleAttributes) * NUM_OF_PARTICLES;
 		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
 		outputDesc.CPUAccessFlags = 0;
-		outputDesc.StructureByteStride = sizeof(ParticlePosition);
+		outputDesc.StructureByteStride = sizeof(ParticleAttributes);
 		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 		device->CreateBuffer(&outputDesc, 0, &outputBuffer);
 
@@ -485,7 +485,7 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 	 hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
 	{
-		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		ParticleAttributes* inputData = reinterpret_cast<ParticleAttributes*>(mappedInputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			inputData[i].position = particleList[i]->position;
@@ -543,7 +543,7 @@ void SPH::UpdateParticleDensities(float deltaTime)
 	 hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
 	{
-		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		ParticleAttributes* inputData = reinterpret_cast<ParticleAttributes*>(mappedInputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			inputData[i].position = particleList[i]->position;
@@ -590,7 +590,7 @@ void SPH::UpdateParticleDensities(float deltaTime)
 	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
 	if (SUCCEEDED(hr))
 	{
-		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
+		ParticleAttributes* outputData = reinterpret_cast<ParticleAttributes*>(mappedOutputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			particleList[i]->density = outputData[i].density;
@@ -621,7 +621,7 @@ void SPH::UpdateParticlePressure(float deltaTime)
 	 hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
 	{
-		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		ParticleAttributes* inputData = reinterpret_cast<ParticleAttributes*>(mappedInputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			inputData[i].position = particleList[i]->position;
@@ -672,7 +672,7 @@ void SPH::UpdateParticlePressure(float deltaTime)
 	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
 	if (SUCCEEDED(hr))
 	{
-		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
+		ParticleAttributes* outputData = reinterpret_cast<ParticleAttributes*>(mappedOutputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			particleList[i]->velocity = outputData[i].velocity;
@@ -702,7 +702,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 	 hr = deviceContext->Map(inputBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedInputResource);
 	if (SUCCEEDED(hr))
 	{
-		ParticlePosition* inputData = reinterpret_cast<ParticlePosition*>(mappedInputResource.pData);
+		ParticleAttributes* inputData = reinterpret_cast<ParticleAttributes*>(mappedInputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			inputData[i].position = particleList[i]->position;
@@ -746,7 +746,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
 	if (SUCCEEDED(hr))
 	{
-		ParticlePosition* outputData = reinterpret_cast<ParticlePosition*>(mappedOutputResource.pData);
+		ParticleAttributes* outputData = reinterpret_cast<ParticleAttributes*>(mappedOutputResource.pData);
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			Particle* particle = particleList[i];
@@ -761,7 +761,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	UpdateSpatialGridClear(deltaTime);
+	//UpdateSpatialGridClear(deltaTime);
 	UpdateAddParticlesToSpatialGrid(deltaTime);
     UpdateParticleDensities(deltaTime);
 	UpdateParticlePressure(deltaTime);

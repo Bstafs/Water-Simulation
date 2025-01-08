@@ -1,6 +1,6 @@
 #include "FluidMaths.hlsl"
 
-struct ParticlePosition
+struct ParticleAttributes
 {
     float3 position; // 12 bytes
     float deltaTime; // 4 bytes (16-byte aligned)
@@ -20,9 +20,9 @@ cbuffer SimulationParams : register(b0)
     float3 padding01;
 };
 
-StructuredBuffer<ParticlePosition> InputPosition : register(t0);
+StructuredBuffer<ParticleAttributes> InputPosition : register(t0);
 
-RWStructuredBuffer<ParticlePosition> OutputPosition : register(u0); // Output UAV
+RWStructuredBuffer<ParticleAttributes> OutputPosition : register(u0); // Output UAV
 RWStructuredBuffer<uint3> GridIndices : register(u1); // Grid buffer: holds indices to particles
 RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particles per cell
 
@@ -130,7 +130,7 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
         uint key = KeyFromHash(hash, numParticles);
         int currentIndex = GridOffsets[key];
          
-        while (currentIndex <= numParticles)
+        while (currentIndex < numParticles)
         {           
             uint3 indexData = GridIndices[currentIndex];
             currentIndex++;
@@ -198,7 +198,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
         uint key = KeyFromHash(hash, numParticles);
         uint currIndex = GridOffsets[key];
      
-        while (currIndex <= numParticles)
+        while (currIndex < numParticles)
         {       
             uint3 indexData = GridIndices[currIndex];
             currIndex++;
@@ -248,6 +248,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     
     // Apply the calculated force to update the particle's velocity (acceleration = force / density)
     float3 acceleration = totalForce / density;
+    
     OutputPosition[dispatchThreadId.x].velocity.xyz += acceleration * deltaTime;
 }
 
@@ -264,40 +265,38 @@ void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float max
     if (pos.x < minX)
     {
         pos.x = minX;
-        velocity.x *= -1;
+        velocity.x *= -1.0f;
     }
     else if (pos.x > maxX)
     {
         pos.x = maxX;
-        velocity.x *= -1;
+        velocity.x *= -1.0f;
     }
 
     if (pos.y < minY)
     {
         pos.y = minY;
-        velocity.y *= -1;
+        velocity.y *= -1.0f;
     }
     else if (pos.y > maxY)
     {
         pos.y = maxY;
-        velocity.y *= -1;
+        velocity.y *= -1.0f;
     }
 
     if (pos.z < minZ)
     {
         pos.z = minZ;
-        velocity.z *= -1;
+        velocity.z *= -1.0f;
     }
     else if (pos.z > maxZ)
     {
         pos.z = maxZ;
-        velocity.z *= -1;
+        velocity.z *= -1.0f;
     }
 
-		// Apply damping to velocity after collision
-    velocity.x *= dampingFactor;
-    velocity.y *= dampingFactor;
-    velocity.z *= dampingFactor;
+	// Apply damping to velocity after collision
+    velocity *= dampingFactor;
 }
 
 [numthreads(ThreadCount, 1, 1)]
