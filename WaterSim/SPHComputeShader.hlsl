@@ -67,6 +67,7 @@ static const uint hashK1 = 15823;
 static const uint hashK2 = 9737333;
 static const uint hashK3 = 440817757;
 
+
 // Utility functions
 int3 GetCell3D(float3 position, float radius)
 {
@@ -110,6 +111,12 @@ void AddParticlesToGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
         );
 }
 
+// Bitonic sort compute shader
+[numthreads(ThreadCount, 1, 1)]
+void BitonicSort(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+
+}
 
 [numthreads(ThreadCount, 1, 1)]
 void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -117,6 +124,7 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (dispatchThreadId.x >= numParticles)
         return;
 
+    
     float3 position = InputPosition[dispatchThreadId.x].position;
     float density = 0.0f;
     float nearDensity = 0.0f;
@@ -124,33 +132,39 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     int3 gridIndex = GetCell3D(position, smoothingRadius);  
     
-    for (int i = 0; i < 27; i++)
+    for (int dx = -1; dx <= 1; ++dx)
     {
-        uint hash = HashCell3D(gridIndex + offsets3D[i]);
-        uint key = KeyFromHash(hash, numParticles);
-        int currentIndex = GridOffsets[key];
+        for (int dy = -1; dy <= 1; ++dy)
+        {
+            for (int dz = -1; dz <= 1; ++dz)
+            {
+                uint hash = HashCell3D(gridIndex + uint3(dx,dy,dz));
+                uint key = KeyFromHash(hash, numParticles);
+                int currentIndex = GridOffsets[key];
          
-        while (currentIndex < numParticles)
-        {           
-            uint3 indexData = GridIndices[currentIndex];
-            currentIndex++;
+                while (currentIndex < numParticles)
+                {
+                    uint3 indexData = GridIndices[currentIndex];
+                    currentIndex++;
 
 			// Skip if hash does not match
-            if (indexData[1] != hash)
-                continue;
-                                      
-            uint neighborParticleIndex = indexData[0];
+                    if (indexData[1] != hash)
+                        continue;
+                                 
+                    uint neighborParticleIndex = indexData[0];
             
-            float3 offset =  InputPosition[neighborParticleIndex].position - position;
-            float dst = length(offset);
-            float sqrDst = dot(offset, offset);
+                    float3 offset = InputPosition[neighborParticleIndex].position - position;
+                    float dst = length(offset);
+                    float sqrDst = dot(offset, offset);
                      
-            if (sqrDst > smoothingRadius * smoothingRadius)
-                continue;
+                    if (sqrDst > smoothingRadius * smoothingRadius)
+                        continue;
                           
-            density += mass * DensitySmoothingKernel(dst, smoothingRadius);
-            nearDensity += mass * NearDensitySmoothingKernel(dst, smoothingRadius);
-        }                  
+                    density += mass * DensitySmoothingKernel(dst, smoothingRadius);
+                    nearDensity += mass * NearDensitySmoothingKernel(dst, smoothingRadius);
+                }
+            }
+        }
     }
 
     OutputPosition[dispatchThreadId.x].density = density;
@@ -193,56 +207,63 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     int3 gridIndex = GetCell3D(position, smoothingRadius);
     float viscosityCoefficient = 0.05f;
     
-    for (int i = 0; i < 27; i++)
-    { 
-        uint hash = HashCell3D(gridIndex + offsets3D[i]);
-        uint key = KeyFromHash(hash, numParticles);
-        uint currIndex = GridOffsets[key];
+    for (int dx = -1; dx <= 1; ++dx)
+    {
+        for (int dy = -1; dy <= 1; ++dy)
+        {
+            for (int dz = -1; dz <= 1; ++dz)
+            {
+                uint hash = HashCell3D(gridIndex + uint3(dx,dy,dz));
+                uint key = KeyFromHash(hash, numParticles);
+                uint currIndex = GridOffsets[key];
      
-        while (currIndex < numParticles)
-        {       
-            uint3 indexData = GridIndices[currIndex];
-            currIndex++;
+                while (currIndex < numParticles)
+                {
+                    uint3 indexData = GridIndices[currIndex];
+                    currIndex++;
             
 			// Skip if hash does not match
-            if (indexData[1] != hash)
-                continue;
+                    if (indexData[1] != hash)
+                        continue;
             
-            uint neighbourIndex = indexData[0];
-            if (neighbourIndex == dispatchThreadId.x)
-                continue;
+                    uint neighbourIndex = indexData[0];
+                    if (neighbourIndex == dispatchThreadId.x)
+                        continue;
+
             
              // Get the neighbor's position, velocity, and other properties
-            float3 neighborPosition = InputPosition[neighbourIndex].position;
-            float3 neighborVelocity = InputPosition[neighbourIndex].velocity;
+                    float3 neighborPosition = InputPosition[neighbourIndex].position;
+                    float3 neighborVelocity = InputPosition[neighbourIndex].velocity;
          
-            float3 relativeVelocity = velocity - neighborVelocity;
+                    float3 relativeVelocity = velocity - neighborVelocity;
             
-            float3 offset = neighborPosition - position;
-            float sqrDst = dot(offset, offset);
+                    float3 offset = neighborPosition - position;
+                    float sqrDst = dot(offset, offset);
                                       
-            if (sqrDst > smoothingRadius * smoothingRadius)
-                continue;
+                    if (sqrDst > smoothingRadius * smoothingRadius)
+                        continue;
             
-            float neighborDensity = InputPosition[neighbourIndex].density;
-            float neighborNearDensity = InputPosition[neighbourIndex].nearDensity;
-            float neighbourPressure = ConvertDensityToPressure(neighborDensity);
-            float neighbourPressureNear = ConvertDensityToPressure(neighborNearDensity);
+                    float neighborDensity = InputPosition[neighbourIndex].density;
+                    float neighborNearDensity = InputPosition[neighbourIndex].nearDensity;
+                    float neighbourPressure = ConvertDensityToPressure(neighborDensity);
+                    float neighbourPressureNear = ConvertDensityToPressure(neighborNearDensity);
                        
-            float dst = length(offset);
-            float3 direction = normalize(offset);
+                    float dst = length(offset);
+                    float3 direction = normalize(offset);
             
-            float poly6 = ViscositySmoothingKernel(dst, smoothingRadius);
-            float kernelDerivative = PressureSmoothingKernel(dst, smoothingRadius);
-            float nearKernelDerivative = NearDensitySmoothingKernelDerivative(dst, smoothingRadius);
+                    float poly6 = ViscositySmoothingKernel(dst, smoothingRadius);
+                    float kernelDerivative = PressureSmoothingKernel(dst, smoothingRadius);
+                    float nearKernelDerivative = NearDensitySmoothingKernelDerivative(dst, smoothingRadius);
  
-            float sharedPressure = CalculateSharedPressure(pressure, neighbourPressure);
-            float sharedNearPressure = CalculateSharedPressure(nearPressure, neighbourPressureNear);
+                    float sharedPressure = CalculateSharedPressure(pressure, neighbourPressure);
+                    float sharedNearPressure = CalculateSharedPressure(nearPressure, neighbourPressureNear);
             
-            pressureForce += direction * kernelDerivative * -sharedPressure;
-            repulsionForce += direction * nearKernelDerivative * -sharedNearPressure;
-            viscousForce += viscosityCoefficient * relativeVelocity * poly6;
-        }                  
+                    pressureForce += direction * kernelDerivative * -sharedPressure;
+                    repulsionForce += direction * nearKernelDerivative * -sharedNearPressure;
+                    viscousForce += viscosityCoefficient * relativeVelocity * poly6;
+                }
+            }
+        }
     }
 
     // Sum up the forces from pressure and repulsion

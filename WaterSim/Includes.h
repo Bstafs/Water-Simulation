@@ -31,6 +31,9 @@
 #include <ctime>   
 #include <algorithm>
 #include <thread>
+#include <future>
+#include <functional>
+#include <mutex>
 
 // Physics / Objects
 #include "Quaternion.h"

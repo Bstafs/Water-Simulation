@@ -16,6 +16,7 @@ SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 	InitParticles();
 	InitSpatialGridClear();
 	InitAddParticlesToSpatialGrid();
+	InitBitonicSorting();
 	InitParticleDensities();
 	InitParticlePressure();
 	InitComputeIntegrateShader();
@@ -152,6 +153,13 @@ void SPH::InitAddParticlesToSpatialGrid()
 
 	{
 		SpatialGridAddParticleShader = CreateComputeShader(L"SPHComputeShader.hlsl", "AddParticlesToGrid", device);
+	}
+}
+
+void SPH::InitBitonicSorting()
+{
+	{
+		BitonicSortingShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BitonicSort", device);
 	}
 }
 
@@ -524,6 +532,46 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 	isBufferSwapped = !isBufferSwapped;
 }
 
+void SPH::UpdateBitonicSorting(float deltaTime)
+{
+	SimulationParams cb = {};
+	cb.numParticles = NUM_OF_PARTICLES;
+
+	// Update constant buffer
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	HRESULT hr = deviceContext->Map(SpatialGridConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	if (SUCCEEDED(hr))
+	{
+		memcpy(mappedResource.pData, &cb, sizeof(SimulationParams));
+		deviceContext->Unmap(SpatialGridConstantBuffer, 0);
+	}
+
+	// Bind compute shader and resources
+	deviceContext->CSSetShader(BitonicSortingShader, nullptr, 0);
+	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
+
+	if (isBufferSwapped == false)
+	{
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridA, nullptr);
+	}
+	else
+	{
+		deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridB, nullptr);
+	}
+
+	// Dispatch compute shader
+	deviceContext->Dispatch(threadGroupCountX, 1, 1);
+
+	// Unbind resources
+	deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
+
+	// Unbind compute shader
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+
+	isBufferSwapped = !isBufferSwapped;
+}
+
+
 void SPH::UpdateParticleDensities(float deltaTime)
 {
 	SimulationParams cb = {};
@@ -683,6 +731,8 @@ void SPH::UpdateParticlePressure(float deltaTime)
 	isBufferSwapped = !isBufferSwapped;
 }
 
+
+
 void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 {
 	SimulationParams cb = {};
@@ -761,12 +811,14 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	//UpdateSpatialGridClear(deltaTime);
+	//// GPU Side
+	UpdateSpatialGridClear(deltaTime);
 	UpdateAddParticlesToSpatialGrid(deltaTime);
     UpdateParticleDensities(deltaTime);
 	UpdateParticlePressure(deltaTime);
 	UpdateIntegrateComputeShader(deltaTime, minX, maxX);
 
+	// CPU Side
 	//UpdateSpatialGrid();
 
 	//for (int i = 0; i < particleList.size(); ++i)

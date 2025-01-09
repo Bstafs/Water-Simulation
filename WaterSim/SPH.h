@@ -42,6 +42,7 @@ private:
 	// GPU Side
 	void InitSpatialGridClear();
 	void InitAddParticlesToSpatialGrid();
+	void InitBitonicSorting();
 	void InitParticleDensities();
 	void InitParticlePressure();
 	void InitComputeIntegrateShader();
@@ -49,6 +50,7 @@ private:
 	void UpdateSpatialGrid();
 	void UpdateSpatialGridClear(float deltaTime);
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
+	void UpdateBitonicSorting(float deltaTime);
 	void UpdateParticleDensities(float deltaTime);
 	void UpdateParticlePressure(float deltaTime);
 	void UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX);
@@ -96,6 +98,7 @@ private:
 	ID3D11ComputeShader* FluidSimIntegrateShader = nullptr;
 	ID3D11ComputeShader* SpatialGridClearShader = nullptr;
 	ID3D11ComputeShader* SpatialGridAddParticleShader = nullptr;
+	ID3D11ComputeShader* BitonicSortingShader = nullptr;
 	ID3D11ComputeShader* FluidSimCalculateDensity = nullptr;
 	ID3D11ComputeShader* FluidSimCalculatePressure = nullptr;
 
