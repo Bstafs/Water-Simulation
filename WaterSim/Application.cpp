@@ -394,10 +394,10 @@ HRESULT Application::InitDevice()
 
 	UINT createDeviceFlags = 0;
 
-	// comment this out
-#ifdef _DEBUG
-	createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
+//	// comment this out
+//#ifdef _DEBUG
+//	createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+//#endif
 
 	D3D_DRIVER_TYPE driverTypes[] =
 	{
@@ -425,7 +425,7 @@ HRESULT Application::InitDevice()
 	sd.BufferDesc.Width = _renderWidth;
 	sd.BufferDesc.Height = _renderHeight;
 	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
+	sd.BufferDesc.RefreshRate.Numerator = 144;
 	sd.BufferDesc.RefreshRate.Denominator = 1;
 	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.OutputWindow = _hWnd;
@@ -482,7 +482,7 @@ HRESULT Application::InitDevice()
 
 	InitShadersAndInputLayout();
 
-	CreateSphere(1.0f, 32, sphereVertices, sphereIndices);
+	CreateSphere(1.0f, 16, sphereVertices, sphereIndices);
 	InitBuffers();
 
 	// Set primitive topology

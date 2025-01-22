@@ -248,22 +248,22 @@ float SPH::NearDensitySmoothingKernel(float dst, float radius)
 	return 0.0f;
 }
 
-float SPH::NearDensitySmoothingKernelDerivative(float dst, float radius)
-{
-	if (dst >= 0 && dst <= radius) {
-		const float scale = 45.0f / (pow(abs(radius), 6) * XM_PI);
-		float diff = radius - dst;
-		return -diff * diff * scale;
-	}
-	return 0.0f;
-}
-
 float SPH::PressureSmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
 		const float scale = 15.0f / (pow(abs(radius), 5) * XM_PI);
 		float diff = radius - dst;
 		return -diff * scale;
+	}
+	return 0.0f;
+}
+
+float SPH::NearDensitySmoothingKernelDerivative(float dst, float radius)
+{
+	if (dst >= 0 && dst <= radius) {
+		const float scale = 45.0f / (pow(abs(radius), 6) * XM_PI);
+		float diff = radius - dst;
+		return -diff * diff * scale;
 	}
 	return 0.0f;
 }
@@ -811,7 +811,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 
 void SPH::Update(float deltaTime, float minX, float maxX)
 {
-	//// GPU Side
+	// GPU Side
 	UpdateSpatialGridClear(deltaTime);
 	UpdateAddParticlesToSpatialGrid(deltaTime);
     UpdateParticleDensities(deltaTime);

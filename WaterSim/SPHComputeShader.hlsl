@@ -28,7 +28,7 @@ RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particl
 
 static const float targetDensity = 4.0f;
 static const float stiffnessValue = 20.0f;
-static const float smoothingRadius = 2.01f;
+static const float smoothingRadius = 2.001f;
 static const uint particlesPerCell = 1;
 static const int ThreadCount = 256;
 
