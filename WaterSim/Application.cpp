@@ -315,12 +315,12 @@ void Application::CreateSphere(float radius, int numSubdivisions, std::vector<Si
 			int v3 = v2 + 1;
 
 			indices.push_back(v0);
-			indices.push_back(v2);
 			indices.push_back(v1);
+			indices.push_back(v2);
 
 			indices.push_back(v1);
-			indices.push_back(v2);
 			indices.push_back(v3);
+			indices.push_back(v2);
 		}
 	}
 }
@@ -537,6 +537,8 @@ HRESULT Application::InitDevice()
 
 	cmdesc.FrontCounterClockwise = false;
 	hr = _pd3dDevice->CreateRasterizerState(&cmdesc, &CWcullMode);
+
+	_pImmediateContext->RSSetState(CWcullMode);
 
 	return hr;
 }
@@ -762,5 +764,5 @@ void Application::Draw()
 
 	ImGui();
 
-	_pSwapChain->Present(0, 0);
+	_pSwapChain->Present(1, 0);
 }

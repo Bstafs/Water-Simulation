@@ -44,8 +44,6 @@ public:
 
 	void Draw(ID3D11DeviceContext* pImmediateContext);
 	void DrawInstanced(ID3D11DeviceContext* pImmediateContext, UINT instances);
-
-
 private:
 
 	ID3D11ShaderResourceView* _textureRV;
