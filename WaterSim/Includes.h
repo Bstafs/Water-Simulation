@@ -1,6 +1,6 @@
 #pragma once
 
-#define NUM_OF_PARTICLES 5000
+#define NUM_OF_PARTICLES 4096
 #define SMOOTHING_RADIUS 2.001f
 
 // DirectX

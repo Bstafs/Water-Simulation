@@ -26,6 +26,14 @@ struct SimulationParams
 	XMFLOAT3 padding01;
 };
 
+struct BitonicParams
+{
+	unsigned int numElements;
+	unsigned int k;
+	unsigned int j;
+	unsigned int padding;
+};
+
 class SPH
 {
 public:
@@ -43,6 +51,7 @@ private:
 	void InitSpatialGridClear();
 	void InitAddParticlesToSpatialGrid();
 	void InitBitonicSorting();
+	void InitBuildGridOffsets();
 	void InitParticleDensities();
 	void InitParticlePressure();
 	void InitComputeIntegrateShader();
@@ -51,6 +60,7 @@ private:
 	void UpdateSpatialGridClear(float deltaTime);
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
 	void UpdateBitonicSorting(float deltaTime);
+	void UpdateBuildGridOffsets(float deltaTime);
 	void UpdateParticleDensities(float deltaTime);
 	void UpdateParticlePressure(float deltaTime);
 	void UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX);
@@ -84,7 +94,7 @@ private:
 
 	SpatialGrid spatialGrid;
 
-	int THREADS_PER_GROUPs = 256;
+	int THREADS_PER_GROUPs = 64;
 	int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 
 	ParticleAttributes* position;
@@ -99,6 +109,7 @@ private:
 	ID3D11ComputeShader* SpatialGridClearShader = nullptr;
 	ID3D11ComputeShader* SpatialGridAddParticleShader = nullptr;
 	ID3D11ComputeShader* BitonicSortingShader = nullptr;
+	ID3D11ComputeShader* GridOffsetsShader = nullptr;
 	ID3D11ComputeShader* FluidSimCalculateDensity = nullptr;
 	ID3D11ComputeShader* FluidSimCalculatePressure = nullptr;
 
@@ -108,6 +119,7 @@ private:
 	ID3D11Buffer*  outputResultBuffer = nullptr;
 
 	ID3D11Buffer*  SpatialGridConstantBuffer = nullptr;
+	ID3D11Buffer*  BitonicSortConstantBuffer = nullptr;
 
 	// Grid Buffer
 	ID3D11Buffer* SpatialGridOutputBuffer = nullptr;
