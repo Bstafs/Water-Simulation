@@ -130,7 +130,7 @@ void BuildGridOffsets(uint3 dispatchThreadID : SV_DispatchThreadID)
     if (i == 0 || GridIndices[i].y != GridIndices[i - 1].y)
     {
         // If first element or a new hash, store index
-        GridOffsets[GridIndices[i].y] = i;
+        GridOffsets[GridIndices[i].z] = i;
     }
 }
 
@@ -357,11 +357,11 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float minX = InputPosition[dispatchThreadID.x].minX;
     float maxX = InputPosition[dispatchThreadID.x].maxX;
    
+    CollisionBox(inputPosition, inputVelocity, minX, maxX);   
+    
     inputVelocity.y += -9.81f * deltaTime;
     
     inputPosition += inputVelocity * deltaTime;
-    
-    CollisionBox(inputPosition, inputVelocity, minX, maxX);   
     
     OutputPosition[dispatchThreadID.x].position = inputPosition;
     OutputPosition[dispatchThreadID.x].velocity = inputVelocity;
