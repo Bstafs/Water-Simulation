@@ -356,12 +356,14 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float deltaTime = max(InputPosition[dispatchThreadID.x].deltaTime, 0.001f);
     float minX = InputPosition[dispatchThreadID.x].minX;
     float maxX = InputPosition[dispatchThreadID.x].maxX;
-   
-    CollisionBox(inputPosition, inputVelocity, minX, maxX);   
     
-    inputVelocity.y += -9.81f * deltaTime;
+
+        inputVelocity.y += -9.81f * deltaTime;
+        
+        inputPosition += inputVelocity * deltaTime;
     
-    inputPosition += inputVelocity * deltaTime;
+        CollisionBox(inputPosition, inputVelocity, minX, maxX);
+    
     
     OutputPosition[dispatchThreadID.x].position = inputPosition;
     OutputPosition[dispatchThreadID.x].velocity = inputVelocity;

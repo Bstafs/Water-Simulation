@@ -764,5 +764,5 @@ void Application::Draw()
 
 	ImGui();
 
-	_pSwapChain->Present(1, 0);
+	_pSwapChain->Present(0, 0);
 }
