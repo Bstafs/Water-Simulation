@@ -8,9 +8,8 @@ SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 	deviceContext = contextdevice;
 	this->device = device;
 
-	// Particle Resize - Since I'm Going to be looping through the particles 3 times for the x,y,z position.
-	particleList.resize(NUM_OF_PARTICLES);
-	predictedPositions.resize(NUM_OF_PARTICLES);
+	particleList.reserve(NUM_OF_PARTICLES);
+	predictedPositions.reserve(NUM_OF_PARTICLES);
 
 	// Particle Initialization
 	InitParticles();
@@ -84,7 +83,7 @@ void SPH::InitParticles()
 		newParticle->position.y = y;
 		newParticle->position.z = z;
 
-		particleList[i] = newParticle;
+		particleList.emplace_back(newParticle);
 	}
 }
 
@@ -723,7 +722,7 @@ void SPH::UpdateParticlePressure(float deltaTime)
 	}
 }
 
-void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
+void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ)
 {
 	SimulationParams cb = {};
 	cb.numParticles = NUM_OF_PARTICLES;
@@ -741,7 +740,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 			inputData[i].deltaTime = deltaTime;
 			inputData[i].velocity = particleList[i]->velocity;
 			inputData[i].minX = minX;
-			inputData[i].maxX = maxX;
+			inputData[i].minZ = minZ;
 		}
 		deviceContext->Unmap(inputBuffer, 0);
 	}
@@ -789,7 +788,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX)
 	}
 }
 
-void SPH::Update(float deltaTime, float minX, float maxX)
+void SPH::Update(float deltaTime, float minX, float minZ)
 {
 	// GPU Side
 	UpdateSpatialGridClear(deltaTime);
@@ -798,72 +797,72 @@ void SPH::Update(float deltaTime, float minX, float maxX)
 	UpdateBuildGridOffsets(deltaTime);
 	UpdateParticleDensities(deltaTime);
 	UpdateParticlePressure(deltaTime);
-	UpdateIntegrateComputeShader(deltaTime, minX, maxX);
+	UpdateIntegrateComputeShader(deltaTime, minX, minZ);
 
 	isBufferSwapped = !isBufferSwapped;
 
-	//// CPU Side
-	////UpdateSpatialGrid();
-
-	////for (int i = 0; i < particleList.size(); ++i)
-	////{
-	////	Particle* particle = particleList[i];
-
-	////	 Apply forces and update properties
-	////	predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
-	////	predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
-	////	predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
-
-	////	particle->velocity.y += -9.81f * deltaTime;
-	////    particle->density = CalculateDensity(predictedPositions[i]);
-	////	particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
-	////	particle->pressureForce = CalculatePressureForceWithRepulsion(i);
-
-	////	 Acceleration = Force / Density
-	////	particle->acceleration.x = particle->pressureForce.x / particle->density;
-	////	particle->acceleration.y = particle->pressureForce.y / particle->density;
-	////	particle->acceleration.z = particle->pressureForce.z / particle->density;
-
-	////	 Update velocity and position
-	////	particle->velocity.x += particle->acceleration.x * deltaTime;
-	////	particle->velocity.y += particle->acceleration.y * deltaTime;
-	////	particle->velocity.z += particle->acceleration.z * deltaTime;
-
-	////	particle->position.x += particle->velocity.x * deltaTime;
-	////	particle->position.y += particle->velocity.y * deltaTime;
-	////	particle->position.z += particle->velocity.z * deltaTime;
-
-	////	 Handle boundary collisions with damping (as in the existing implementation)
-	////	if (particle->position.x < minX) {
-	////		particle->position.x = minX;
-	////		particle->velocity.x *= -1; // Reverse velocity
-	////	}
-	////	else if (particle->position.x > maxX) {
-	////		particle->position.x = maxX;
-	////		particle->velocity.x *= -1;
-	////	}
-
-	////	if (particle->position.y < minY) {
-	////		particle->position.y = minY;
-	////		particle->velocity.y *= -1;
-	////	}
-	////	else if (particle->position.y > maxY) {
-	////		particle->position.y = maxY;
-	////		particle->velocity.y *= -1;
-	////	}
-
-	////	if (particle->position.z < minZ) {
-	////		particle->position.z = minZ;
-	////		particle->velocity.z *= -1;
-	////	}
-	////	else if (particle->position.z > maxZ) {
-	////		particle->position.z = maxZ;
-	////		particle->velocity.z *= -1;
-	////	}
-
-	////	 Apply damping to velocity after collision
-	////	particle->velocity.x *= dampingFactor;
-	////	particle->velocity.y *= dampingFactor;
-	////	particle->velocity.z *= dampingFactor;
-	////}
+////	 CPU Side
+//	UpdateSpatialGrid();
+//`
+//	for (int i = 0; i < particleList.size(); ++i)
+//	{
+//		Particle* particle = particleList[i];
+//
+//		// Apply forces and update properties
+//		predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
+//		predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
+//		predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
+//
+//		particle->velocity.y += -9.81f * deltaTime;
+//	    particle->density = CalculateDensity(predictedPositions[i]);
+//		particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
+//		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
+//
+//		// Acceleration = Force / Density
+//		particle->acceleration.x = particle->pressureForce.x / particle->density;
+//		particle->acceleration.y = particle->pressureForce.y / particle->density;
+//		particle->acceleration.z = particle->pressureForce.z / particle->density;
+//
+//		// Update velocity and position
+//		particle->velocity.x += particle->acceleration.x * deltaTime;
+//		particle->velocity.y += particle->acceleration.y * deltaTime;
+//		particle->velocity.z += particle->acceleration.z * deltaTime;
+//
+//		particle->position.x += particle->velocity.x * deltaTime;
+//		particle->position.y += particle->velocity.y * deltaTime;
+//		particle->position.z += particle->velocity.z * deltaTime;
+//
+//		// Handle boundary collisions with damping (as in the existing implementation)
+//		if (particle->position.x < minX) {
+//			particle->position.x = minX;
+//			particle->velocity.x *= -1; // Reverse velocity
+//		}
+//		else if (particle->position.x > maxX) {
+//			particle->position.x = maxX;
+//			particle->velocity.x *= -1;
+//		}
+//
+//		if (particle->position.y < minY) {
+//			particle->position.y = minY;
+//			particle->velocity.y *= -1;
+//		}
+//		else if (particle->position.y > maxY) {
+//			particle->position.y = maxY;
+//			particle->velocity.y *= -1;
+//		}
+//
+//		if (particle->position.z < minZ) {
+//			particle->position.z = minZ;
+//			particle->velocity.z *= -1;
+//		}
+//		else if (particle->position.z > maxZ) {
+//			particle->position.z = maxZ;
+//			particle->velocity.z *= -1;
+//		}
+//
+//		// Apply damping to velocity after collision
+//		particle->velocity.x *= dampingFactor;
+//		particle->velocity.y *= dampingFactor;
+//		particle->velocity.z *= dampingFactor;
+//	}
 }

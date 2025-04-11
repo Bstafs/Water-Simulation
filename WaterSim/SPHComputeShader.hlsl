@@ -11,7 +11,7 @@ struct ParticleAttributes
     float padding; // 12 bytes
     float nearDensity; // 4 bytes (16-byte aligned)
     float minX; 
-    float maxX;
+    float minZ;
 };
 
 cbuffer SimulationParams : register(b0)
@@ -37,7 +37,7 @@ RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particl
 static const float targetDensity = 8.0f;
 static const float stiffnessValue = 30.0f;
 static const float smoothingRadius = 2.5f;
-static const uint particlesPerCell = 15;
+static const uint particlesPerCell = 100;
 static const int ThreadCount = 64;
 
 static const uint hashK1 = 15823;
@@ -168,6 +168,7 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
                     currentIndex++;
 
 			// Skip if hash does not match
+                    
                     if (indexData[1] != hash)
                         continue;
                                  
@@ -223,7 +224,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 repulsionForce = float3(0.0f, 0.0f, 0.0f);
     float3 viscousForce = float3(0.0f, 0.0f, 0.0f);
     int3 gridIndex = GetCell3D(position, smoothingRadius);
-    float viscosityCoefficient = 0.05f;
+    float viscosityCoefficient = 0.5f;
     
     for (int dx = -1; dx <= 1; ++dx)
     {
@@ -275,13 +276,13 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
             
                     float dst = sqrt(sqrDst);
                     float3 direction = normalize(offset);
-                    
+                  
                     float poly6 = ViscositySmoothingKernel(dst, smoothingRadius);
                     float kernelDerivative = PressureSmoothingKernel(dst, smoothingRadius);
                     float nearKernelDerivative = NearDensitySmoothingKernelDerivative(dst, smoothingRadius);
                     
-                    pressureForce += direction * kernelDerivative * -sharedPressure;
-                    repulsionForce += direction * nearKernelDerivative * -sharedNearPressure;
+                    pressureForce += direction * kernelDerivative * -sharedPressure / neighborDensity;
+                    repulsionForce += direction * nearKernelDerivative * -sharedNearPressure / neighborNearDensity;
                     viscousForce += relativeVelocity * poly6;
                 }
             }
@@ -297,13 +298,11 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     OutputPosition[dispatchThreadId.x].velocity.xyz += acceleration * deltaTime;
 }
 
-void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX)
+void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX, float minZ, float maxZ)
 {
     float minY = -30.0f;
-    float minZ = -15.0f;
 
     float maxY = 50.0f;
-    float maxZ = 15.0f;
     
     float dampingFactor = 0.99f;
     
@@ -355,16 +354,14 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 inputVelocity = InputPosition[dispatchThreadID.x].velocity;
     float deltaTime = max(InputPosition[dispatchThreadID.x].deltaTime, 0.001f);
     float minX = InputPosition[dispatchThreadID.x].minX;
-    float maxX = InputPosition[dispatchThreadID.x].maxX;
+    float minZ = InputPosition[dispatchThreadID.x].minZ;
     
-
-        inputVelocity.y += -9.81f * deltaTime;
-        
-        inputPosition += inputVelocity * deltaTime;
+    inputVelocity.y += -15.0f * 1.0f / 60.0f;
+         
+    inputPosition += inputVelocity * 1.0f / 60.0f;
     
-        CollisionBox(inputPosition, inputVelocity, minX, maxX);
+    CollisionBox(inputPosition, inputVelocity, minX, -minX, minZ, -minZ);
     
-    
-    OutputPosition[dispatchThreadID.x].position = inputPosition;
     OutputPosition[dispatchThreadID.x].velocity = inputVelocity;
+    OutputPosition[dispatchThreadID.x].position = inputPosition;
 }

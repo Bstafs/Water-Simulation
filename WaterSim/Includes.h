@@ -1,6 +1,6 @@
 #pragma once
 
-#define NUM_OF_PARTICLES 8192
+#define NUM_OF_PARTICLES 4096
 #define SMOOTHING_RADIUS 2.001f
 
 // DirectX
@@ -34,6 +34,7 @@
 #include <future>
 #include <functional>
 #include <mutex>
+#include <array>
 
 // Physics / Objects
 #include "Quaternion.h"

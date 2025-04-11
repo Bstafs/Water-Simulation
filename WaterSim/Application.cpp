@@ -593,7 +593,7 @@ void Application::UpdatePhysics(float deltaTime)
 {
 	if (SimulationControl == false)
 	{
-		sph->Update(deltaTime, minX, maxX);
+		sph->Update(deltaTime, minX, minZ);
 	}
 }
 
@@ -662,7 +662,7 @@ void Application::ImGui()
 
 		ImGui::DragInt("Number of Particles", &particleSize);
 		ImGui::DragFloat("Min X", &minX, 0.5f, -50.0f, -1.0f);
-		ImGui::DragFloat("Max X", &maxX, 0.5f, 1.0f, 50.0f);
+		ImGui::DragFloat("Min Z", &minZ, 0.5f, -50.0f, -1.0f);
 		ImGui::Checkbox("Pause", &SimulationControl);
 
 		ImGui::Text("Initial Values");

@@ -17,7 +17,7 @@ struct ParticleAttributes
 	float padding; // 12 bytes
 	float nearDensity; // 4 bytes (16-byte aligned)
 	float minX;
-	float maxX;
+	float minZ;
 };
 
 struct SimulationParams 
@@ -39,7 +39,7 @@ class SPH
 public:
 	SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device);
 	~SPH();
-	void Update(float deltaTime, float minX, float maxX);
+	void Update(float deltaTime, float minX, float minZ);
 
 
 private:
@@ -63,7 +63,7 @@ private:
 	void UpdateBuildGridOffsets(float deltaTime);
 	void UpdateParticleDensities(float deltaTime);
 	void UpdateParticlePressure(float deltaTime);
-	void UpdateIntegrateComputeShader(float deltaTime, float minX, float maxX);
+	void UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ);
 
 	bool isBufferSwapped = false;
 	// CPU Side
@@ -88,6 +88,7 @@ private:
 
 	float minY = -30.0f, maxY = 50.0f;
 	float minZ = -15.0f, maxZ = 15.0f;
+	float minX = -50.0f, maxX = 50.0f;
 
 	float targetDensity = 8.0f;
 	float stiffnessValue = 30.0f;

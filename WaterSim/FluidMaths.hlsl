@@ -3,7 +3,7 @@ static const float XM_PI = 3.1415926;
 // Smoothing kernel for density
 float DensitySmoothingKernel(float dst, float radius)
 {
-    if (dst >= 0 && dst <= radius)
+    if (dst < radius)
     {
         const float scale = 15.0f / (2.0f * XM_PI * pow(abs(radius), 5));
         float diff = radius - dst;
@@ -16,7 +16,7 @@ float DensitySmoothingKernel(float dst, float radius)
 // Smoothing kernel for near-density
 float NearDensitySmoothingKernel(float dst, float radius)
 {
-    if (dst >= 0 && dst <= radius)
+    if (dst < radius)
     {
         const float scale = 15.0f / (XM_PI * pow(abs(radius), 6.0f));
         float diff = radius - dst;
@@ -29,7 +29,7 @@ float NearDensitySmoothingKernel(float dst, float radius)
 // Pressure Force Kernel
 float PressureSmoothingKernel(float dst, float radius)
 {
-    if (dst >= 0 && dst <= radius)
+    if (dst <= radius)
     {
         const float scale = 15.0f / (pow(abs(radius), 5) * XM_PI);
         float diff = radius - dst;
@@ -40,7 +40,7 @@ float PressureSmoothingKernel(float dst, float radius)
 
 float NearDensitySmoothingKernelDerivative(float dst, float radius)
 {
-    if (dst >= 0 && dst <= radius)
+    if (dst <= radius)
     {
         const float scale = 45.0f / (pow(abs(radius), 6) * XM_PI);
         float diff = radius - dst;
@@ -51,7 +51,7 @@ float NearDensitySmoothingKernelDerivative(float dst, float radius)
 
 float ViscositySmoothingKernel(float dst, float radius)
 {
-    if (dst >= 0 && dst <= radius)
+    if (dst < radius)
     {
         const float scale = 315.0f / (64 * XM_PI * pow(abs(radius), 9));
         float diff = radius * radius - dst * dst;
