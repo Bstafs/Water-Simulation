@@ -2,9 +2,17 @@
 
 #define PI 3.141592653589793238462643383279502884197
 
-
 #include "Particle.h"
 #include "SpatialGrid.h"
+
+constexpr float dampingFactor = 0.99f;
+
+constexpr  float minY = -30.0f, maxY = 50.0f;
+constexpr  float minZ = -15.0f, maxZ = 15.0f;
+constexpr  float minX = -50.0f, maxX = 50.0f;
+
+constexpr float targetDensity = 8.0f;
+constexpr float stiffnessValue = 30.0f;
 
 struct ParticleAttributes
 {
@@ -48,15 +56,15 @@ private:
 	void InitParticles();
 
 	// GPU Side
-	void InitSpatialGridClear();
-	void InitAddParticlesToSpatialGrid();
-	void InitBitonicSorting();
-	void InitBuildGridOffsets();
-	void InitParticleDensities();
-	void InitParticlePressure();
-	void InitComputeIntegrateShader();
+	 void InitSpatialGridClear();
+	 void InitAddParticlesToSpatialGrid();
+	 void InitBitonicSorting();
+	 void InitBuildGridOffsets();
+	 void InitParticleDensities();
+	 void InitParticlePressure();
+	 void InitComputeIntegrateShader();
 
-	void UpdateSpatialGrid();
+	
 	void UpdateSpatialGridClear(float deltaTime);
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
 	void UpdateBitonicSorting(float deltaTime);
@@ -67,36 +75,27 @@ private:
 
 	bool isBufferSwapped = false;
 	// CPU Side
-	static float DensitySmoothingKernel(float dst, float radius);
-	static float PressureSmoothingKernel(float radius, float dst); // Derivative of Density Kernel
-	static float NearDensitySmoothingKernel(float radius, float dst);
-	static float NearDensitySmoothingKernelDerivative(float radius, float dst);
-	static float ViscositySmoothingKernel(float radius, float dst);
+	void UpdateSpatialGrid();
 
-	float CalculateMagnitude(const XMFLOAT3& vector);
-	float CalculateDensity(const XMFLOAT3& samplePoint);
-	float CalculateNearDensity(const XMFLOAT3& samplePoint);
-	float ConvertDensityToPressure(float density);
-	float CalculateSharedPressure(float densityA, float densityB);
-	XMFLOAT3 CalculatePressureForceWithRepulsion(int particleIndex);
+	constexpr static float DensitySmoothingKernel(float dst, float radius);
+	constexpr static float PressureSmoothingKernel(float radius, float dst); // Derivative of Density Kernel
+	constexpr static float NearDensitySmoothingKernel(float radius, float dst);
+	constexpr static float NearDensitySmoothingKernelDerivative(float radius, float dst);
+	constexpr float ViscositySmoothingKernel(float radius, float dst);
+
+	 float CalculateMagnitude(const XMFLOAT3& vector);
+	 float CalculateDensity(const XMFLOAT3& samplePoint);
+	 float CalculateNearDensity(const XMFLOAT3& samplePoint);
+	constexpr float ConvertDensityToPressure(float density);
+	constexpr float CalculateSharedPressure(float densityA, float densityB);
+	 XMFLOAT3 CalculatePressureForceWithRepulsion(int particleIndex);
 
 public:
 	std::vector <Particle*> particleList;
 private:
 	// Particle Initialization
-	float dampingFactor = 0.99f;
-
-	float minY = -30.0f, maxY = 50.0f;
-	float minZ = -15.0f, maxZ = 15.0f;
-	float minX = -50.0f, maxX = 50.0f;
-
-	float targetDensity = 8.0f;
-	float stiffnessValue = 30.0f;
 
 	SpatialGrid spatialGrid;
-
-	int THREADS_PER_GROUPs = 64;
-	int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 
 	ParticleAttributes* position;
 	float mGravity = 0.0f;

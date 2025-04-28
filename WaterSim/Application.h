@@ -145,7 +145,9 @@ private:
 	float minZ = -15.0f, maxZ = 15.0f;
 
 	// SPH
-	SPH* sph = nullptr;
+	std::unique_ptr<SPH> sph;
+
+
 	bool SimulationControl = true;
 
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;

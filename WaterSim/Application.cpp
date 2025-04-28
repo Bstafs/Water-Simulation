@@ -164,7 +164,9 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	ImGui_ImplDX11_Init(_pd3dDevice, _pImmediateContext);
 	ImGui::StyleColorsDark();
 
-	sph = new SPH(_pImmediateContext, _pd3dDevice);
+	//sph = new SPH(_pImmediateContext, _pd3dDevice);
+
+	sph = std::make_unique<SPH>(_pImmediateContext, _pd3dDevice);
 
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
@@ -580,9 +582,6 @@ void Application::Cleanup()
 
 	delete _camera;
 	_camera = nullptr;
-
-	delete sph;
-	sph = nullptr;
 
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();

@@ -2,7 +2,9 @@
 
 #define NUM_OF_PARTICLES 4096
 #define SMOOTHING_RADIUS 2.001f
+#define THREADS_PER_GROUPs 256
 
+constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 // DirectX
 #include <windows.h>
 #include <directxmath.h>
@@ -35,6 +37,7 @@
 #include <functional>
 #include <mutex>
 #include <array>
+#include <memory>
 
 // Physics / Objects
 #include "Quaternion.h"

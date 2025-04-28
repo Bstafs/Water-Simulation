@@ -9,7 +9,7 @@ SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 	this->device = device;
 
 	particleList.reserve(NUM_OF_PARTICLES);
-	predictedPositions.reserve(NUM_OF_PARTICLES);
+	predictedPositions.resize(NUM_OF_PARTICLES);
 
 	// Particle Initialization
 	InitParticles();
@@ -233,7 +233,7 @@ void SPH::InitComputeIntegrateShader()
 	}
 }
 
-float SPH::DensitySmoothingKernel(float dst, float radius)
+constexpr float SPH::DensitySmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
 		const float scale = 15.0f / (2.0f * XM_PI * pow(abs(radius), 5));
@@ -243,7 +243,7 @@ float SPH::DensitySmoothingKernel(float dst, float radius)
 	return 0.0f;
 }
 
-float SPH::NearDensitySmoothingKernel(float dst, float radius)
+constexpr float SPH::NearDensitySmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
 		const float scale = 15.0f / (XM_PI * pow(abs(radius), 6.0f));
@@ -253,7 +253,7 @@ float SPH::NearDensitySmoothingKernel(float dst, float radius)
 	return 0.0f;
 }
 
-float SPH::PressureSmoothingKernel(float dst, float radius)
+constexpr float SPH::PressureSmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
 		const float scale = 15.0f / (pow(abs(radius), 5) * XM_PI);
@@ -263,7 +263,7 @@ float SPH::PressureSmoothingKernel(float dst, float radius)
 	return 0.0f;
 }
 
-float SPH::NearDensitySmoothingKernelDerivative(float dst, float radius)
+constexpr float SPH::NearDensitySmoothingKernelDerivative(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
 		const float scale = 45.0f / (pow(abs(radius), 6) * XM_PI);
@@ -273,7 +273,7 @@ float SPH::NearDensitySmoothingKernelDerivative(float dst, float radius)
 	return 0.0f;
 }
 
-float SPH::ViscositySmoothingKernel(float dst, float radius)
+constexpr float SPH::ViscositySmoothingKernel(float dst, float radius)
 {
 	if (dst >= 0 && dst <= radius) {
 		const float scale = 315.0f / (64 * XM_PI * pow(abs(radius), 9));
@@ -283,7 +283,7 @@ float SPH::ViscositySmoothingKernel(float dst, float radius)
 	return 0.0f;
 }
 
-float SPH::CalculateMagnitude(const XMFLOAT3& vector)
+ float SPH::CalculateMagnitude(const XMFLOAT3& vector)
 {
 	XMVECTOR xmVector = XMLoadFloat3(&vector);
 	XMVECTOR magnitudeVector = XMVector3Length(xmVector);
@@ -292,7 +292,7 @@ float SPH::CalculateMagnitude(const XMFLOAT3& vector)
 	return magnitude;
 }
 
-XMFLOAT3 Subtract(const XMFLOAT3& a, const XMFLOAT3& b) {
+constexpr XMFLOAT3 Subtract(const XMFLOAT3& a, const XMFLOAT3& b) {
 	return XMFLOAT3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
@@ -322,7 +322,7 @@ float SPH::CalculateDensity(const XMFLOAT3& samplePoint)
 	return density;
 }
 
-float SPH::CalculateNearDensity(const XMFLOAT3& samplePoint)
+ float SPH::CalculateNearDensity(const XMFLOAT3& samplePoint)
 {
 	float nearDensity = 0.0f;
 	const float mass = 1.0f; // Assumed mass for particles
@@ -348,21 +348,21 @@ float SPH::CalculateNearDensity(const XMFLOAT3& samplePoint)
 	return nearDensity;
 }
 
-float SPH::ConvertDensityToPressure(float density)
+constexpr float SPH::ConvertDensityToPressure(float density)
 {
 	float densityError = density - targetDensity;
 	float pressure = densityError * stiffnessValue;
 	return pressure;
 }
 
-float SPH::CalculateSharedPressure(float densityA, float densityB)
+constexpr float SPH::CalculateSharedPressure(float densityA, float densityB)
 {
 	float pressureA = ConvertDensityToPressure(densityA);
 	float pressureB = ConvertDensityToPressure(densityB);
 	return(pressureA + pressureB) / 2.0f;
 }
 
-XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
+ XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 	XMFLOAT3 pressureForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	XMFLOAT3 repulsionForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	XMFLOAT3 viscousForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -426,7 +426,7 @@ XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
 	return totalForce;
 }
 
-void SPH::UpdateSpatialGrid()
+ void SPH::UpdateSpatialGrid()
 {
 	spatialGrid.Clear();
 
@@ -515,12 +515,11 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 
 void SPH::UpdateBitonicSorting(float deltaTime)
 {
-	const unsigned int numElements = NUM_OF_PARTICLES;
 	BitonicParams  params = {};
-	params.numElements = numElements;
+	params.numElements = NUM_OF_PARTICLES;
 	deviceContext->UpdateSubresource(BitonicSortConstantBuffer, 0, nullptr, &params, 0, 0);
 
-	for (unsigned int k = 2; k <= numElements; k *= 2)
+	for (unsigned int k = 2; k <= NUM_OF_PARTICLES; k *= 2)
 	{
 		params.k = k;
 		deviceContext->UpdateSubresource(BitonicSortConstantBuffer, 0, nullptr, &params, 0, 0);
@@ -801,68 +800,68 @@ void SPH::Update(float deltaTime, float minX, float minZ)
 
 	isBufferSwapped = !isBufferSwapped;
 
-////	 CPU Side
-//	UpdateSpatialGrid();
-//`
-//	for (int i = 0; i < particleList.size(); ++i)
-//	{
-//		Particle* particle = particleList[i];
-//
-//		// Apply forces and update properties
-//		predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
-//		predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
-//		predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
-//
-//		particle->velocity.y += -9.81f * deltaTime;
-//	    particle->density = CalculateDensity(predictedPositions[i]);
-//		particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
-//		particle->pressureForce = CalculatePressureForceWithRepulsion(i);
-//
-//		// Acceleration = Force / Density
-//		particle->acceleration.x = particle->pressureForce.x / particle->density;
-//		particle->acceleration.y = particle->pressureForce.y / particle->density;
-//		particle->acceleration.z = particle->pressureForce.z / particle->density;
-//
-//		// Update velocity and position
-//		particle->velocity.x += particle->acceleration.x * deltaTime;
-//		particle->velocity.y += particle->acceleration.y * deltaTime;
-//		particle->velocity.z += particle->acceleration.z * deltaTime;
-//
-//		particle->position.x += particle->velocity.x * deltaTime;
-//		particle->position.y += particle->velocity.y * deltaTime;
-//		particle->position.z += particle->velocity.z * deltaTime;
-//
-//		// Handle boundary collisions with damping (as in the existing implementation)
-//		if (particle->position.x < minX) {
-//			particle->position.x = minX;
-//			particle->velocity.x *= -1; // Reverse velocity
-//		}
-//		else if (particle->position.x > maxX) {
-//			particle->position.x = maxX;
-//			particle->velocity.x *= -1;
-//		}
-//
-//		if (particle->position.y < minY) {
-//			particle->position.y = minY;
-//			particle->velocity.y *= -1;
-//		}
-//		else if (particle->position.y > maxY) {
-//			particle->position.y = maxY;
-//			particle->velocity.y *= -1;
-//		}
-//
-//		if (particle->position.z < minZ) {
-//			particle->position.z = minZ;
-//			particle->velocity.z *= -1;
-//		}
-//		else if (particle->position.z > maxZ) {
-//			particle->position.z = maxZ;
-//			particle->velocity.z *= -1;
-//		}
-//
-//		// Apply damping to velocity after collision
-//		particle->velocity.x *= dampingFactor;
-//		particle->velocity.y *= dampingFactor;
-//		particle->velocity.z *= dampingFactor;
-//	}
+//	 CPU Side
+	//UpdateSpatialGrid();
+
+	//for (int i = 0; i < particleList.size(); ++i)
+	//{
+	//	Particle* particle = particleList[i];
+
+	//	// Apply forces and update properties
+	//	predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
+	//	predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
+	//	predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
+
+	//	particle->velocity.y += -9.81f * deltaTime;
+	//    particle->density = CalculateDensity(predictedPositions[i]);
+	//	particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
+	//	particle->pressureForce = CalculatePressureForceWithRepulsion(i);
+
+	//	// Acceleration = Force / Density
+	//	particle->acceleration.x = particle->pressureForce.x / particle->density;
+	//	particle->acceleration.y = particle->pressureForce.y / particle->density;
+	//	particle->acceleration.z = particle->pressureForce.z / particle->density;
+
+	//	// Update velocity and position
+	//	particle->velocity.x += particle->acceleration.x * deltaTime;
+	//	particle->velocity.y += particle->acceleration.y * deltaTime;
+	//	particle->velocity.z += particle->acceleration.z * deltaTime;
+
+	//	particle->position.x += particle->velocity.x * deltaTime;
+	//	particle->position.y += particle->velocity.y * deltaTime;
+	//	particle->position.z += particle->velocity.z * deltaTime;
+
+	//	// Handle boundary collisions with damping (as in the existing implementation)
+	//	if (particle->position.x < minX) {
+	//		particle->position.x = minX;
+	//		particle->velocity.x *= -1; // Reverse velocity
+	//	}
+	//	else if (particle->position.x > maxX) {
+	//		particle->position.x = maxX;
+	//		particle->velocity.x *= -1;
+	//	}
+
+	//	if (particle->position.y < minY) {
+	//		particle->position.y = minY;
+	//		particle->velocity.y *= -1;
+	//	}
+	//	else if (particle->position.y > maxY) {
+	//		particle->position.y = maxY;
+	//		particle->velocity.y *= -1;
+	//	}
+
+	//	if (particle->position.z < minZ) {
+	//		particle->position.z = minZ;
+	//		particle->velocity.z *= -1;
+	//	}
+	//	else if (particle->position.z > maxZ) {
+	//		particle->position.z = maxZ;
+	//		particle->velocity.z *= -1;
+	//	}
+
+	//	// Apply damping to velocity after collision
+	//	particle->velocity.x *= dampingFactor;
+	//	particle->velocity.y *= dampingFactor;
+	//	particle->velocity.z *= dampingFactor;
+	//}
 }

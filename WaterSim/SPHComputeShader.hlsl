@@ -38,7 +38,7 @@ static const float targetDensity = 8.0f;
 static const float stiffnessValue = 30.0f;
 static const float smoothingRadius = 2.5f;
 static const uint particlesPerCell = 100;
-static const int ThreadCount = 64;
+static const int ThreadCount = 256;
 
 static const uint hashK1 = 15823;
 static const uint hashK2 = 9737333;
@@ -78,7 +78,7 @@ void AddParticlesToGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
     uint index = dispatchThreadId.x;
     int3 cell = GetCell3D(InputPosition[index].position, smoothingRadius);
     uint hash = HashCell3D(cell);
-    uint key = KeyFromHash(hash, numParticles);
+    uint key = KeyFromHash(hash, particlesPerCell);
     
         // Populate the grid buffer with particle information
     GridIndices[dispatchThreadId.x] = uint3(
@@ -127,9 +127,9 @@ void BuildGridOffsets(uint3 dispatchThreadID : SV_DispatchThreadID)
     if (i >= numElements)
         return;
 
+
     if (i == 0 || GridIndices[i].y != GridIndices[i - 1].y)
     {
-        // If first element or a new hash, store index
         GridOffsets[GridIndices[i].z] = i;
     }
 }
@@ -224,7 +224,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 repulsionForce = float3(0.0f, 0.0f, 0.0f);
     float3 viscousForce = float3(0.0f, 0.0f, 0.0f);
     int3 gridIndex = GetCell3D(position, smoothingRadius);
-    float viscosityCoefficient = 0.5f;
+    float viscosityCoefficient = 0.05f;
     
     for (int dx = -1; dx <= 1; ++dx)
     {
@@ -356,7 +356,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float minX = InputPosition[dispatchThreadID.x].minX;
     float minZ = InputPosition[dispatchThreadID.x].minZ;
     
-    inputVelocity.y += -15.0f * 1.0f / 60.0f;
+    inputVelocity.y += -9.807f * 1.0f / 60.0f;
          
     inputPosition += inputVelocity * 1.0f / 60.0f;
     
