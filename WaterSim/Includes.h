@@ -1,5 +1,8 @@
 #pragma once
 
+#include <d3d11.h>
+#pragma comment(lib, "d3d11.lib")
+
 #define NUM_OF_PARTICLES 4096
 #define SMOOTHING_RADIUS 2.001f
 #define THREADS_PER_GROUPs 256
@@ -13,6 +16,8 @@ constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / 
 #include <DirectXColors.h>
 #include <DirectXCollision.h>
 #include "CreateID3D11Functions.h"
+#include <wrl/client.h>
+
 // Camera
 #include "Camera.h"
 
@@ -48,3 +53,5 @@ constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / 
 #include"imgui/imgui.h"
 #include"imgui/imgui_impl_dx11.h"
 #include"imgui/imgui_impl_win32.h"
+
+using Microsoft::WRL::ComPtr;

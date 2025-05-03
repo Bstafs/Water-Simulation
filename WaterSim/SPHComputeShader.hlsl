@@ -34,8 +34,9 @@ RWStructuredBuffer<ParticleAttributes> OutputPosition : register(u0); // Output 
 RWStructuredBuffer<uint3> GridIndices : register(u1); // Grid buffer: holds indices to particles
 RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particles per cell
 
-static const float targetDensity = 8.0f;
+static const float targetDensity = 10.0f;
 static const float stiffnessValue = 30.0f;
+static const float nearStiffnessValue = 120.0f;
 static const float smoothingRadius = 2.5f;
 static const uint particlesPerCell = 100;
 static const int ThreadCount = 256;
@@ -195,8 +196,12 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
 float ConvertDensityToPressure(float density)
 {
     float densityError = density - targetDensity;
-    float pressure = densityError * stiffnessValue;
-    return pressure;
+    return max(densityError, 0.0f) * stiffnessValue;
+}
+
+float ConvertNearDensityToPressure(float nearDensity)
+{
+    return max(nearDensity, 0.0f) * nearStiffnessValue;
 }
 
 float CalculateSharedPressure(float pressureA, float pressureB)
@@ -218,7 +223,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     
     // Pressure values for the current particle
     float pressure = ConvertDensityToPressure(density);
-    float nearPressure = ConvertDensityToPressure(nearDensity);
+    float nearPressure = ConvertNearDensityToPressure(nearDensity);
 
     float3 pressureForce = float3(0.0f, 0.0f, 0.0f);
     float3 repulsionForce = float3(0.0f, 0.0f, 0.0f);
@@ -269,20 +274,20 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
                     float neighborDensity = InputPosition[neighbourIndex].density;
                     float neighborNearDensity = InputPosition[neighbourIndex].nearDensity;
                     float neighbourPressure = ConvertDensityToPressure(neighborDensity);
-                    float neighbourPressureNear = ConvertDensityToPressure(neighborNearDensity);
+                    float neighbourPressureNear = ConvertNearDensityToPressure(neighborNearDensity);
                              
                     float sharedPressure = CalculateSharedPressure(pressure, neighbourPressure);
                     float sharedNearPressure = CalculateSharedPressure(nearPressure, neighbourPressureNear);
             
                     float dst = sqrt(sqrDst);
-                    float3 direction = normalize(offset);
+                    float3 dir = dst > 0 ? offset / dst : float3(0, 1, 0);
                   
                     float poly6 = ViscositySmoothingKernel(dst, smoothingRadius);
                     float kernelDerivative = PressureSmoothingKernel(dst, smoothingRadius);
                     float nearKernelDerivative = NearDensitySmoothingKernelDerivative(dst, smoothingRadius);
                     
-                    pressureForce += direction * kernelDerivative * -sharedPressure / neighborDensity;
-                    repulsionForce += direction * nearKernelDerivative * -sharedNearPressure / neighborNearDensity;
+                    pressureForce += dir * kernelDerivative * sharedPressure / neighborDensity;
+                    repulsionForce += dir * nearKernelDerivative * sharedNearPressure / neighborNearDensity;
                     viscousForce += relativeVelocity * poly6;
                 }
             }
