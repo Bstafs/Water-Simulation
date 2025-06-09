@@ -35,9 +35,9 @@ RWStructuredBuffer<uint3> GridIndices : register(u1); // Grid buffer: holds indi
 RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particles per cell
 
 static const float targetDensity = 10.0f;
-static const float stiffnessValue = 30.0f;
-static const float nearStiffnessValue = 120.0f;
-static const float smoothingRadius = 2.5f;
+static const float stiffnessValue = 100.0f;
+static const float nearStiffnessValue = 400.0f;
+static const float smoothingRadius = 2.05f;
 static const uint particlesPerCell = 100;
 static const int ThreadCount = 256;
 
@@ -280,6 +280,8 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
                     float sharedNearPressure = CalculateSharedPressure(nearPressure, neighbourPressureNear);
             
                     float dst = sqrt(sqrDst);
+                    
+                    // Stops particles getting stuck inside each other and causing velocity to go NaN.
                     float3 dir = dst > 0 ? offset / dst : float3(0, 1, 0);
                   
                     float poly6 = ViscositySmoothingKernel(dst, smoothingRadius);
@@ -300,7 +302,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     // Apply the calculated force to update the particle's velocity (acceleration = force / density)
     float3 acceleration = totalForce / density;
     
-    OutputPosition[dispatchThreadId.x].velocity.xyz += acceleration * deltaTime;
+    OutputPosition[dispatchThreadId.x].velocity.xyz += acceleration * (1.0f / 60.0f);
 }
 
 void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX, float minZ, float maxZ)
