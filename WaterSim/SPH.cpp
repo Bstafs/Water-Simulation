@@ -1,7 +1,7 @@
 #include "SPH.h"
 
 SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
-	: spatialGrid(SMOOTHING_RADIUS), // Provide a valid value for `cellSize`
+	: 
 	deviceContext(contextdevice),
 	device(device)
 {
@@ -13,13 +13,7 @@ SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 
 	// Particle Initialization
 	InitParticles();
-	InitSpatialGridClear();
-	InitAddParticlesToSpatialGrid();
-	InitBitonicSorting();
-	InitBuildGridOffsets();
-	InitParticleDensities();
-	InitParticlePressure();
-	InitComputeIntegrateShader();
+	InitGPUResources();
 }
 
 SPH::~SPH()
@@ -87,353 +81,116 @@ void SPH::InitParticles()
 	}
 }
 
-void SPH::InitSpatialGridClear()
+void SPH::InitGPUResources()
 {
 	HRESULT hr;
 
-	{
-		SpatialGridClearShader = CreateComputeShader(L"SPHComputeShader.hlsl", "ClearGrid", device);
 
-		SpatialGridConstantBuffer = CreateConstantBuffer(sizeof(SimulationParams), device, false);
-
-		// Spatial Grid
-		D3D11_BUFFER_DESC outputDesc;
-		outputDesc.Usage = D3D11_USAGE_DEFAULT;
-		outputDesc.ByteWidth = (sizeof(unsigned int) * 3) * NUM_OF_PARTICLES;
-		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-		outputDesc.CPUAccessFlags = 0;
-		outputDesc.StructureByteStride = sizeof(unsigned int) * 3;
-		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-		device->CreateBuffer(&outputDesc, 0, &SpatialGridOutputBuffer);
-
-		outputDesc.Usage = D3D11_USAGE_STAGING;
-		outputDesc.BindFlags = 0;
-		outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-		hr = device->CreateBuffer(&outputDesc, 0, &SpatialGridResultOutputBuffer);
-
-		D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-		uavDesc.Buffer.FirstElement = 0;
-		uavDesc.Buffer.Flags = 0;
-		uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
-		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-
-		hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGridA);
-		hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGridB);
-
-		// Spatial Grid Count
-		outputDesc.Usage = D3D11_USAGE_DEFAULT;
-		outputDesc.ByteWidth = sizeof(unsigned int) * NUM_OF_PARTICLES;
-		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-		outputDesc.CPUAccessFlags = 0;
-		outputDesc.StructureByteStride = sizeof(unsigned int);
-		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-		device->CreateBuffer(&outputDesc, 0, &SpatialGridOutputBufferCount);
-
-		outputDesc.Usage = D3D11_USAGE_STAGING;
-		outputDesc.BindFlags = 0;
-		outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-		hr = device->CreateBuffer(&outputDesc, 0, &SpatialGridResultOutputBufferCount);
-
-		uavDesc.Buffer.FirstElement = 0;
-		uavDesc.Buffer.Flags = 0;
-		uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
-		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-
-		hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCountA);
-		hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCountB);
-	}
-}
-
-void SPH::InitAddParticlesToSpatialGrid()
-{
-	HRESULT hr;
-
-	{
-		SpatialGridAddParticleShader = CreateComputeShader(L"SPHComputeShader.hlsl", "AddParticlesToGrid", device);
-	}
-}
-
-void SPH::InitBitonicSorting()
-{
-	{
-		BitonicSortingShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BitonicSort", device);
-		BitonicSortConstantBuffer = CreateConstantBuffer(sizeof(BitonicParams), device, true);
-	}
-}
-
-void SPH::InitBuildGridOffsets()
-{
+	// Shaders
+	SpatialGridClearShader = CreateComputeShader(L"SPHComputeShader.hlsl", "ClearGrid", device);
+	SpatialGridAddParticleShader = CreateComputeShader(L"SPHComputeShader.hlsl", "AddParticlesToGrid", device);
+	BitonicSortingShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BitonicSort", device);
 	GridOffsetsShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BuildGridOffsets", device);
-}
-
-void SPH::InitParticleDensities()
-{
 	FluidSimCalculateDensity = CreateComputeShader(L"SPHComputeShader.hlsl", "CalculateDensity", device);
-}
-
-void SPH::InitParticlePressure()
-{
 	FluidSimCalculatePressure = CreateComputeShader(L"SPHComputeShader.hlsl", "CalculatePressure", device);
-}
+	FluidSimIntegrateShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
 
-void SPH::InitComputeIntegrateShader()
-{
-	HRESULT hr;
+	// Constant Buffers
+	SpatialGridConstantBuffer = CreateConstantBuffer(sizeof(SimulationParams), device, false);
+	BitonicSortConstantBuffer = CreateConstantBuffer(sizeof(BitonicParams), device, true);
 
-	// Integrate Shader
+
+	// Structure Buffers
+	ParticleAttributes* position = new ParticleAttributes[NUM_OF_PARTICLES];
+
+	for (int i = 0; i < particleList.size(); i++)
 	{
-		FluidSimIntegrateShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
-		SetDebugName(FluidSimIntegrateShader, "Integrate Shader");
+		Particle* particle = particleList[i];
 
-		ParticleAttributes* position = new ParticleAttributes[NUM_OF_PARTICLES];
-
-		for (int i = 0; i < particleList.size(); i++)
-		{
-			Particle* particle = particleList[i];
-
-			position[i].position = particle->position;
-			position[i].velocity = particle->velocity;
-			position[i].deltaTime = 0.016f;
-			position[i].density = particle->density;
-			position[i].nearDensity = particle->nearDensity;
-		}
-
-		inputBuffer = CreateStructureBuffer(sizeof(ParticleAttributes), (float*)position, NUM_OF_PARTICLES, device);
-
-		inputViewIntegrateA = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
-		inputViewIntegrateB = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
-
-		D3D11_BUFFER_DESC outputDesc;
-		outputDesc.Usage = D3D11_USAGE_DEFAULT;
-		outputDesc.ByteWidth = sizeof(ParticleAttributes) * NUM_OF_PARTICLES;
-		outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
-		outputDesc.CPUAccessFlags = 0;
-		outputDesc.StructureByteStride = sizeof(ParticleAttributes);
-		outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-		device->CreateBuffer(&outputDesc, 0, &outputBuffer);
-
-		outputDesc.Usage = D3D11_USAGE_STAGING;
-		outputDesc.BindFlags = 0;
-		outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-		hr = device->CreateBuffer(&outputDesc, 0, &outputResultBuffer);
-
-		D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
-		uavDesc.Buffer.FirstElement = 0;
-		uavDesc.Buffer.Flags = 0;
-		uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
-		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-		uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-
-		hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateA);
-		hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateB);
-
-		delete[] position;
-	}
-}
-
-constexpr float SPH::DensitySmoothingKernel(float dst, float radius)
-{
-	if (dst >= 0 && dst <= radius) {
-		const float scale = 15.0f / (2.0f * XM_PI * pow(abs(radius), 5));
-		float diff = radius - dst;
-		return diff * diff * scale;
-	}
-	return 0.0f;
-}
-
-constexpr float SPH::NearDensitySmoothingKernel(float dst, float radius)
-{
-	if (dst >= 0 && dst <= radius) {
-		const float scale = 15.0f / (XM_PI * pow(abs(radius), 6.0f));
-		float diff = radius - dst;
-		return diff * diff * diff * scale;
-	}
-	return 0.0f;
-}
-
-constexpr float SPH::PressureSmoothingKernel(float dst, float radius)
-{
-	if (dst >= 0 && dst <= radius) {
-		const float scale = 15.0f / (pow(abs(radius), 5) * XM_PI);
-		float diff = radius - dst;
-		return -diff * scale;
-	}
-	return 0.0f;
-}
-
-constexpr float SPH::NearDensitySmoothingKernelDerivative(float dst, float radius)
-{
-	if (dst >= 0 && dst <= radius) {
-		const float scale = 45.0f / (pow(abs(radius), 6) * XM_PI);
-		float diff = radius - dst;
-		return -diff * diff * scale;
-	}
-	return 0.0f;
-}
-
-constexpr float SPH::ViscositySmoothingKernel(float dst, float radius)
-{
-	if (dst >= 0 && dst <= radius) {
-		const float scale = 315.0f / (64 * XM_PI * pow(abs(radius), 9));
-		float diff = radius * radius - dst * dst;
-		return diff * diff * diff * scale;
-	}
-	return 0.0f;
-}
-
- float SPH::CalculateMagnitude(const XMFLOAT3& vector)
-{
-	XMVECTOR xmVector = XMLoadFloat3(&vector);
-	XMVECTOR magnitudeVector = XMVector3Length(xmVector);
-	float magnitude;
-	XMStoreFloat(&magnitude, magnitudeVector);
-	return magnitude;
-}
-
-constexpr XMFLOAT3 Subtract(const XMFLOAT3& a, const XMFLOAT3& b) {
-	return XMFLOAT3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-float SPH::CalculateDensity(const XMFLOAT3& samplePoint)
-{
-	float density = 0.0f;
-	const float mass = 1.0f; // Assumed mass for particles
-
-	// Get neighboring cells
-	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(samplePoint);
-
-	for (int neighborIndex : neighbors)
-	{
-		Particle* neighbor = particleList[neighborIndex];
-
-		// Calculate the distance between the sample point and the neighbor's position
-		XMFLOAT3 offset = Subtract(samplePoint, neighbor->position);
-		float dst = CalculateMagnitude(offset);
-
-		// Apply the near density kernel
-		float influence = DensitySmoothingKernel(dst, neighbor->smoothingRadius);
-
-		// Increment the near density
-		density += mass * influence;
+		position[i].position = particle->position;
+		position[i].velocity = particle->velocity;
+		position[i].density = particle->density;
+		position[i].nearDensity = particle->nearDensity;
 	}
 
-	return density;
-}
+	inputBuffer = CreateStructureBuffer(sizeof(ParticleAttributes), (float*)position, NUM_OF_PARTICLES, device);
 
- float SPH::CalculateNearDensity(const XMFLOAT3& samplePoint)
-{
-	float nearDensity = 0.0f;
-	const float mass = 1.0f; // Assumed mass for particles
 
-	// Get neighboring cells
-	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(samplePoint);
+	// Spatial Grid
+	D3D11_BUFFER_DESC outputDesc;
+	outputDesc.Usage = D3D11_USAGE_DEFAULT;
+	outputDesc.ByteWidth = (sizeof(unsigned int) * 3) * NUM_OF_PARTICLES;
+	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	outputDesc.CPUAccessFlags = 0;
+	outputDesc.StructureByteStride = sizeof(unsigned int) * 3;
+	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	device->CreateBuffer(&outputDesc, 0, &SpatialGridOutputBuffer);
 
-	for (int neighborIndex : neighbors)
-	{
-		Particle* neighbor = particleList[neighborIndex];
+	outputDesc.Usage = D3D11_USAGE_STAGING;
+	outputDesc.BindFlags = 0;
+	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	hr = device->CreateBuffer(&outputDesc, 0, &SpatialGridResultOutputBuffer);
 
-		// Calculate the distance between the sample point and the neighbor's position
-		XMFLOAT3 offset = Subtract(samplePoint, neighbor->position);
-		float dst = CalculateMagnitude(offset);
+	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.Flags = 0;
+	uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 
-		// Apply the near density kernel
-		float influence = NearDensitySmoothingKernel(dst, neighbor->smoothingRadius);
+	hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGridA);
+	hr = device->CreateUnorderedAccessView(SpatialGridOutputBuffer, &uavDesc, &outputUAVSpatialGridB);
 
-		// Increment the near density
-		nearDensity += mass * influence;
-	}
+	// Spatial Grid Count
+	outputDesc.Usage = D3D11_USAGE_DEFAULT;
+	outputDesc.ByteWidth = sizeof(unsigned int) * NUM_OF_PARTICLES;
+	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	outputDesc.CPUAccessFlags = 0;
+	outputDesc.StructureByteStride = sizeof(unsigned int);
+	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	device->CreateBuffer(&outputDesc, 0, &SpatialGridOutputBufferCount);
 
-	return nearDensity;
-}
+	outputDesc.Usage = D3D11_USAGE_STAGING;
+	outputDesc.BindFlags = 0;
+	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	hr = device->CreateBuffer(&outputDesc, 0, &SpatialGridResultOutputBufferCount);
 
-constexpr float SPH::ConvertDensityToPressure(float density)
-{
-	float densityError = density - targetDensity;
-	float pressure = densityError * stiffnessValue;
-	return pressure;
-}
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.Flags = 0;
+	uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 
-constexpr float SPH::CalculateSharedPressure(float densityA, float densityB)
-{
-	float pressureA = ConvertDensityToPressure(densityA);
-	float pressureB = ConvertDensityToPressure(densityB);
-	return(pressureA + pressureB) / 2.0f;
-}
+	hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCountA);
+	hr = device->CreateUnorderedAccessView(SpatialGridOutputBufferCount, &uavDesc, &outputUAVSpatialGridCountB);
 
- XMFLOAT3 SPH::CalculatePressureForceWithRepulsion(int particleIndex) {
-	XMFLOAT3 pressureForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
-	XMFLOAT3 repulsionForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
-	XMFLOAT3 viscousForce = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	// Input SRV & UAV
+	inputViewIntegrateA = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
+	inputViewIntegrateB = CreateShaderResourceView(inputBuffer, NUM_OF_PARTICLES, device);
 
-	Particle* currentParticle = particleList[particleIndex];
-	std::vector<int> neighbors = spatialGrid.GetNeighboringParticles(currentParticle->position);
+	outputDesc.Usage = D3D11_USAGE_DEFAULT;
+	outputDesc.ByteWidth = sizeof(ParticleAttributes) * NUM_OF_PARTICLES;
+	outputDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	outputDesc.CPUAccessFlags = 0;
+	outputDesc.StructureByteStride = sizeof(ParticleAttributes);
+	outputDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	device->CreateBuffer(&outputDesc, 0, &outputBuffer);
 
-	float viscosityCoefficient = 0.05f; // Adjust viscosity as needed
+	outputDesc.Usage = D3D11_USAGE_STAGING;
+	outputDesc.BindFlags = 0;
+	outputDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	hr = device->CreateBuffer(&outputDesc, 0, &outputResultBuffer);
 
-	for (int neighborIndex : neighbors)
-	{
-		Particle* neighbor = particleList[neighborIndex];
-		if (neighbor == currentParticle) continue;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.Flags = 0;
+	uavDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 
-		// Relative velocity
-		XMFLOAT3 relativeVelocity = Subtract(currentParticle->velocity, neighbor->velocity);
+	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateA);
+	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateB);
 
-		// Calculate offset and distance
-		XMFLOAT3 offset = Subtract(neighbor->position, currentParticle->position);
-		float distance = CalculateMagnitude(offset);
-
-		// Skip particles too close or too far
-		if (distance < 1e-6f || distance > currentParticle->smoothingRadius) continue;
-
-		// Normalize direction
-		XMFLOAT3 direction = XMFLOAT3(offset.x / distance, offset.y / distance, offset.z / distance);
-
-		// Smoothing kernel derivatives
-		float poly6 = ViscositySmoothingKernel(distance, currentParticle->smoothingRadius);
-		float kernelDerivative = PressureSmoothingKernel(distance, currentParticle->smoothingRadius);
-		float nearKernelDerivative = NearDensitySmoothingKernelDerivative(distance, currentParticle->smoothingRadius);
-
-		// Calculate shared pressure
-		float sharedPressure = CalculateSharedPressure(currentParticle->density, neighbor->density);
-
-		// Calculate shared near pressure
-		float sharedNearPressure = CalculateSharedPressure(currentParticle->nearDensity, neighbor->nearDensity);
-
-		// Pressure force
-		pressureForce.x += direction.x * kernelDerivative * -sharedPressure;
-		pressureForce.y += direction.y * kernelDerivative * -sharedPressure;
-		pressureForce.z += direction.z * kernelDerivative * -sharedPressure;
-
-		// Near-pressure force
-		repulsionForce.x += direction.x * nearKernelDerivative * -sharedNearPressure;
-		repulsionForce.y += direction.y * nearKernelDerivative * -sharedNearPressure;
-		repulsionForce.y += direction.z * nearKernelDerivative * -sharedNearPressure;
-
-		// Viscous force
-		viscousForce.x += viscosityCoefficient * relativeVelocity.x * poly6;
-		viscousForce.y += viscosityCoefficient * relativeVelocity.y * poly6;
-		viscousForce.z += viscosityCoefficient * relativeVelocity.z * poly6;
-	}
-
-	// Combine forces
-	XMFLOAT3 totalForce;
-	totalForce.x = pressureForce.x + repulsionForce.x + viscousForce.x;
-	totalForce.y = pressureForce.y + repulsionForce.y + viscousForce.y;
-	totalForce.z = pressureForce.z + repulsionForce.z + viscousForce.z;
-
-	return totalForce;
-}
-
- void SPH::UpdateSpatialGrid()
-{
-	spatialGrid.Clear();
-
-	for (int i = 0; i < particleList.size(); ++i)
-	{
-		spatialGrid.AddParticle(i, particleList[i]->position);
-	}
+	delete[] position;
 }
 
 void SPH::UpdateSpatialGridClear(float deltaTime)
@@ -469,6 +226,8 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 {
 	SimulationParams cb = {};
 	cb.numParticles = NUM_OF_PARTICLES;
+	cb.minX = minX;
+	cb.minZ = minZ;
 	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Update input buffer with latest particle data
@@ -586,6 +345,8 @@ void SPH::UpdateParticleDensities(float deltaTime)
 {
 	SimulationParams cb = {};
 	cb.numParticles = NUM_OF_PARTICLES;
+	cb.minX = minX;
+	cb.minZ = minZ;
 	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Update input buffer with particle data
@@ -654,6 +415,8 @@ void SPH::UpdateParticlePressure(float deltaTime)
 {
 	SimulationParams cb = {};
 	cb.numParticles = NUM_OF_PARTICLES;
+	cb.minX = minX;
+	cb.minZ = minZ;
 	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Update input buffer with particle data
@@ -666,7 +429,6 @@ void SPH::UpdateParticlePressure(float deltaTime)
 		{
 			inputData[i].position = particleList[i]->position;
 			inputData[i].velocity = particleList[i]->velocity;
-			inputData[i].deltaTime = deltaTime;
 			inputData[i].density = particleList[i]->density;
 			inputData[i].nearDensity = particleList[i]->nearDensity;
 		}
@@ -725,6 +487,8 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ)
 {
 	SimulationParams cb = {};
 	cb.numParticles = NUM_OF_PARTICLES;
+	cb.minX = minX;
+	cb.minZ = minZ;
 	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Update input buffer with latest particle data
@@ -736,10 +500,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ)
 		for (int i = 0; i < particleList.size(); ++i)
 		{
 			inputData[i].position = particleList[i]->position;
-			inputData[i].deltaTime = deltaTime;
 			inputData[i].velocity = particleList[i]->velocity;
-			inputData[i].minX = minX;
-			inputData[i].minZ = minZ;
 		}
 		deviceContext->Unmap(inputBuffer, 0);
 	}
@@ -799,69 +560,4 @@ void SPH::Update(float deltaTime, float minX, float minZ)
 	UpdateIntegrateComputeShader(deltaTime, minX, minZ);
 
 	isBufferSwapped = !isBufferSwapped;
-
-//	 CPU Side
-	//UpdateSpatialGrid();
-
-	//for (int i = 0; i < particleList.size(); ++i)
-	//{
-	//	Particle* particle = particleList[i];
-
-	//	// Apply forces and update properties
-	//	predictedPositions[i].x = particle->position.x + particle->velocity.x * deltaTime;
-	//	predictedPositions[i].y = particle->position.y + particle->velocity.y * deltaTime;
-	//	predictedPositions[i].z = particle->position.z + particle->velocity.z * deltaTime;
-
-	//	particle->velocity.y += -9.81f * deltaTime;
-	//    particle->density = CalculateDensity(predictedPositions[i]);
-	//	particle->nearDensity = CalculateNearDensity(predictedPositions[i]);
-	//	particle->pressureForce = CalculatePressureForceWithRepulsion(i);
-
-	//	// Acceleration = Force / Density
-	//	particle->acceleration.x = particle->pressureForce.x / particle->density;
-	//	particle->acceleration.y = particle->pressureForce.y / particle->density;
-	//	particle->acceleration.z = particle->pressureForce.z / particle->density;
-
-	//	// Update velocity and position
-	//	particle->velocity.x += particle->acceleration.x * deltaTime;
-	//	particle->velocity.y += particle->acceleration.y * deltaTime;
-	//	particle->velocity.z += particle->acceleration.z * deltaTime;
-
-	//	particle->position.x += particle->velocity.x * deltaTime;
-	//	particle->position.y += particle->velocity.y * deltaTime;
-	//	particle->position.z += particle->velocity.z * deltaTime;
-
-	//	// Handle boundary collisions with damping (as in the existing implementation)
-	//	if (particle->position.x < minX) {
-	//		particle->position.x = minX;
-	//		particle->velocity.x *= -1; // Reverse velocity
-	//	}
-	//	else if (particle->position.x > maxX) {
-	//		particle->position.x = maxX;
-	//		particle->velocity.x *= -1;
-	//	}
-
-	//	if (particle->position.y < minY) {
-	//		particle->position.y = minY;
-	//		particle->velocity.y *= -1;
-	//	}
-	//	else if (particle->position.y > maxY) {
-	//		particle->position.y = maxY;
-	//		particle->velocity.y *= -1;
-	//	}
-
-	//	if (particle->position.z < minZ) {
-	//		particle->position.z = minZ;
-	//		particle->velocity.z *= -1;
-	//	}
-	//	else if (particle->position.z > maxZ) {
-	//		particle->position.z = maxZ;
-	//		particle->velocity.z *= -1;
-	//	}
-
-	//	// Apply damping to velocity after collision
-	//	particle->velocity.x *= dampingFactor;
-	//	particle->velocity.y *= dampingFactor;
-	//	particle->velocity.z *= dampingFactor;
-	//}
 }

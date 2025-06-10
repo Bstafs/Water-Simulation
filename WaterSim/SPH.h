@@ -11,27 +11,21 @@ constexpr  float minY = -30.0f, maxY = 50.0f;
 constexpr  float minZ = -15.0f, maxZ = 15.0f;
 constexpr  float minX = -50.0f, maxX = 50.0f;
 
-constexpr float targetDensity = 8.0f;
-constexpr float stiffnessValue = 30.0f;
-
 struct ParticleAttributes
 {
-	XMFLOAT3 position;
-	float deltaTime;
-
-	XMFLOAT3 velocity;
-	float density;
-
-	float padding; // 12 bytes
+	XMFLOAT3 position; // 12 bytes
 	float nearDensity; // 4 bytes (16-byte aligned)
-	float minX;
-	float minZ;
+
+	XMFLOAT3 velocity; // 12 bytes
+	float density; // 4 bytes (16-byte aligned)
 };
 
 struct SimulationParams 
 {
 	int numParticles; // Total number of particles
-	XMFLOAT3 padding01;
+	float deltaTime;
+	float minX;
+	float minZ;
 };
 
 struct BitonicParams
@@ -54,16 +48,7 @@ private:
 	
 	// Initial Particle Positions
 	void InitParticles();
-
-	// GPU Side
-	 void InitSpatialGridClear();
-	 void InitAddParticlesToSpatialGrid();
-	 void InitBitonicSorting();
-	 void InitBuildGridOffsets();
-	 void InitParticleDensities();
-	 void InitParticlePressure();
-	 void InitComputeIntegrateShader();
-
+	void InitGPUResources();
 	
 	void UpdateSpatialGridClear(float deltaTime);
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
@@ -74,28 +59,11 @@ private:
 	void UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ);
 
 	bool isBufferSwapped = false;
-	// CPU Side
-	void UpdateSpatialGrid();
-
-	constexpr static float DensitySmoothingKernel(float dst, float radius);
-	constexpr static float PressureSmoothingKernel(float radius, float dst); // Derivative of Density Kernel
-	constexpr static float NearDensitySmoothingKernel(float radius, float dst);
-	constexpr static float NearDensitySmoothingKernelDerivative(float radius, float dst);
-	constexpr float ViscositySmoothingKernel(float radius, float dst);
-
-	 float CalculateMagnitude(const XMFLOAT3& vector);
-	 float CalculateDensity(const XMFLOAT3& samplePoint);
-	 float CalculateNearDensity(const XMFLOAT3& samplePoint);
-	constexpr float ConvertDensityToPressure(float density);
-	constexpr float CalculateSharedPressure(float densityA, float densityB);
-	 XMFLOAT3 CalculatePressureForceWithRepulsion(int particleIndex);
 
 public:
 	std::vector <Particle*> particleList;
 private:
 	// Particle Initialization
-
-	SpatialGrid spatialGrid;
 
 	ParticleAttributes* position;
 	float mGravity = 0.0f;

@@ -3,9 +3,9 @@
 #include <d3d11.h>
 #pragma comment(lib, "d3d11.lib")
 
-#define NUM_OF_PARTICLES 4096
-#define SMOOTHING_RADIUS 2.001f
-#define THREADS_PER_GROUPs 256
+constexpr UINT NUM_OF_PARTICLES = 4096;
+constexpr FLOAT SMOOTHING_RADIUS = 2.001f;
+constexpr UINT THREADS_PER_GROUPs = 256;
 
 constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 // DirectX

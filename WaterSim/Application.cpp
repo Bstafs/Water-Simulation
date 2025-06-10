@@ -757,11 +757,10 @@ void Application::Draw()
 	cb.World = XMMATRIX();
 
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-	_pImmediateContext->UpdateSubresource(_pInstanceBuffer, 0, nullptr, instanceData.data(), 0, 0);
 
 	_pImmediateContext->DrawIndexedInstanced(sphereIndices.size(), (UINT)instanceData.size(), 0, 0, 0);
 
 	ImGui();
 
-	_pSwapChain->Present(0, 0);
+	_pSwapChain->Present(1, 0);
 }
