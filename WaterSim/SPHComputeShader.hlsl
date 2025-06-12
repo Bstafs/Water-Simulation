@@ -33,9 +33,10 @@ RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particl
 static const float targetDensity = 10.0f;
 static const float stiffnessValue = 100.0f;
 static const float nearStiffnessValue = 400.0f;
-static const float smoothingRadius = 2.05f;
+static const float smoothingRadius = 2.5f;
+static const float sqrRadius = smoothingRadius * smoothingRadius;
 static const uint particlesPerCell = 100;
-static const int ThreadCount = 128;
+static const int ThreadCount = 256;
 
 static const uint hashK1 = 15823;
 static const uint hashK2 = 9737333;
@@ -194,7 +195,9 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
             currentIndex++;
 
 			// Skip if hash does not match
-                    
+            if (indexData[2] != key)
+                break;
+            
             if (indexData[1] != hash)
                 continue;
                                  
@@ -203,7 +206,7 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
             float3 offset = Partricles[neighborParticleIndex].position - position;
             float sqrDst = dot(offset, offset);
                      
-            if (sqrDst > smoothingRadius * smoothingRadius)
+            if (sqrDst > sqrRadius)
                 continue;
                           
             float dst = sqrt(sqrDst);
@@ -270,6 +273,9 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
             currIndex++;
             
 			// Skip if hash does not match
+            if (indexData[2] != key)
+                break;
+            
             if (indexData[1] != hash)
                 continue;
             
@@ -287,7 +293,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
             float3 offset = neighborPosition - position;
             float sqrDst = dot(offset, offset);
                                       
-            if (sqrDst > smoothingRadius * smoothingRadius)
+            if (sqrDst > sqrRadius)
                 continue;
             
             float neighborDensity = Partricles[neighbourIndex].density;
@@ -321,7 +327,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     // Apply the calculated force to update the particle's velocity (acceleration = force / density)
     float3 acceleration = totalForce / density;
     
-    Partricles[dispatchThreadId.x].velocity.xyz += acceleration * (1.0f / 60.0f);
+    Partricles[dispatchThreadId.x].velocity.xyz += acceleration * deltaTime;
 }
 
 void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX, float minZ, float maxZ)
@@ -379,9 +385,9 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 inputPosition = Partricles[dispatchThreadID.x].position;
     float3 inputVelocity = Partricles[dispatchThreadID.x].velocity;
     
-    inputVelocity.y += -9.807f * 1.0f / 60.0f;
+    inputVelocity.y += -9.807f * deltaTime;
          
-    inputPosition += inputVelocity * 1.0f / 60.0f;
+    inputPosition += inputVelocity * deltaTime;
     
     CollisionBox(inputPosition, inputVelocity, minX, -minX, minZ, -minZ);
     

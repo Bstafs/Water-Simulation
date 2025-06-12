@@ -3,9 +3,13 @@
 #include <d3d11.h>
 #pragma comment(lib, "d3d11.lib")
 
-constexpr UINT NUM_OF_PARTICLES = 4096;
+//constexpr UINT NUM_OF_PARTICLES = 4096;
+//constexpr UINT NUM_OF_PARTICLES = 8192;
+//constexpr UINT NUM_OF_PARTICLES = 16384;
+constexpr UINT NUM_OF_PARTICLES = 131072;
+//constexpr UINT NUM_OF_PARTICLES = 262144;
 constexpr FLOAT SMOOTHING_RADIUS = 2.001f;
-constexpr UINT THREADS_PER_GROUPs = 128;
+constexpr UINT THREADS_PER_GROUPs = 256;
 
 constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 // DirectX

@@ -97,7 +97,7 @@ void SPH::InitGPUResources()
 
 	// Constant Buffers
 	SpatialGridConstantBuffer = CreateConstantBuffer(sizeof(SimulationParams), device, false);
-	BitonicSortConstantBuffer = CreateConstantBuffer(sizeof(BitonicParams), device, true);
+	BitonicSortConstantBuffer = CreateConstantBuffer(sizeof(BitonicParams), device, false);
 
 
 	// Structure Buffers
@@ -302,6 +302,7 @@ void SPH::UpdateParticleDensities(float deltaTime)
 	cb.numParticles = NUM_OF_PARTICLES;
 	cb.minX = minX;
 	cb.minZ = minZ;
+	cb.deltaTime = deltaTime;
 	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Bind compute shader and resources
@@ -332,6 +333,7 @@ void SPH::UpdateParticlePressure(float deltaTime)
 	cb.numParticles = NUM_OF_PARTICLES;
 	cb.minX = minX;
 	cb.minZ = minZ;
+	cb.deltaTime = deltaTime;
 	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Bind compute shader and resources
@@ -360,6 +362,7 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ)
 	cb.numParticles = NUM_OF_PARTICLES;
 	cb.minX = minX;
 	cb.minZ = minZ;
+	cb.deltaTime = deltaTime;
 	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Bind compute shader and resources
