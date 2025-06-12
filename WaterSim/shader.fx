@@ -11,7 +11,7 @@ struct InstanceData
     float4x4 World;
 };
 
-StructuredBuffer<InstanceData> instanceBuffer : register(t0);
+StructuredBuffer<InstanceData> instanceBuffer : register(t1);
 
 //--------------------------------------------------------------------------------------
 // Constant Buffer Variables

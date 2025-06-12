@@ -5,7 +5,7 @@
 
 constexpr UINT NUM_OF_PARTICLES = 4096;
 constexpr FLOAT SMOOTHING_RADIUS = 2.001f;
-constexpr UINT THREADS_PER_GROUPs = 256;
+constexpr UINT THREADS_PER_GROUPs = 128;
 
 constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 // DirectX
@@ -17,6 +17,7 @@ constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / 
 #include <DirectXCollision.h>
 #include "CreateID3D11Functions.h"
 #include <wrl/client.h>
+#include <DirectXCollision.h>
 
 // Camera
 #include "Camera.h"

@@ -484,7 +484,7 @@ HRESULT Application::InitDevice()
 
 	InitShadersAndInputLayout();
 
-	CreateSphere(1.0f, 16, sphereVertices, sphereIndices);
+	CreateSphere(1.0f, 8, sphereVertices, sphereIndices);
 	InitBuffers();
 
 	// Set primitive topology
@@ -594,15 +594,6 @@ void Application::UpdatePhysics(float deltaTime)
 	{
 		sph->Update(deltaTime, minX, minZ);
 	}
-}
-
-void Application::Update()
-{
-	// Update camera
-	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
-	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
-
-	_camera->Update();
 
 	for (size_t i = 0; i < NUM_OF_PARTICLES; ++i)
 	{
@@ -623,6 +614,17 @@ void Application::Update()
 		memcpy(mappedResource.pData, instanceData.data(), sizeof(InstanceData) * instanceData.size());
 		_pImmediateContext->Unmap(_pInstanceBuffer, 0);
 	}
+}
+
+void Application::Update()
+{
+	// Update camera
+	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
+	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
+
+	_camera->Update();
+
+	
 }
 
 void Application::ImGui()
@@ -726,7 +728,7 @@ void Application::Draw()
 
 	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
 	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
-	_pImmediateContext->VSSetShaderResources(0, 1, &instanceBufferSRV);
+	_pImmediateContext->VSSetShaderResources(1, 1, &instanceBufferSRV);
 
 	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
@@ -739,6 +741,7 @@ void Application::Draw()
 	XMFLOAT4X4 projectionAsFloats = _camera->GetProjection();
 
 	XMMATRIX view = XMLoadFloat4x4(&viewAsFloats);
+
 	XMMATRIX projection = XMLoadFloat4x4(&projectionAsFloats);
 
 	cb.View = XMMatrixTranspose(view);
@@ -754,7 +757,8 @@ void Application::Draw()
 	_pImmediateContext->PSSetShaderResources(0, 1, &_pTextureRV);
 	cb.HasTexture = 0.0f;
 
-	cb.World = XMMATRIX();
+	cb.World = XMMatrixIdentity();
+
 
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
@@ -762,5 +766,5 @@ void Application::Draw()
 
 	ImGui();
 
-	_pSwapChain->Present(1, 0);
+	_pSwapChain->Present(0, 0);
 }

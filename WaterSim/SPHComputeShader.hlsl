@@ -25,9 +25,8 @@ cbuffer BitonicParams : register(b1)
     uint padding;
 };
 
-StructuredBuffer<ParticleAttributes> InputPosition : register(t0);
+RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
 
-RWStructuredBuffer<ParticleAttributes> OutputPosition : register(u0); // Output UAV
 RWStructuredBuffer<uint3> GridIndices : register(u1); // Grid buffer: holds indices to particles
 RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particles per cell
 
@@ -36,7 +35,7 @@ static const float stiffnessValue = 100.0f;
 static const float nearStiffnessValue = 400.0f;
 static const float smoothingRadius = 2.05f;
 static const uint particlesPerCell = 100;
-static const int ThreadCount = 256;
+static const int ThreadCount = 128;
 
 static const uint hashK1 = 15823;
 static const uint hashK2 = 9737333;
@@ -105,9 +104,9 @@ void AddParticlesToGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
 
     uint index = dispatchThreadId.x;
-    int3 cell = GetCell3D(InputPosition[index].position, smoothingRadius);
+    int3 cell = GetCell3D(Partricles[index].position, smoothingRadius);
     uint hash = HashCell3D(cell);
-    uint key = KeyFromHash(hash, particlesPerCell);
+    uint key = KeyFromHash(hash, numParticles);
     
         // Populate the grid buffer with particle information
     GridIndices[dispatchThreadId.x] = uint3(
@@ -139,8 +138,8 @@ void BitonicSort(uint3 dispatchThreadID : SV_DispatchThreadID)
         uint3 elemJ = GridIndices[ixj];
 
         // Compare keys 
-        if ((ascending && (elemI.y > elemJ.y)) ||
-             (!ascending && (elemI.y < elemJ.y)))
+        if ((ascending && (elemI.z > elemJ.z)) ||
+    (!ascending && (elemI.z < elemJ.z)))
         {
             // Swap the two elements
             GridIndices[i] = elemJ;
@@ -156,10 +155,13 @@ void BuildGridOffsets(uint3 dispatchThreadID : SV_DispatchThreadID)
     if (i >= numElements)
         return;
 
+    uint currentHash = GridIndices[i].y;
+    uint previousHash = (i == 0) ? 0xFFFFFFFF : GridIndices[i - 1].y;
 
-    if (i == 0 || GridIndices[i].y != GridIndices[i - 1].y)
+    if (i == 0 || currentHash != previousHash)
     {
-        GridOffsets[GridIndices[i].z] = i;
+        uint cellKey = KeyFromHash(currentHash, numParticles);
+        GridOffsets[cellKey] = i;
     }
 }
 
@@ -170,7 +172,7 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
 
     
-    float3 position = InputPosition[dispatchThreadId.x].position;
+    float3 position = Partricles[dispatchThreadId.x].position;
     float density = 0.0f;
     float nearDensity = 0.0f;
     float mass = 1.0f;
@@ -198,7 +200,7 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
                                  
             uint neighborParticleIndex = indexData[0];
             
-            float3 offset = InputPosition[neighborParticleIndex].position - position;
+            float3 offset = Partricles[neighborParticleIndex].position - position;
             float sqrDst = dot(offset, offset);
                      
             if (sqrDst > smoothingRadius * smoothingRadius)
@@ -212,8 +214,8 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
         
     }
 
-    OutputPosition[dispatchThreadId.x].density = density;
-    OutputPosition[dispatchThreadId.x].nearDensity = nearDensity;
+    Partricles[dispatchThreadId.x].density = density;
+    Partricles[dispatchThreadId.x].nearDensity = nearDensity;
 }
 
 float ConvertDensityToPressure(float density)
@@ -238,10 +240,10 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (dispatchThreadId.x >= numParticles)
         return;
 
-    float3 position = InputPosition[dispatchThreadId.x].position;
-    float3 velocity = InputPosition[dispatchThreadId.x].velocity;
-    float density = InputPosition[dispatchThreadId.x].density;
-    float nearDensity = InputPosition[dispatchThreadId.x].nearDensity;
+    float3 position = Partricles[dispatchThreadId.x].position;
+    float3 velocity = Partricles[dispatchThreadId.x].velocity;
+    float density = Partricles[dispatchThreadId.x].density;
+    float nearDensity = Partricles[dispatchThreadId.x].nearDensity;
     
     // Pressure values for the current particle
     float pressure = ConvertDensityToPressure(density);
@@ -277,8 +279,8 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
 
             
              // Get the neighbor's position, velocity, and other properties
-            float3 neighborPosition = InputPosition[neighbourIndex].position;
-            float3 neighborVelocity = InputPosition[neighbourIndex].velocity;
+            float3 neighborPosition = Partricles[neighbourIndex].position;
+            float3 neighborVelocity = Partricles[neighbourIndex].velocity;
          
             float3 relativeVelocity = neighborVelocity - velocity;
             
@@ -288,8 +290,8 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
             if (sqrDst > smoothingRadius * smoothingRadius)
                 continue;
             
-            float neighborDensity = InputPosition[neighbourIndex].density;
-            float neighborNearDensity = InputPosition[neighbourIndex].nearDensity;
+            float neighborDensity = Partricles[neighbourIndex].density;
+            float neighborNearDensity = Partricles[neighbourIndex].nearDensity;
             float neighbourPressure = ConvertDensityToPressure(neighborDensity);
             float neighbourPressureNear = ConvertNearDensityToPressure(neighborNearDensity);
                              
@@ -319,7 +321,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     // Apply the calculated force to update the particle's velocity (acceleration = force / density)
     float3 acceleration = totalForce / density;
     
-    OutputPosition[dispatchThreadId.x].velocity.xyz += acceleration * (1.0f / 60.0f);
+    Partricles[dispatchThreadId.x].velocity.xyz += acceleration * (1.0f / 60.0f);
 }
 
 void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX, float minZ, float maxZ)
@@ -374,8 +376,8 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     if (dispatchThreadID.x >= numParticles)
         return;
              
-    float3 inputPosition = InputPosition[dispatchThreadID.x].position;
-    float3 inputVelocity = InputPosition[dispatchThreadID.x].velocity;
+    float3 inputPosition = Partricles[dispatchThreadID.x].position;
+    float3 inputVelocity = Partricles[dispatchThreadID.x].velocity;
     
     inputVelocity.y += -9.807f * 1.0f / 60.0f;
          
@@ -383,6 +385,6 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     
     CollisionBox(inputPosition, inputVelocity, minX, -minX, minZ, -minZ);
     
-    OutputPosition[dispatchThreadID.x].velocity = inputVelocity;
-    OutputPosition[dispatchThreadID.x].position = inputPosition;
+    Partricles[dispatchThreadID.x].velocity = inputVelocity;
+    Partricles[dispatchThreadID.x].position = inputPosition;
 }

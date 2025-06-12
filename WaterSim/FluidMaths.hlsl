@@ -40,7 +40,7 @@ float PressureSmoothingKernel(float dst, float radius)
 
 float NearDensitySmoothingKernelDerivative(float dst, float radius)
 {
-    if (dst <= radius)
+    if (dst < radius)
     {
         const float scale = 45.0f / (pow(radius, 6) * XM_PI);
         float diff = radius - dst;
