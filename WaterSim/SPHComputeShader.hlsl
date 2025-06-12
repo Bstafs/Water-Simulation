@@ -325,7 +325,8 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 totalForce = pressureForce + repulsionForce + viscousForce;
     
     // Apply the calculated force to update the particle's velocity (acceleration = force / density)
-    float3 acceleration = totalForce / density;
+float invDensity = density > 0.0001f ? 1.0f / density : 0.0f;
+float3 acceleration = totalForce * invDensity;
     
     Partricles[dispatchThreadId.x].velocity.xyz += acceleration * deltaTime;
 }

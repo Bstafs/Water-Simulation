@@ -367,7 +367,6 @@
     <ClCompile Include="CompileShader.cpp" />
     <ClCompile Include="CreateID3D11Functions.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
-    <ClCompile Include="DebugDraw.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
@@ -380,7 +379,6 @@
     <ClCompile Include="MarchingCubes.cpp" />
     <ClCompile Include="OBJLoader.cpp" />
     <ClCompile Include="Particle.cpp" />
-    <ClCompile Include="SpatialGrid.cpp" />
     <ClCompile Include="SPH.cpp" />
     <ClCompile Include="Timestep.cpp" />
     <ClCompile Include="Transform.cpp" />
@@ -391,10 +389,8 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CompileShader.h" />
-    <ClInclude Include="Constants.h" />
     <ClInclude Include="CreateID3D11Functions.h" />
     <ClInclude Include="DDSTextureLoader.h" />
-    <ClInclude Include="DebugDraw.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
@@ -411,7 +407,6 @@
     <ClInclude Include="Particle.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="SpatialGrid.h" />
     <ClInclude Include="SPH.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="Structures.h" />
@@ -441,10 +436,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="SPHComputeShader.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </FxCompile>
-    <FxCompile Include="WaterShader.fx">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>

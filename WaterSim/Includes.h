@@ -29,7 +29,6 @@ constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / 
 // Constants
 #include "resource.h"
 #include "Structures.h"
-#include "Constants.h"
 // OBJ Loader
 #include "OBJLoader.h"
 

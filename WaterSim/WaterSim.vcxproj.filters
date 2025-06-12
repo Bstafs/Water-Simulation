@@ -54,13 +54,11 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Entity</Filter>
     </ClCompile>
-    <ClCompile Include="DebugDraw.cpp" />
     <ClCompile Include="Timestep.cpp">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="CompileShader.cpp" />
     <ClCompile Include="CreateID3D11Functions.cpp" />
-    <ClCompile Include="SpatialGrid.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -130,8 +128,6 @@
     <ClInclude Include="MarchingCubeTable.h">
       <Filter>Marching Cubes</Filter>
     </ClInclude>
-    <ClInclude Include="Constants.h" />
-    <ClInclude Include="DebugDraw.h" />
     <ClInclude Include="Timestep.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -139,7 +135,6 @@
     <ClInclude Include="Includes.h" />
     <ClInclude Include="CreateID3D11Functions.h" />
     <ClInclude Include="stb_image.h" />
-    <ClInclude Include="SpatialGrid.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">
@@ -163,9 +158,6 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shader.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="WaterShader.fx">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="SPHComputeShader.hlsl">
