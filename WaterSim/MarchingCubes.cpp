@@ -1,111 +1,166 @@
 #include "MarchingCubes.h"
 
-MarchingCubes::MarchingCubes(const double _bound[], double _l, list<Particle>* _particles)
+MarchingCubes::MarchingCubes()
 {
 	
 }
-
 
 MarchingCubes::~MarchingCubes()
 {
 	
 }
 
-void MarchingCubes::MarchingCubesGrid()
+XMFLOAT3 MarchingCubes::VertexInterp(float isoLevel, const XMFLOAT3& p1, const XMFLOAT3& p2, float valp1, float valp2)
+{
+	if (std::abs(isoLevel - valp1) < 0.00001f)
+		return p1;
+	if (std::abs(isoLevel - valp2) < 0.00001f)
+		return p2;
+	if (abs(valp1 - valp2) < 0.00001f) 
+		return p1;
+
+	float mu = (isoLevel - valp1) / (valp2 - valp1);
+	return XMFLOAT3(
+		p1.x + mu * (p2.x - p1.x),
+		p1.y + mu * (p2.y - p1.y),
+		p1.z + mu * (p2.z - p1.z)
+	);
+}
+
+void MarchingCubes::GenerateMarchingCubesMesh(
+	const std::vector<float>& scalarField,
+	int gridSizeX, int gridSizeY, int gridSizeZ,
+	float cellSize,
+	float isoLevel,
+	std::vector<SimpleVertex>& outVertices,
+	std::vector<DWORD>& outIndices)
 {
 
+	static const int edgeIndexPairs[12][2] = {
+	   {0,1}, {1,2}, {2,3}, {3,0},
+	   {4,5}, {5,6}, {6,7}, {7,4},
+	   {0,4}, {1,5}, {2,6}, {3,7}
+	};
+
+	static const XMFLOAT3 cornerOffsets[8] = {
+	   {0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
+	   {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}
+	};
+
+	for (int z = 0; z < gridSizeZ - 1; ++z)
+	{
+		for (int y = 0; y < gridSizeY - 1; ++y)
+		{
+			for (int x = 0; x < gridSizeX - 1; ++x)
+			{
+				int cubeIndex = 0;
+				XMFLOAT3 cubeVerts[8];
+				float cubeValues[8];
+
+				for (int i = 0; i < 8; ++i)
+				{
+					int cornerX = x + static_cast<int>(cornerOffsets[i].x);
+					int cornerY = y + static_cast<int>(cornerOffsets[i].y);
+					int cornerZ = z + static_cast<int>(cornerOffsets[i].z);
+					cubeVerts[i] = XMFLOAT3(
+						cornerX * cellSize,
+						cornerY * cellSize,
+						cornerZ * cellSize
+					);
+					cubeValues[i] = scalarField[cornerX + cornerY * gridSizeX + cornerZ * gridSizeX * gridSizeY];
+					if (cubeValues[i] < isoLevel)
+						cubeIndex |= (1 << i);
+				}
+
+				int edgeFlags = EDGE_TABLE[cubeIndex];
+				if (edgeFlags == 0) continue;
+
+				XMFLOAT3 edgeVertices[12];
+				for (int i = 0; i < 12; ++i)
+				{
+					if (edgeFlags & (1 << i))
+					{
+						int v1 = edgeIndexPairs[i][0];
+						int v2 = edgeIndexPairs[i][1];
+						edgeVertices[i] = VertexInterp(isoLevel, cubeVerts[v1], cubeVerts[v2], cubeValues[v1], cubeValues[v2]);
+					}
+				}
+
+				for (int i = 0; TRI_TABLE[cubeIndex][i] != -1; i += 3)
+				{
+					uint32_t index0 = static_cast<uint32_t>(outVertices.size());
+					outVertices.push_back(SimpleVertex{
+						edgeVertices[TRI_TABLE[cubeIndex][i]],
+						XMFLOAT3(0.0f, 0.0f, 0.0f), // Placeholder for normals
+						XMFLOAT2(0.0f, 0.0f) // Placeholder for texture coordinates
+						});
+
+					outVertices.push_back(SimpleVertex{
+						edgeVertices[TRI_TABLE[cubeIndex][i + 1]],
+						XMFLOAT3(0.0f, 0.0f, 0.0f), // Placeholder for normals
+						XMFLOAT2(0.0f, 0.0f) // Placeholder for texture coordinates
+						});
+
+					outVertices.push_back(SimpleVertex{
+						edgeVertices[TRI_TABLE[cubeIndex][i + 2]],
+						XMFLOAT3(0.0f, 0.0f, 0.0f), // Placeholder for normals
+						XMFLOAT2(0.0f, 0.0f) // Placeholder for texture coordinates
+						});
+
+					outIndices.push_back(index0);
+					outIndices.push_back(index0 + 1);
+					outIndices.push_back(index0 + 2);
+				}
+			}
+		}
+	}
 }
 
 
-
-void MarchingCubes::MarchingCubesGenerate()
+std::vector<float> MarchingCubes::GenerateScalarField(const std::vector<Particle*>& particles,
+	int gridSizeX, int gridSizeY, int gridSizeZ,
+	float cellSize,
+	float smoothingRadius, float isoLevel,
+	XMFLOAT3 gridOrigin)
 {
+	std::vector<float> scalarField(gridSizeX * gridSizeY * gridSizeZ, 0.0f);
 
+	for (int z = 0; z < gridSizeZ; ++z)
+	{
+		for (int y = 0; y < gridSizeY; ++y)
+		{
+			for (int x = 0; x < gridSizeX; ++x)
+			{
+
+				XMFLOAT3 voxelPos = {
+					gridOrigin.x + x * cellSize,
+					gridOrigin.y + y * cellSize,
+					gridOrigin.z + z * cellSize
+				};
+
+				float density = 0.0f;
+				for (const Particle* particle : particles)
+				{
+					XMFLOAT3 r = {
+						voxelPos.x - particle->position.x,
+						voxelPos.y - particle->position.y,
+						voxelPos.z - particle->position.z
+					};
+
+					float r2 = r.x * r.x + r.y * r.y + r.z * r.z;
+					if (r2 < smoothingRadius * smoothingRadius)
+					{
+						float term = smoothingRadius * smoothingRadius - r2;
+						float weight = term * term * term; // Poly6 without normalization constant
+						density += particle->density * weight;
+					}
+
+
+				}
+
+				scalarField[x + y * gridSizeX + z * gridSizeX * gridSizeY] = density;
+			}
+		}
+	}
+	return scalarField;
 }
-XMFLOAT3* MarchingCubes::IntersectPoint(const XMFLOAT3& v, const XMFLOAT3& u, Particle* tmp) const
-{
-    return new XMFLOAT3((v.x + u.x) * 0.5f, (v.y + u.y) * 0.5f, (v.z + u.z) * 0.5f);
-}
-
-//void MarchingCubes::MarchingCubesMesh(vector<XMFLOAT3>& vertexs, vector<int>& tri_index)
-//{
-//    vertexs.clear();
-//    tri_index.clear();
-//
-//    // count inside
-//    int p = 0;
-//    for (int i = 0; i <= total_edge[0]; ++i) {
-//        for (int j = 0; j <= total_edge[1]; ++j) {
-//            for (int k = 0; k <= total_edge[2]; ++k, ++p) {
-//                XMFLOAT3 vertex(base.x + i * l, base.y + j * l, base.z + k * l);
-//                inside[p] = ParticleCheck(vertex);
-//            }
-//        }
-//    }
-//
-//    // cout intersection
-//    p = 0; Particle* tmp = NULL;
-//    for (int i = 0; i <= total_edge[0]; ++i) {
-//        for (int j = 0; j <= total_edge[1]; ++j) {
-//            for (int k = 0; k <= total_edge[2]; ++k, p += 3) {
-//                XMFLOAT3 v0(base.x + i * l, base.y + j * l, base.z + k * l);
-//                XMFLOAT3 v1(base.x + i * l + l, base.y + j * l, base.z + k * l);
-//                XMFLOAT3 v2(base.x + i * l, base.y + j * l + l, base.z + k * l);
-//                XMFLOAT3 v3(base.x + i * l, base.y + j * l, base.z + k * l + l);
-//
-//                if (tmp = ParticleDifference(inside[p / 3], inside[p / 3 + dx])) {
-//                    intersections[p] = IntersectPoint(v0, v1, tmp);
-//                }
-//                if (tmp = ParticleDifference(inside[p / 3], inside[p / 3 + dy])) {
-//                    intersections[p + 1] = IntersectPoint(v0, v2, tmp);
-//                }
-//                if (tmp = ParticleDifference(inside[p / 3], inside[p / 3 + dz])) {
-//                    intersections[p + 2] = IntersectPoint(v0, v3, tmp);
-//                }
-//            }
-//        }
-//    }
-//
-//    for (int i = 0; i < sum_e; ++i) {
-//        if (intersections[i]) {
-//            mapping[i] = vertexs.size();
-//            vertexs.push_back(*intersections[i]);
-//        }
-//    }
-//
-//    // lookup
-//    p = 0;
-//    for (int i = 0; i < total_edge[0]; ++i) {
-//        for (int j = 0; j < total_edge[1]; ++j) {
-//            for (int k = 0; k < total_edge[2]; ++k, ++p) {
-//
-//                int status = 0;
-//                for (int sta_i = 0, tw = 1; sta_i < 8; ++sta_i, tw = tw << 1) {
-//                    status |= inside[p + offset[sta_i]] ? tw : 0;
-//                }
-//                if (status == 0 || status == 255) continue;
-//
-//                // Triangalation
-//                for (int tri_p = 0; tri_p < 16 && TRI_TABLE[status][tri_p] >= 0; ++tri_p) {
-//                    tri_index.push_back(mapping[offset_edge[TRI_TABLE[status][tri_p]] + p * 3]);
-//                }
-//            }
-//            p += dz;
-//        }
-//        p += dy;
-//    }
-//}
-
-Particle* MarchingCubes::ParticleCheck(XMFLOAT3 v) const
-{
-    Particle* part;
-    return part;
-}
-
-Particle* MarchingCubes::ParticleDifference(Particle* a, Particle* b) const
-{
-    Particle* part;
-    return part;
-}
-
-

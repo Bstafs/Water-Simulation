@@ -29,7 +29,7 @@ float NearDensitySmoothingKernel(float dst, float radius)
 // Pressure Force Kernel
 float PressureSmoothingKernel(float dst, float radius)
 {
-    if (dst <= radius)
+    if (dst < radius)
     {
         const float scale = 15.0f / (pow(radius, 5) * XM_PI);
         float diff = radius - dst;
@@ -59,3 +59,5 @@ float ViscositySmoothingKernel(float dst, float radius)
     }
     return 0.0f;
 }
+
+

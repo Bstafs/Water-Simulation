@@ -59,6 +59,7 @@ public:
 	void Update();
 	void UpdatePhysics(float deltaTime);
 	void Draw();
+	void DrawMarchingCubes();
 
 public:
 	// Public Variables
@@ -147,8 +148,9 @@ private:
 	// SPH
 	std::unique_ptr<SPH> sph;
 
-
 	bool SimulationControl = true;
+
+	bool drawSpheres = true;
 
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
 };

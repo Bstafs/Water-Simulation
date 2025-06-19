@@ -720,7 +720,13 @@ void Application::Draw()
 
 	UINT strides = sizeof(SimpleVertex);
 	UINT offsets = 0;
+
+	ID3D11Buffer* mcVB = sph->GetMarchingCubesVertexBuffer();
+	ID3D11Buffer* mcIB = sph->GetMarchingCubesIndexBuffer();
+	UINT mcIndexCount = sph->GetMarchingCubesIndexCount();
+
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
+
 	_pImmediateContext->IASetVertexBuffers(0, 1, &_pVertexBuffer, &strides, &offsets);
 	_pImmediateContext->IASetIndexBuffer(_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 
@@ -759,12 +765,76 @@ void Application::Draw()
 
 	cb.World = XMMatrixIdentity();
 
-
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	_pImmediateContext->DrawIndexedInstanced(sphereIndices.size(), (UINT)instanceData.size(), 0, 0, 0);
 
 	ImGui();
 
+	_pSwapChain->Present(1, 0);
+}
+
+void Application::DrawMarchingCubes()
+{
+	float ClearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f }; // red,green,blue,alpha
+	_pImmediateContext->ClearRenderTargetView(_pRenderTargetView, ClearColor);
+	_pImmediateContext->ClearDepthStencilView(_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
+
+	UINT strides = sizeof(SimpleVertex);
+	UINT offsets = 0;
+
+	ID3D11Buffer* mcVB = sph->GetMarchingCubesVertexBuffer();
+	ID3D11Buffer* mcIB = sph->GetMarchingCubesIndexBuffer();
+	UINT mcIndexCount = sph->GetMarchingCubesIndexCount();
+
+	_pImmediateContext->IASetInputLayout(_pVertexLayout);
+
+	_pImmediateContext->IASetVertexBuffers(0, 1, &mcVB, &strides, &offsets);
+
+	_pImmediateContext->IASetIndexBuffer(mcIB, DXGI_FORMAT_R32_UINT, 0);
+
+	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
+	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
+	_pImmediateContext->VSSetShaderResources(1, 1, &instanceBufferSRV);
+
+	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
+	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
+
+	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
+
+	ConstantBuffer cb;
+
+	XMFLOAT4X4 viewAsFloats = _camera->GetView();
+	XMFLOAT4X4 projectionAsFloats = _camera->GetProjection();
+
+	XMMATRIX view = XMLoadFloat4x4(&viewAsFloats);
+
+	XMMATRIX projection = XMLoadFloat4x4(&projectionAsFloats);
+
+	cb.View = XMMatrixTranspose(view);
+	cb.Projection = XMMatrixTranspose(projection);
+
+	cb.light = basicLight;
+	cb.EyePosW = _camera->GetPosition();
+
+	cb.surface.AmbientMtrl = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
+	cb.surface.DiffuseMtrl = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	cb.surface.SpecularMtrl = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
+
+	_pImmediateContext->PSSetShaderResources(0, 1, &_pTextureRV);
+	cb.HasTexture = 0.0f;
+
+	cb.World = XMMatrixIdentity();
+
+	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+	_pImmediateContext->DrawIndexed(mcIndexCount, 0, 0);
+
+
+	ImGui();
 	_pSwapChain->Present(1, 0);
 }

@@ -3,6 +3,7 @@
 #define PI 3.141592653589793238462643383279502884197
 
 #include "Particle.h"
+#include "MarchingCubes.h"
 
 constexpr float dampingFactor = 0.99f;
 
@@ -42,6 +43,9 @@ public:
 	~SPH();
 	void Update(float deltaTime, float minX, float minZ);
 
+	ID3D11Buffer* GetMarchingCubesVertexBuffer() const { return _pVertexBufferMarchingCubes; }
+	ID3D11Buffer* GetMarchingCubesIndexBuffer() const { return _pIndexBufferMarchingCubes; }
+	UINT GetMarchingCubesIndexCount() const { return static_cast<UINT>(MarchingCubesIndices.size()); }
 
 private:
 	
@@ -52,10 +56,19 @@ private:
 	void UpdateSpatialGridClear(float deltaTime);
 	void UpdateAddParticlesToSpatialGrid(float deltaTime);
 	void UpdateBitonicSorting(float deltaTime);
+
+	void UpdateRadixSorting(float deltaTime);
+
 	void UpdateBuildGridOffsets(float deltaTime);
 	void UpdateParticleDensities(float deltaTime);
 	void UpdateParticlePressure(float deltaTime);
 	void UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ);
+
+	void UpdateMarchingCubes(float deltaTime);
+	XMFLOAT3 CalculateParticleCenter();
+	void UpdateGridOrigin();
+	void UpdateMarchingCubesBuffers();
+
 
 	bool isBufferSwapped = false;
 
@@ -76,14 +89,47 @@ private:
 	ID3D11ComputeShader* SpatialGridClearShader = nullptr;
 	ID3D11ComputeShader* SpatialGridAddParticleShader = nullptr;
 	ID3D11ComputeShader* BitonicSortingShader = nullptr;
+
+	ID3D11ComputeShader* RadixHistogramShader = nullptr;
+	ID3D11ComputeShader* RadixPreFixSumShader = nullptr;
+	ID3D11ComputeShader* RadixPrepareOffsetsShader = nullptr;
+	ID3D11ComputeShader* RadixScatterShader = nullptr;
+
 	ID3D11ComputeShader* GridOffsetsShader = nullptr;
 	ID3D11ComputeShader* FluidSimCalculateDensity = nullptr;
 	ID3D11ComputeShader* FluidSimCalculatePressure = nullptr;
+
+	ID3D11ComputeShader* MarchingCubesShader = nullptr;
 
 	// Buffers
 	ID3D11Buffer* inputBuffer = nullptr;
 	ID3D11Buffer* outputBuffer = nullptr;
 	ID3D11Buffer*  outputResultBuffer = nullptr;
+
+	ID3D11Buffer* histogramBuffer;  
+	ID3D11UnorderedAccessView* histogramUAV = nullptr;
+
+	ID3D11Buffer* globalParamsBuffer = nullptr;
+	ID3D11UnorderedAccessView* globalParamsUAV = nullptr;
+
+	ID3D11Buffer* preFixSumBuffer = nullptr;
+	ID3D11UnorderedAccessView* preFixSumUAV = nullptr;
+
+	ID3D11Buffer* sortedIndicesBuffer = nullptr;
+	ID3D11UnorderedAccessView* sortedIndicesUAV = nullptr;
+
+	// Marching Cubes
+	ID3D11Buffer* vertexBuffer = nullptr;
+	ID3D11UnorderedAccessView* vertexUAV = nullptr;
+
+	ID3D11Buffer* indexBuffer = nullptr;
+	ID3D11UnorderedAccessView* indexUAV = nullptr;
+
+	ID3D11Buffer* vertexCountBuffer = nullptr;
+	ID3D11UnorderedAccessView* vertexCountUAV = nullptr;
+
+	ID3D11Buffer* indexCountBuffer = nullptr;
+	ID3D11UnorderedAccessView* indexCountUAV = nullptr;
 
 	ID3D11Buffer*  SpatialGridConstantBuffer = nullptr;
 	ID3D11Buffer*  BitonicSortConstantBuffer = nullptr;
@@ -112,5 +158,22 @@ private:
 
 	ID3D11ShaderResourceView* srvNull[1] = { nullptr };
 	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };
+
+	// Marching Cubes
+	std::unique_ptr<MarchingCubes> marchingCubes;
+	std::vector<float> scalarField;
+
+	std::vector<SimpleVertex> MarchingCubesVertices;
+	std::vector<DWORD> MarchingCubesIndices;
+	ID3D11Buffer* _pVertexBufferMarchingCubes;
+	ID3D11Buffer* _pIndexBufferMarchingCubes;
+
+	float cellSize = 1.0f;
+	int gridSizeX = 64;
+	int gridSizeY = 64;
+	int gridSizeZ = 64;
+	float smoothingRadius = 2.5f;
+	float isoLevel = 75.0f;
+	XMFLOAT3 gridOrigin = XMFLOAT3(0.0f, 0.0f, 0.0f);
 };
 

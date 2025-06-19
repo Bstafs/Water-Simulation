@@ -53,6 +53,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         // Handle input, game logic, and rendering
         theApp->Update();           // Camera
         theApp->Draw();             // Rendering
+       // theApp->DrawMarchingCubes();             // Rendering
     }
 
     // Cleanup
