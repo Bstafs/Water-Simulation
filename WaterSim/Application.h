@@ -125,7 +125,6 @@ private:
 	MeshData objMeshData;
 	Light basicLight;
 	Camera* _camera = nullptr;
-	Transform* m_transform;
 
 	// Window
 	UINT _WindowWidth = 1920;

@@ -4,10 +4,10 @@
 #pragma comment(lib, "d3d11.lib")
 
 //constexpr UINT NUM_OF_PARTICLES = 256;
-constexpr UINT NUM_OF_PARTICLES = 4096;
+//constexpr UINT NUM_OF_PARTICLES = 4096;
 //constexpr UINT NUM_OF_PARTICLES = 8192;
 //constexpr UINT NUM_OF_PARTICLES = 16384;
-//constexpr UINT NUM_OF_PARTICLES = 131072;
+constexpr UINT NUM_OF_PARTICLES = 131072;
 //constexpr UINT NUM_OF_PARTICLES = 262144;
 constexpr FLOAT SMOOTHING_RADIUS = 2.001f;
 constexpr UINT THREADS_PER_GROUPs = 256;
@@ -33,8 +33,6 @@ constexpr UINT RADIX_BITS = 8; // 8-bit digits
 // Constants
 #include "resource.h"
 #include "Structures.h"
-// OBJ Loader
-#include "OBJLoader.h"
 
 // STD
 #include <format>
@@ -54,7 +52,6 @@ constexpr UINT RADIX_BITS = 8; // 8-bit digits
 
 // Physics / Objects
 #include "Quaternion.h"
-#include "GameObject.h"
 #include "Vector3.h"
 
 // ImGui

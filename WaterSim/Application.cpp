@@ -185,28 +185,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	basicLight.SpecularPower = 20.0f;
 	basicLight.LightVecW = XMFLOAT3(0.0f, 1.0f, 0.0f);
 
-	Geometry sphereGeometry;
-	sphereGeometry.indexBuffer = _pIndexBuffer;
-	sphereGeometry.vertexBuffer = _pVertexBuffer;
-	sphereGeometry.instanceBuffer = _pInstanceBuffer;
-	sphereGeometry.numberOfIndices = sphereIndices.size();
-	sphereGeometry.vertexBufferOffset = 0;
-	sphereGeometry.vertexBufferStride = sizeof(SimpleVertex);
-	sphereGeometry.instanceBufferOffset = 0;
-	sphereGeometry.instanceBufferStride = sizeof(InstanceData);
-
-	Material shinyMaterial;
-	shinyMaterial.ambient = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
-	shinyMaterial.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	shinyMaterial.specular = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
-	shinyMaterial.specularPower = 10.0f;
-
-	Material noSpecMaterial;
-	noSpecMaterial.ambient = XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);
-	noSpecMaterial.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	noSpecMaterial.specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f);
-	noSpecMaterial.specularPower = 0.0f;
-
 	D3D11_BUFFER_DESC iDesc = {};
 
 	// Set up the buffer description for a structured buffer
