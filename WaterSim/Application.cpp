@@ -42,65 +42,70 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 bool Application::HandleKeyboard(float deltaTime)
 {
 	float mCameraSpeed = 50.0f;        // Movement speed in units per second
-	float mTurnCameraSpeed = 1.0f;   // Rotation speed in radians per second
+	float mTurnCameraSpeed = 0.75f;   // Rotation speed in radians per second
 
-	// Forward (W)
-	if (GetAsyncKeyState('W'))
+
+	ImGuiIO& io = ImGui::GetIO();
+	if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
 	{
-		if (GetAsyncKeyState(VK_LBUTTON)) // Only move if Mouse1 is also held
+		// Forward (W)
+		if (GetAsyncKeyState('W'))
 		{
-			currentPosX += mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
-			currentPosZ += mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
-			currentPosY += mCameraSpeed * deltaTime * sin(rotationY);
+			if (GetAsyncKeyState(VK_LBUTTON)) // Only move if Mouse1 is also held
+			{
+				currentPosX += mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
+				currentPosZ += mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
+				currentPosY += mCameraSpeed * deltaTime * sin(rotationY);
+			}
+			else
+			{
+				currentPosX += mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
+				currentPosZ += mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
+				currentPosY += mCameraSpeed * deltaTime * sin(rotationY);
+			}
 		}
-		else
+
+		// Backward (S)
+		if (GetAsyncKeyState('S'))
 		{
-			currentPosX += mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
-			currentPosZ += mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
-			currentPosY += mCameraSpeed * deltaTime * sin(rotationY);
+			currentPosX -= mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
+			currentPosZ -= mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
+			currentPosY -= mCameraSpeed * deltaTime * sin(rotationY);
 		}
+
+		// Left (A - Strafe)
+		if (GetAsyncKeyState('A'))
+		{
+			currentPosX -= mCameraSpeed * deltaTime * cos(rotationX);
+			currentPosZ += mCameraSpeed * deltaTime * sin(rotationX);
+		}
+
+		// Right (D - Strafe)
+		if (GetAsyncKeyState('D'))
+		{
+			currentPosX += mCameraSpeed * deltaTime * cos(rotationX);
+			currentPosZ -= mCameraSpeed * deltaTime * sin(rotationX);
+		}
+
+		// Look Around (Mouse Movement)
+		POINT mousePos;
+		GetCursorPos(&mousePos);
+		static POINT prevMousePos = mousePos;
+
+		if (GetAsyncKeyState(VK_RBUTTON)) // Left Mouse Button
+		{
+			// Update rotation based on mouse movement
+			rotationX += mTurnCameraSpeed * deltaTime * (mousePos.x - prevMousePos.x); // Horizontal look
+			rotationY -= mTurnCameraSpeed * deltaTime * (mousePos.y - prevMousePos.y); // Invert vertical look
+
+			// Clamp vertical rotation to avoid gimbal lock
+			if (rotationY > XM_PIDIV2) rotationY = XM_PIDIV2; // Look up limit
+			if (rotationY < -XM_PIDIV2) rotationY = -XM_PIDIV2; // Look down limit
+		}
+
+		// Update previous mouse position
+		prevMousePos = mousePos;
 	}
-
-	// Backward (S)
-	if (GetAsyncKeyState('S'))
-	{
-		currentPosX -= mCameraSpeed * deltaTime * sin(rotationX) * cos(rotationY);
-		currentPosZ -= mCameraSpeed * deltaTime * cos(rotationX) * cos(rotationY);
-		currentPosY -= mCameraSpeed * deltaTime * sin(rotationY);
-	}
-
-	// Left (A - Strafe)
-	if (GetAsyncKeyState('A'))
-	{
-		currentPosX -= mCameraSpeed * deltaTime * cos(rotationX);
-		currentPosZ += mCameraSpeed * deltaTime * sin(rotationX);
-	}
-
-	// Right (D - Strafe)
-	if (GetAsyncKeyState('D'))
-	{
-		currentPosX += mCameraSpeed * deltaTime * cos(rotationX);
-		currentPosZ -= mCameraSpeed * deltaTime * sin(rotationX);
-	}
-
-	// Look Around (Mouse Movement)
-	POINT mousePos;
-	GetCursorPos(&mousePos);
-	static POINT prevMousePos = mousePos;
-
-	if (GetAsyncKeyState(VK_LBUTTON)) // Left Mouse Button
-	{
-		// Update rotation based on mouse movement
-		rotationX += mTurnCameraSpeed * deltaTime * (mousePos.x - prevMousePos.x); // Horizontal look
-		rotationY -= mTurnCameraSpeed * deltaTime * (mousePos.y - prevMousePos.y); // Invert vertical look
-
-		// Clamp vertical rotation to avoid gimbal lock
-		if (rotationY > XM_PIDIV2) rotationY = XM_PIDIV2; // Look up limit
-		if (rotationY < -XM_PIDIV2) rotationY = -XM_PIDIV2; // Look down limit
-	}
-
-	// Update previous mouse position
-	prevMousePos = mousePos;
 
 	return false;
 }
