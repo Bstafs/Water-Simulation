@@ -11,7 +11,7 @@ struct ParticleAttributes
 
 cbuffer SimulationParams : register(b0)
 {
-    int numParticles; // Total number of particles
+    int numParticles; 
     float deltaTime;
     float minX;
     float minZ;
@@ -36,10 +36,11 @@ cbuffer RadixParams : register(b2)
 // Particles Info
 RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
 
-// Spatial Grid & Bitonic Sort/Radix Sort Buffers
+// Spatial Grid 
 RWStructuredBuffer<uint3> GridIndices : register(u1); // Grid buffer: holds indices to particles
 RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particles per cell
 
+// Radix Sort 
 RWStructuredBuffer<uint> Histogram : register(u3);
 
 static const float targetDensity = 10.0f;
@@ -101,7 +102,7 @@ uint HashCell3D(int3 cell)
 
 uint KeyFromHash(uint hash, uint tableSize)
 {
-    return hash % tableSize;
+    return hash & (tableSize - 1);
 }
 
 uint GetBits(uint value, uint bitOffset, uint numBits)
@@ -168,30 +169,24 @@ void BitonicSort(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 }
 
-struct KeyIndex
-{
-    uint key;
-    uint idx;
-};
-
 groupshared uint sHist[RADIX];
 
 // Radix histogram compute shader
-// Hisogram tells us how many particles will go in each cell when we reorder them by using their bits
+// Histogram tells us how many particles will go in each cell when we reorder them by using their bits
 // Bits are the Binary representation of the particle key, each key is a unique identifier for a particle
 // Its like a tally counter, which counts how many particles have a certain bit set
 // or a table that tells us how many particles have a certain key
 // We use this to reorder the particles in the grid so that they are grouped by their keys
 
 [numthreads(ThreadCount, 1, 1)]
-void RadixHistogram(uint3 DTid : SV_DispatchThreadID, uint GI : SV_GroupIndex, uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
+void RadixHistogram(uint3 dispatchThreadID : SV_DispatchThreadID, uint GI : SV_GroupIndex, uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
 {
     // Zero local histogram
     if (GI < RADIX)
         sHist[GI] = 0;
     GroupMemoryBarrierWithGroupSync();
 
-    uint i = DTid.x;
+    uint i = dispatchThreadID.x;
     if (i < particleCount)
     {
         uint key = GridIndices[i].z;

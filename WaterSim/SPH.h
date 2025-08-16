@@ -99,7 +99,7 @@ private:
 	ID3D11ComputeShader* BitonicSortingShader = nullptr;
 
 	ID3D11ComputeShader* RadixHistogramShader = nullptr;
-	ID3D11ComputeShader* RadixPreFixSumShader = nullptr;
+	ID3D11ComputeShader* RadixPreFixScanShader = nullptr;
 	ID3D11ComputeShader* RadixPrepareOffsetsShader = nullptr;
 	ID3D11ComputeShader* RadixScatterShader = nullptr;
 

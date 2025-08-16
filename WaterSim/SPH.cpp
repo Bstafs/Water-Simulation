@@ -459,8 +459,8 @@ void SPH::Update(float deltaTime, float minX, float minZ)
 	// SPH
 	UpdateSpatialGridClear(deltaTime);
 	UpdateAddParticlesToSpatialGrid(deltaTime);
-	//UpdateBitonicSorting(deltaTime);
-	UpdateRadixSorting(deltaTime);
+	UpdateBitonicSorting(deltaTime);
+	//UpdateRadixSorting(deltaTime);
 	UpdateBuildGridOffsets(deltaTime);
 	UpdateParticleDensities(deltaTime);
 	UpdateParticlePressure(deltaTime);
