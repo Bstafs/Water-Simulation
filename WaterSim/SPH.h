@@ -36,6 +36,14 @@ struct BitonicParams
 	unsigned int padding;
 };
 
+struct RadixParams
+{
+	unsigned int particleCount;
+	unsigned int numGroups;        
+	unsigned int currentBit;        
+	unsigned int pad0;
+};
+
 class SPH
 {
 public:
@@ -115,9 +123,6 @@ private:
 	ID3D11Buffer* preFixSumBuffer = nullptr;
 	ID3D11UnorderedAccessView* preFixSumUAV = nullptr;
 
-	ID3D11Buffer* sortedIndicesBuffer = nullptr;
-	ID3D11UnorderedAccessView* sortedIndicesUAV = nullptr;
-
 	// Marching Cubes
 	ID3D11Buffer* vertexBuffer = nullptr;
 	ID3D11UnorderedAccessView* vertexUAV = nullptr;
@@ -131,8 +136,10 @@ private:
 	ID3D11Buffer* indexCountBuffer = nullptr;
 	ID3D11UnorderedAccessView* indexCountUAV = nullptr;
 
+	// Constant Buffers
 	ID3D11Buffer*  SpatialGridConstantBuffer = nullptr;
 	ID3D11Buffer*  BitonicSortConstantBuffer = nullptr;
+	ID3D11Buffer*  RadixSortConstantBuffer = nullptr;
 
 	// Grid Buffer
 	ID3D11Buffer* SpatialGridOutputBuffer = nullptr;

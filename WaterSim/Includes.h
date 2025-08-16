@@ -15,7 +15,7 @@ constexpr UINT THREADS_PER_GROUPs = 256;
 constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 
 constexpr UINT RADIX = 256; // For 8-bit digits
-constexpr UINT RADIX_BITS = 8; // 8-bit digits
+constexpr UINT RADIX_BITS = 4; // 8-bit digits
 // DirectX
 #include <windows.h>
 #include <directxmath.h>
