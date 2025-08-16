@@ -9,13 +9,14 @@
 //constexpr UINT NUM_OF_PARTICLES = 16384;
 constexpr UINT NUM_OF_PARTICLES = 131072;
 //constexpr UINT NUM_OF_PARTICLES = 262144;
-constexpr FLOAT SMOOTHING_RADIUS = 2.001f;
+constexpr FLOAT SMOOTHING_RADIUS = 2.1f;
 constexpr UINT THREADS_PER_GROUPs = 256;
 
 constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
 
-constexpr UINT RADIX = 256; // For 8-bit digits
-constexpr UINT RADIX_BITS = 4; // 8-bit digits
+constexpr UINT RADIX_BITS = 4; 
+constexpr UINT RADIX = (1 << RADIX_BITS); 
+
 // DirectX
 #include <windows.h>
 #include <directxmath.h>

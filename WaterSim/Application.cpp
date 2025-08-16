@@ -645,7 +645,7 @@ void Application::ImGui()
 		int particleSize = sph->particleList.size();
 
 		ImGui::DragInt("Number of Particles", &particleSize);
-		ImGui::DragFloat("Min X", &minX, 0.5f, -50.0f, -1.0f);
+		ImGui::DragFloat("Min X", &minX, 0.5f, -100.0f, -1.0f);
 		ImGui::DragFloat("Min Z", &minZ, 0.5f, -50.0f, -1.0f);
 		ImGui::Checkbox("Pause", &SimulationControl);
 

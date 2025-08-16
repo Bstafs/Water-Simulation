@@ -43,7 +43,7 @@ RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particl
 // Radix Sort 
 RWStructuredBuffer<uint> Histogram : register(u3);
 
-static const float targetDensity = 10.0f;
+static const float targetDensity = 50.0f;
 static const float stiffnessValue = 100.0f;
 static const float nearStiffnessValue = 400.0f;
 static const float smoothingRadius = 2.5f;
@@ -102,7 +102,8 @@ uint HashCell3D(int3 cell)
 
 uint KeyFromHash(uint hash, uint tableSize)
 {
-    return hash & (tableSize - 1);
+   // return hash & (tableSize - 1);
+    return hash % tableSize;
 }
 
 uint GetBits(uint value, uint bitOffset, uint numBits)
@@ -363,8 +364,8 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
             float kernelDerivative = PressureSmoothingKernel(dst, smoothingRadius);
             float nearKernelDerivative = NearDensitySmoothingKernelDerivative(dst, smoothingRadius);
                     
-            pressureForce += dir * kernelDerivative * sharedPressure / neighborDensity;
-            repulsionForce += dir * nearKernelDerivative * sharedNearPressure / neighborNearDensity;
+            pressureForce += dir * kernelDerivative * sharedPressure;
+            repulsionForce += dir * nearKernelDerivative * sharedNearPressure;
             viscousForce += relativeVelocity * viscosityCoefficient * poly6;
         }          
     }
