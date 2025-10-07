@@ -46,11 +46,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         while (deltaTime.IsReadyForPhysicsUpdate())
         {
             theApp->UpdatePhysics(deltaTime.GetFixedTimeStep()); // Physics
-            theApp->HandleKeyboard(deltaTime.GetFixedTimeStep());    // Input handling   
             deltaTime.ConsumePhysicsUpdate();
         }
 
         // Handle input, game logic, and rendering
+        theApp->HandleKeyboard(deltaTime.GetFixedTimeStep());    // Input handling   
+
         theApp->Update();           // Camera
         theApp->Draw();             // Rendering
        // theApp->DrawMarchingCubes();             // Rendering

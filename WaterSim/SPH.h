@@ -44,6 +44,13 @@ struct RadixParams
 	unsigned int pad0;
 };
 
+struct GridIndexGPU { // 16 bytes
+	UINT particleIndex;
+	UINT hash;
+	UINT key;
+	UINT pad; // pad to 16 bytes
+};
+
 class SPH
 {
 public:
@@ -54,6 +61,8 @@ public:
 	ID3D11Buffer* GetMarchingCubesVertexBuffer() const { return _pVertexBufferMarchingCubes; }
 	ID3D11Buffer* GetMarchingCubesIndexBuffer() const { return _pIndexBufferMarchingCubes; }
 	UINT GetMarchingCubesIndexCount() const { return static_cast<UINT>(MarchingCubesIndices.size()); }
+
+	ID3D11ShaderResourceView* GetParticlePositionSRV() const { return g_pParticlePositionSRV; }
 
 private:
 	
@@ -117,11 +126,18 @@ private:
 	ID3D11Buffer* histogramBuffer;  
 	ID3D11UnorderedAccessView* histogramUAV = nullptr;
 
-	ID3D11Buffer* globalParamsBuffer = nullptr;
-	ID3D11UnorderedAccessView* globalParamsUAV = nullptr;
+	ID3D11Buffer* groupPrefBuffer = nullptr;
+	ID3D11UnorderedAccessView* groupPrefUAV = nullptr;
 
-	ID3D11Buffer* preFixSumBuffer = nullptr;
-	ID3D11UnorderedAccessView* preFixSumUAV = nullptr;
+	ID3D11Buffer* globalsBuffer = nullptr;
+	ID3D11UnorderedAccessView* globalsUAV = nullptr;
+
+	ID3D11Buffer* groupBaseBuffer = nullptr;
+	ID3D11UnorderedAccessView* groupBaseUAV = nullptr;
+
+	ID3D11Buffer* g_pParticlePositionBuffer = nullptr;
+	ID3D11ShaderResourceView* g_pParticlePositionSRV = nullptr;
+	ID3D11UnorderedAccessView* g_pParticlePositionUAV = nullptr;
 
 	// Marching Cubes
 	ID3D11Buffer* vertexBuffer = nullptr;
@@ -142,7 +158,10 @@ private:
 	ID3D11Buffer*  RadixSortConstantBuffer = nullptr;
 
 	// Grid Buffer
-	ID3D11Buffer* SpatialGridOutputBuffer = nullptr;
+	ID3D11Buffer* SpatialGridOutputBufferA = nullptr;
+	ID3D11Buffer* SpatialGridOutputBufferB = nullptr;
+
+
 	ID3D11Buffer* SpatialGridResultOutputBuffer = nullptr;
 
 	// Grid Count Buffer
@@ -162,6 +181,9 @@ private:
 
 	ID3D11UnorderedAccessView* outputUAVSpatialGridB = nullptr;
 	ID3D11UnorderedAccessView* outputUAVSpatialGridCountB = nullptr;
+
+	ID3D11ShaderResourceView* outputSRVSpatialGridA = nullptr;
+	ID3D11ShaderResourceView* outputSRVSpatialGridB = nullptr;
 
 	ID3D11ShaderResourceView* srvNull[1] = { nullptr };
 	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };

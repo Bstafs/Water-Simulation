@@ -36,12 +36,18 @@ cbuffer RadixParams : register(b2)
 // Particles Info
 RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
 
+RWStructuredBuffer<float3> g_ParticlePositions : register(u7); 
+
 // Spatial Grid 
-RWStructuredBuffer<uint3> GridIndices : register(u1); // Grid buffer: holds indices to particles
-RWStructuredBuffer<uint> GridOffsets : register(u2); // Tracks number of particles per cell
+StructuredBuffer<uint3> GridIndicesIn : register(t0);
+RWStructuredBuffer<uint3> GridIndices : register(u1); 
+RWStructuredBuffer<uint> GridOffsets : register(u2); 
 
 // Radix Sort 
 RWStructuredBuffer<uint> Histogram : register(u3);
+RWStructuredBuffer<uint> GroupPref : register(u4);
+RWStructuredBuffer<uint> Globals : register(u5);
+RWStructuredBuffer<uint> GroupBase : register(u6);
 
 static const float targetDensity = 50.0f;
 static const float stiffnessValue = 100.0f;
@@ -102,8 +108,8 @@ uint HashCell3D(int3 cell)
 
 uint KeyFromHash(uint hash, uint tableSize)
 {
-   // return hash & (tableSize - 1);
-    return hash % tableSize;
+    return hash & (tableSize - 1);
+  // return hash % tableSize;
 }
 
 uint GetBits(uint value, uint bitOffset, uint numBits)
@@ -200,6 +206,67 @@ void RadixHistogram(uint3 dispatchThreadID : SV_DispatchThreadID, uint GI : SV_G
     if (GI < RADIX)
     {
         Histogram[Gid.x * RADIX + GI] = sHist[GI];
+    }
+}
+
+[numthreads(RADIX, 1, 1)]
+void RadixScan(uint3 DTid : SV_DispatchThreadID)
+{
+    uint d = DTid.x; 
+    uint running = 0;
+    for (uint g = 0; g < numGroups; ++g)
+    {
+        uint idx = g * RADIX + d;
+        uint count = Histogram[idx];
+        GroupPref[idx] = running; 
+        running += count;
+    }
+
+    Globals[d] = running; // DigitTotals[d]
+}
+
+[numthreads(RADIX, 1, 1)]
+void RadixPrepareOffsets(uint3 DTid : SV_DispatchThreadID)
+{
+    uint d = DTid.x;
+
+    // Compute DigitBase[d] via a simple serial loop in-thread
+    uint base = 0;
+    for (uint k = 0; k < d; ++k)
+        base += Globals[k];
+    Globals[RADIX + d] = base; // store DigitBase[d]
+
+    // Add base to per-group prefixes
+    for (uint g = 0; g < numGroups; ++g)
+    {
+        uint idx = g * RADIX + d;
+        GroupBase[idx] = base + GroupPref[idx];
+    }
+}
+
+groupshared uint sDigitOfs[RADIX];
+
+[numthreads(ThreadCount, 1, 1)]
+void RadixScatter(uint3 DTid : SV_DispatchThreadID, uint GI : SV_GroupIndex, uint3 Gid : SV_GroupID)
+{
+    if (GI < RADIX)
+        sDigitOfs[GI] = 0;
+    GroupMemoryBarrierWithGroupSync();
+
+    uint i = DTid.x;
+    if (i < particleCount)
+    {
+        uint key = GridIndices[i].z;
+        uint d = (key >> currentBit) & (RADIX - 1);
+
+        // local rank inside this threadgroup for this digit
+        uint localRank;
+        InterlockedAdd(sDigitOfs[d], 1, localRank);
+
+        // base for this group & digit
+        uint gb = GroupBase[Gid.x * RADIX + d];
+        uint dst = gb + localRank;
+        GridIndices[dst] = GridIndices[i];
     }
 }
 
@@ -445,4 +512,6 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     Partricles[dispatchThreadID.x].velocity = inputVelocity;
     Partricles[dispatchThreadID.x].position = inputPosition;
     Partricles[dispatchThreadID.x].density = inputDensity;
+    
+    g_ParticlePositions[dispatchThreadID.x] = inputPosition;
 }

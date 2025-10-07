@@ -604,10 +604,7 @@ void Application::Update()
 	// Update camera
 	_camera->SetPosition(XMFLOAT3(currentPosX - sin(rotationX), currentPosY - sin(rotationY), currentPosZ - cos(rotationX)));
 	_camera->SetLookAt(XMFLOAT3(currentPosX, currentPosY, currentPosZ));
-
 	_camera->Update();
-
-	
 }
 
 void Application::ImGui()
