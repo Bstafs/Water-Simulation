@@ -125,22 +125,24 @@ void SPH::InitGPUResources()
 	inputBuffer = CreateStructureBuffer(sizeof(ParticleAttributes), (float*)position.data(), NUM_OF_PARTICLES, device);
 
 
-	// Position GPU Buffer
+	// Position GPU Buffer (float4 per particle)
 	D3D11_BUFFER_DESC descPositions = {};
 	descPositions.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 	descPositions.Usage = D3D11_USAGE_DEFAULT;            // GPU only
 	descPositions.CPUAccessFlags = 0;
 	descPositions.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	descPositions.StructureByteStride = sizeof(XMFLOAT3); // or sizeof(InstanceData)
+	descPositions.StructureByteStride = sizeof(XMFLOAT4);
 	descPositions.ByteWidth = descPositions.StructureByteStride * NUM_OF_PARTICLES;
 	hr = device->CreateBuffer(&descPositions, nullptr, &g_pParticlePositionBuffer);
 
+	// Create UAV
 	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDescPositions = {};
 	uavDescPositions.Format = DXGI_FORMAT_UNKNOWN;
 	uavDescPositions.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 	uavDescPositions.Buffer.NumElements = NUM_OF_PARTICLES;
 	device->CreateUnorderedAccessView(g_pParticlePositionBuffer, &uavDescPositions, &g_pParticlePositionUAV);
 
+	// Create SRV
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDescPositions = {};
 	srvDescPositions.Format = DXGI_FORMAT_UNKNOWN;
 	srvDescPositions.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
@@ -581,25 +583,6 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ)
 
 	// Unbind compute shader
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
-
-	// Copy result for CPU access
-	deviceContext->CopyResource(outputResultBuffer, outputBuffer);
-
-	// Map output buffer to apply results to particles
-	D3D11_MAPPED_SUBRESOURCE mappedOutputResource;
-	HRESULT	hr = deviceContext->Map(outputResultBuffer, 0, D3D11_MAP_READ, 0, &mappedOutputResource);
-	if (SUCCEEDED(hr))
-	{
-		ParticleAttributes* outputData = reinterpret_cast<ParticleAttributes*>(mappedOutputResource.pData);
-		for (int i = 0; i < particleList.size(); ++i)
-		{
-			Particle* particle = particleList[i];
-
-			particle->position = outputData[i].position;
-			particle->density = outputData[i].density;
-		}
-		deviceContext->Unmap(outputResultBuffer, 0);
-	}
 }
 
 void SPH::Update(float deltaTime, float minX, float minZ)

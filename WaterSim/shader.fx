@@ -11,7 +11,7 @@ struct InstanceData
     float4x4 World;
 };
 
-StructuredBuffer<InstanceData> instanceBuffer : register(t1);
+StructuredBuffer<float4> instancePositions : register(t1);
 
 //--------------------------------------------------------------------------------------
 // Constant Buffer Variables
@@ -72,22 +72,18 @@ VS_OUTPUT VS(VS_INPUT input)
 {
     VS_OUTPUT output = (VS_OUTPUT) 0;
 
-    InstanceData instance = instanceBuffer[input.InstanceID];
-    
-    // Apply the instance transformation to the position (world space)
-    float4 posW = mul(input.PosL, instance.World);
-    output.PosW = posW.xyz;
+    float3 instancePos = instancePositions[input.InstanceID].xyz; // read .xyz
+    float3 worldPos = input.PosL.xyz + instancePos;
 
-    // Transform the position from world space to homogeneous clip space (using View and Projection matrices)
-    output.PosH = mul(posW, View);
-    output.PosH = mul(output.PosH, Projection);
+    output.PosW = worldPos;
 
-    // Pass the texture coordinates unchanged
+    float4 posH = mul(float4(worldPos, 1.0f), View);
+    posH = mul(posH, Projection);
+    output.PosH = posH;
+
     output.Tex = input.Tex;
+    output.NormW = normalize(input.NormL); // translation only => normals unchanged
 
-    float3 normalW = mul(float4(input.NormL, 0.0f), instance.World).xyz;
-    output.NormW = normalize(normalW);
-    
     return output;
 }
 

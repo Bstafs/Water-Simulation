@@ -577,26 +577,6 @@ void Application::UpdatePhysics(float deltaTime)
 	{
 		sph->Update(deltaTime, minX, minZ);
 	}
-
-	for (size_t i = 0; i < NUM_OF_PARTICLES; ++i)
-	{
-		InstanceData& instance = instanceData[i];
-
-		// Update the world matrix based on particle position
-		XMVECTOR position = XMLoadFloat3(&sph->particleList[i]->position);
-		XMStoreFloat4x4(&instance.World, XMMatrixTranspose(XMMatrixTranslationFromVector(position)));
-	}
-
-	// Map and update the GPU buffer
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	HRESULT hr = _pImmediateContext->Map(_pInstanceBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-
-	if (SUCCEEDED(hr))
-	{
-		// Copy data efficiently
-		memcpy(mappedResource.pData, instanceData.data(), sizeof(InstanceData) * instanceData.size());
-		_pImmediateContext->Unmap(_pInstanceBuffer, 0);
-	}
 }
 
 void Application::Update()
@@ -701,10 +681,6 @@ void Application::Draw()
 	UINT strides = sizeof(SimpleVertex);
 	UINT offsets = 0;
 
-	ID3D11Buffer* mcVB = sph->GetMarchingCubesVertexBuffer();
-	ID3D11Buffer* mcIB = sph->GetMarchingCubesIndexBuffer();
-	UINT mcIndexCount = sph->GetMarchingCubesIndexCount();
-
 	_pImmediateContext->IASetInputLayout(_pVertexLayout);
 
 	_pImmediateContext->IASetVertexBuffers(0, 1, &_pVertexBuffer, &strides, &offsets);
@@ -714,7 +690,9 @@ void Application::Draw()
 
 	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
 	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
-	_pImmediateContext->VSSetShaderResources(1, 1, &instanceBufferSRV);
+
+	ID3D11ShaderResourceView* particlePosSRV = sph->GetParticlePositionSRV();
+	_pImmediateContext->VSSetShaderResources(1, 1, &particlePosSRV);
 
 	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
@@ -751,7 +729,7 @@ void Application::Draw()
 
 	ImGui();
 
-	_pSwapChain->Present(1, 0);
+	_pSwapChain->Present(0, 0);
 }
 
 void Application::DrawMarchingCubes()
@@ -779,7 +757,9 @@ void Application::DrawMarchingCubes()
 
 	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
 	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
-	_pImmediateContext->VSSetShaderResources(1, 1, &instanceBufferSRV);
+
+	ID3D11ShaderResourceView* particlePosSRV = sph->GetParticlePositionSRV();
+	_pImmediateContext->VSSetShaderResources(1, 1, &particlePosSRV);
 
 	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
 	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);

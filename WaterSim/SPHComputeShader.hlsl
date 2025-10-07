@@ -36,7 +36,7 @@ cbuffer RadixParams : register(b2)
 // Particles Info
 RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
 
-RWStructuredBuffer<float3> g_ParticlePositions : register(u7); 
+RWStructuredBuffer<float4> g_ParticlePositions : register(u7); 
 
 // Spatial Grid 
 StructuredBuffer<uint3> GridIndicesIn : register(t0);
@@ -513,5 +513,5 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     Partricles[dispatchThreadID.x].position = inputPosition;
     Partricles[dispatchThreadID.x].density = inputDensity;
     
-    g_ParticlePositions[dispatchThreadID.x] = inputPosition;
+    g_ParticlePositions[dispatchThreadID.x] = float4(inputPosition, 1.0f);
 }
