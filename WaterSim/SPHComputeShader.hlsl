@@ -108,8 +108,8 @@ uint HashCell3D(int3 cell)
 
 uint KeyFromHash(uint hash, uint tableSize)
 {
-    return hash & (tableSize - 1);
-  // return hash % tableSize;
+  //  return hash & (tableSize - 1);
+   return hash % tableSize;
 }
 
 uint GetBits(uint value, uint bitOffset, uint numBits)

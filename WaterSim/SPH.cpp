@@ -128,7 +128,7 @@ void SPH::InitGPUResources()
 	// Position GPU Buffer (float4 per particle)
 	D3D11_BUFFER_DESC descPositions = {};
 	descPositions.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-	descPositions.Usage = D3D11_USAGE_DEFAULT;            // GPU only
+	descPositions.Usage = D3D11_USAGE_DEFAULT;     
 	descPositions.CPUAccessFlags = 0;
 	descPositions.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 	descPositions.StructureByteStride = sizeof(XMFLOAT4);

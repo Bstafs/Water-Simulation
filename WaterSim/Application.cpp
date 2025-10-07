@@ -151,8 +151,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	_WindowWidth = rc.right - rc.left;
 	_WindowHeight = rc.bottom - rc.top;
 
-	instanceData.resize(NUM_OF_PARTICLES);
-
 	if (FAILED(InitDevice()))
 	{
 		Cleanup();
@@ -189,35 +187,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	basicLight.SpecularLight = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
 	basicLight.SpecularPower = 20.0f;
 	basicLight.LightVecW = XMFLOAT3(0.0f, 1.0f, 0.0f);
-
-	D3D11_BUFFER_DESC iDesc = {};
-
-	// Set up the buffer description for a structured buffer
-	iDesc.Usage = D3D11_USAGE_DYNAMIC;
-	iDesc.ByteWidth = sizeof(InstanceData) * static_cast<UINT>(instanceData.size());
-	iDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	iDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	iDesc.StructureByteStride = sizeof(InstanceData);
-	iDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-
-	HRESULT hr = _pd3dDevice->CreateBuffer(&iDesc, nullptr, &_pInstanceBuffer);
-	if (FAILED(hr))
-	{
-		OutputDebugStringA("Failed to create instance buffer.\n");
-	}
-
-	// Create the shader resource view
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = DXGI_FORMAT_UNKNOWN; // Structured buffers must use UNKNOWN
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-	srvDesc.Buffer.FirstElement = 0;
-	srvDesc.Buffer.NumElements = static_cast<UINT>(instanceData.size());
-
-	hr = _pd3dDevice->CreateShaderResourceView(_pInstanceBuffer, &srvDesc, &instanceBufferSRV);
-	if (FAILED(hr))
-	{
-		OutputDebugStringA("Failed to create shader resource view for instance buffer.\n");
-	}
 
 	return S_OK;
 }
@@ -536,14 +505,11 @@ void Application::Cleanup()
 	if (_pTextureRV) _pTextureRV->Release();
 	if (_pGroundTextureRV) _pGroundTextureRV->Release();
 	if (_pHerculesTextureRV) _pHerculesTextureRV->Release();
-	if (instanceBufferSRV) instanceBufferSRV->Release();
 
 	if (_pConstantBuffer) _pConstantBuffer->Release();
 
 	if (_pVertexBuffer) _pVertexBuffer->Release();
 	if (_pIndexBuffer) _pIndexBuffer->Release();
-	if (_pInstanceBuffer) _pInstanceBuffer->Release();
-
 
 	if (_pVertexLayout) _pVertexLayout->Release();
 	if (_pVertexShader) _pVertexShader->Release();
@@ -725,7 +691,7 @@ void Application::Draw()
 
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
-	_pImmediateContext->DrawIndexedInstanced(sphereIndices.size(), (UINT)instanceData.size(), 0, 0, 0);
+	_pImmediateContext->DrawIndexedInstanced(sphereIndices.size(), (UINT)NUM_OF_PARTICLES, 0, 0, 0);
 
 	ImGui();
 

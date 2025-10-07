@@ -40,11 +40,6 @@ struct ConstantBuffer
 	float HasTexture;
 };
 
-struct alignas(16) InstanceData
-{
-	XMFLOAT4X4 World;   
-};
-
 class Application
 {
 public:
@@ -93,14 +88,9 @@ private:
 	ID3D11Buffer* _pVertexBuffer;
 	ID3D11Buffer* _pIndexBuffer;
 	ID3D11Buffer* _pConstantBuffer;
-	ID3D11Buffer* _pInstanceBuffer;
 
 	std::vector<SimpleVertex> sphereVertices;
 	std::vector<WORD> sphereIndices;
-
-	// Instancing
-	std::vector<InstanceData> instanceData;
-	ID3D11ShaderResourceView* instanceBufferSRV = nullptr;
 
 	// Shaders + Textures
 	ID3D11RenderTargetView* _pRenderTargetView;
@@ -147,7 +137,7 @@ private:
 	// SPH
 	std::unique_ptr<SPH> sph;
 
-	bool SimulationControl = true;
+	bool SimulationControl = false;
 
 	bool drawSpheres = true;
 

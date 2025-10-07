@@ -6,11 +6,6 @@ Texture2D txDiffuse : register(t0);
 
 SamplerState samLinear : register(s0);
 
-struct InstanceData
-{
-    float4x4 World;
-};
-
 StructuredBuffer<float4> instancePositions : register(t1);
 
 //--------------------------------------------------------------------------------------
