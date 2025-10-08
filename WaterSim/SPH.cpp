@@ -5,9 +5,6 @@ SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 	deviceContext(contextdevice),
 	device(device)
 {
-	deviceContext = contextdevice;
-	this->device = device;
-
 	particleList.reserve(NUM_OF_PARTICLES);
 	predictedPositions.resize(NUM_OF_PARTICLES);
 
