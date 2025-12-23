@@ -170,6 +170,8 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	//sph = new SPH(_pImmediateContext, _pd3dDevice);
 
 	sph = std::make_unique<SPH>(_pImmediateContext, _pd3dDevice);
+    voxCount = sph->GetVoxelCount();
+
 
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\stone.dds", nullptr, &_pTextureRV);
 	CreateDDSTextureFromFile(_pd3dDevice, L"Resources\\floor.dds", nullptr, &_pGroundTextureRV);
@@ -593,6 +595,8 @@ void Application::ImGui()
 		ImGui::Checkbox("Pause", &SimulationControl);
 
 		ImGui::Text("Initial Values");
+
+		ImGui::DragFloat("Voxel Count", &voxCount);
 
 		/*if (ImGui::CollapsingHeader("Particle List"))
 		{

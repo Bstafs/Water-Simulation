@@ -5,6 +5,12 @@ SPH::SPH(ID3D11DeviceContext* contextdevice, ID3D11Device* device)
 	deviceContext(contextdevice),
 	device(device)
 {
+	deviceContext->QueryInterface(
+		__uuidof(ID3DUserDefinedAnnotation),
+		(void**)&g_Annotation
+	);
+
+
 	particleList.reserve(NUM_OF_PARTICLES);
 	predictedPositions.resize(NUM_OF_PARTICLES);
 
@@ -88,10 +94,12 @@ void SPH::InitGPUResources()
 	FluidSimCalculateDensity = CreateComputeShader(L"SPHComputeShader.hlsl", "CalculateDensity", device);
 	FluidSimCalculatePressure = CreateComputeShader(L"SPHComputeShader.hlsl", "CalculatePressure", device);
 	FluidSimIntegrateShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
+	MarchingCubesShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BuildDensityGrid", device);
 
 	// Constant Buffers
 	SpatialGridConstantBuffer = CreateConstantBuffer(sizeof(SimulationParams), device, false);
 	BitonicSortConstantBuffer = CreateConstantBuffer(sizeof(BitonicParams), device, false);
+	MCConstantBuffer = CreateConstantBuffer(sizeof(MCGridParams), device, false);
 
 	// Structure Buffers
 	std::vector<ParticleAttributes> position(NUM_OF_PARTICLES);
@@ -106,7 +114,6 @@ void SPH::InitGPUResources()
 	}
 
 	inputBuffer = CreateStructureBuffer(sizeof(ParticleAttributes), (float*)position.data(), NUM_OF_PARTICLES, device);
-
 
 	// Position GPU Buffer (float4 per particle)
 	D3D11_BUFFER_DESC descPositions = {};
@@ -219,6 +226,19 @@ void SPH::InitGPUResources()
 
 	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateA);
 	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateB);
+
+	// Marching Cubes
+
+	D3D11_BUFFER_DESC mcDesc = {};
+	mcDesc.ByteWidth = sizeof(float) * VOXEL_COUNT;
+	mcDesc.Usage = D3D11_USAGE_DEFAULT;
+	mcDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	mcDesc.StructureByteStride = sizeof(float);
+	mcDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+
+	device->CreateBuffer(&desc, nullptr, &voxelBuffer);
+	device->CreateUnorderedAccessView(voxelBuffer, nullptr, &voxelUAV);
+	device->CreateShaderResourceView(voxelBuffer, nullptr, &voxelSRV);
 }
 
 void SPH::UpdateSpatialGridClear(float deltaTime)
@@ -412,6 +432,28 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ)
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
 }
 
+void SPH::UpdateMarchingCubes()
+{
+	MCGridParams cb = {};
+	cb.gridSizeX = gridSizeX;
+	cb.gridSizeY = gridSizeY;
+	cb.gridSizeZ = gridSizeZ;
+	cb.voxelSize = voxelSize;
+	deviceContext->UpdateSubresource(MCConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+	deviceContext->CSSetShader(MarchingCubesShader, nullptr, 0);
+	deviceContext->CSSetConstantBuffers(2, 1, &MCConstantBuffer);
+
+	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrateA, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(3, 1, &voxelUAV, nullptr);
+
+	deviceContext->Dispatch(threadGroupCountX, 1, 1);
+
+	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+}
+
 void SPH::Update(float deltaTime, float minX, float minZ)
 {
 	// SPH
@@ -420,6 +462,14 @@ void SPH::Update(float deltaTime, float minX, float minZ)
 	UpdateBitonicSorting(deltaTime);
 	UpdateBuildGridOffsets(deltaTime);
 	UpdateParticleDensities(deltaTime);
+
+	if (g_Annotation)
+		g_Annotation->BeginEvent(L"SPH Pressure Pass");
 	UpdateParticlePressure(deltaTime);
+		if (g_Annotation)
+		g_Annotation->EndEvent();
+
 	UpdateIntegrateComputeShader(deltaTime, minX, minZ);
+
+	UpdateMarchingCubes();
 }

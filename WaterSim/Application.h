@@ -141,5 +141,7 @@ private:
 	bool drawSpheres = true;
 
 	ID3DUserDefinedAnnotation* _pAnnotation = nullptr;
+
+	float voxCount = 0.0f;
 };
 

@@ -36,19 +36,25 @@ struct BitonicParams
 	unsigned int padding;
 };
 
-struct RadixParams
-{
-	unsigned int particleCount;
-	unsigned int numGroups;        
-	unsigned int currentBit;        
-	unsigned int pad0;
-};
-
 struct GridIndexGPU { // 16 bytes
 	UINT particleIndex;
 	UINT hash;
 	UINT key;
 	UINT pad; // pad to 16 bytes
+};
+
+struct Voxel
+{
+	float density;
+	XMFLOAT3 padding;
+};
+
+struct MCGridParams
+{
+	int gridSizeX;
+	int gridSizeY;
+	int gridSizeZ;
+	float voxelSize;
 };
 
 class SPH
@@ -59,6 +65,7 @@ public:
 	void Update(float deltaTime, float minX, float minZ);
 
 	ID3D11ShaderResourceView* GetParticlePositionSRV() const { return g_pParticlePositionSRV; }
+	float GetVoxelCount() const { return VOXEL_COUNT; }
 
 private:
 	
@@ -74,6 +81,9 @@ private:
 	void UpdateParticleDensities(float deltaTime);
 	void UpdateParticlePressure(float deltaTime);
 	void UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ);
+
+
+	void UpdateMarchingCubes();
 
 	bool isBufferSwapped = false;
 
@@ -143,5 +153,31 @@ private:
 
 	ID3D11ShaderResourceView* srvNull[1] = { nullptr };
 	ID3D11UnorderedAccessView* uavViewNull[1] = { nullptr };
+
+	// Marchine	Cubes 
+	ID3D11Buffer* voxelBuffer = nullptr;
+	ID3D11UnorderedAccessView* voxelUAV = nullptr;
+	ID3D11ShaderResourceView* voxelSRV = nullptr;
+
+	ID3D11Buffer* MCConstantBuffer = nullptr;
+
+	float worldMinX = -50;
+	float worldMaxX = 50;
+
+	float worldMinY = -30;
+	float worldMaxY = 50;
+
+	float worldMinZ = -50;
+	float worldMaxZ = 50;
+
+	float voxelSize = 1.25f;
+
+	int gridSizeX = (worldMaxX - worldMinX) / voxelSize;
+	int gridSizeY = (worldMaxY - worldMinY) / voxelSize;
+	int gridSizeZ = (worldMaxZ - worldMinZ) / voxelSize;
+
+	int VOXEL_COUNT = gridSizeX * gridSizeY * gridSizeZ;
+
+	ID3DUserDefinedAnnotation* g_Annotation = nullptr;
 };
 

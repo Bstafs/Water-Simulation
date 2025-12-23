@@ -25,10 +25,19 @@ cbuffer BitonicParams : register(b1)
     uint padding;
 };
 
+cbuffer MCGridParams : register(b2)
+{
+    int gridSizeX;
+    int gridSizeY;
+    int gridSizeZ;
+    float voxelSize;
+};
+
 // Particles Info
 RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
-
 RWStructuredBuffer<float4> g_ParticlePositions : register(u7); 
+
+RWStructuredBuffer<float> Voxels : register(u3);
 
 // Spatial Grid 
 StructuredBuffer<uint3> GridIndicesIn : register(t0);
@@ -193,7 +202,7 @@ void CalculateDensity(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         uint hash = HashCell3D(gridIndex + offsets3D[i]);
         uint key = KeyFromHash(hash, numParticles);
-        int currentIndex = GridOffsets[key];
+        uint currentIndex = GridOffsets[key];
          
         if (currentIndex >= numParticles)
             continue;
@@ -273,7 +282,7 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
      
         if (currIndex >= numParticles)
             continue;
-                
+        
         while (currIndex < numParticles)
         {
             uint3 indexData = GridIndices[currIndex];
@@ -333,13 +342,12 @@ void CalculatePressure(uint3 dispatchThreadId : SV_DispatchThreadID)
     float invDensity = density > 0.0001f ? 1.0f / density : 0.0f;
     float3 acceleration = totalForce * invDensity;
     
-    Partricles[dispatchThreadId.x].velocity.xyz += (acceleration * deltaTime + 0.5f * acceleration * deltaTime * deltaTime);
+    Partricles[dispatchThreadId.x].velocity.xyz += acceleration * deltaTime;
 }
 
 void CollisionBox(inout float3 pos, inout float3 velocity, float minX, float maxX, float minZ, float maxZ)
 {
     float minY = -30.0f;
-
     float maxY = 50.0f;
     
     float dampingFactor = 0.99f;
@@ -403,4 +411,39 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     Partricles[dispatchThreadID.x].density = inputDensity;
     
     g_ParticlePositions[dispatchThreadID.x] = float4(inputPosition, 1.0f);
+}
+
+[numthreads(ThreadCount, 1, 1)]
+void BuildDensityGrid(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= numParticles)
+        return;
+
+    float3 pos = Partricles[id.x].position;
+    int3 gridSize = int3(gridSizeX, gridSizeY, gridSizeZ);
+    
+    int3 baseCell = floor(pos / voxelSize);
+
+    for (int z = -1; z <= 1; z++)
+        for (int y = -1; y <= 1; y++)
+            for (int x = -1; x <= 1; x++)
+            {
+                int3 cell = baseCell + int3(x, y, z);
+
+                if (any(cell < 0) || any(cell >= gridSize))
+                    continue;
+
+                float3 voxelPos = (cell + 0.5) * voxelSize;
+                float dist = distance(voxelPos, pos);
+
+                if (dist < smoothingRadius)
+                {
+                    uint index =
+                cell.x +
+                cell.y * gridSize.x +
+                cell.z * gridSize.x * gridSize.y;
+
+                    Voxels[index] += 1.0f - (dist / smoothingRadius);
+                }
+            }
 }
