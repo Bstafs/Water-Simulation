@@ -54,7 +54,6 @@ public:
 	void Update();
 	void UpdatePhysics(float deltaTime);
 	void Draw();
-	void DrawMarchingCubes();
 
 public:
 	// Public Variables

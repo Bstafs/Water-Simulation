@@ -371,7 +371,7 @@ HRESULT Application::InitDevice()
 
 	UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 
-	UINT sampleCount = 4;
+	UINT sampleCount = 1;
 
 	DXGI_SWAP_CHAIN_DESC sd;
 	ZeroMemory(&sd, sizeof(sd));
@@ -443,7 +443,7 @@ HRESULT Application::InitDevice()
 	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// Create the constant buffer
-	_pConstantBuffer = CreateConstantBuffer(sizeof(ConstantBuffer), _pd3dDevice, false);
+	_pConstantBuffer = CreateConstantBuffer(sizeof(ConstantBuffer), _pd3dDevice, true);
 
 	// Depth Stencil Stuff
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
@@ -594,31 +594,31 @@ void Application::ImGui()
 
 		ImGui::Text("Initial Values");
 
-		if (ImGui::CollapsingHeader("Particle List"))
+		/*if (ImGui::CollapsingHeader("Particle List"))
 		{
 			if (ImGui::BeginListBox("Particle List", ImVec2(-FLT_MIN, 12 * ImGui::GetTextLineHeightWithSpacing())))
 			{
 				for (int i = 0; i < sph->particleList.size(); i++)
 				{
-					Particle* part = sph->particleList[i];
+					Particle part = sph->particleList[i];
 					std::string partName = std::format("Particle {}", i);
 
 					if (ImGui::CollapsingHeader(partName.c_str()))
 					{
 						ImGui::Text("Particle Values");
-						ImGui::DragFloat3("Position", &part[0].position.x, 0.01f);
-						ImGui::DragFloat3("Velocity", &part->velocity.x, 0.01f);
-						ImGui::DragFloat("Smoothing Radius", &part->smoothingRadius, 0.01f);
-						ImGui::DragFloat("Acceleration", &part->acceleration.x, 0.01f);
-						ImGui::DragFloat("Pressure", &part->pressureForce.x, 0.01f);
-						ImGui::DragFloat("Density", &part->density, 0.01f);
-						ImGui::DragFloat("Near Density", &part->nearDensity, 0.01f);
+						ImGui::DragFloat3("Position", &part.position.x, 0.01f);
+						ImGui::DragFloat3("Velocity", &part.velocity.x, 0.01f);
+						ImGui::DragFloat("Smoothing Radius", &part.smoothingRadius, 0.01f);
+						ImGui::DragFloat("Acceleration", &part.acceleration.x, 0.01f);
+						ImGui::DragFloat("Pressure", &part.pressureForce.x, 0.01f);
+						ImGui::DragFloat("Density", &part.density, 0.01f);
+						ImGui::DragFloat("Near Density", &part.nearDensity, 0.01f);
 
 					}
 				}
 				ImGui::EndListBox();
 			}
-		}
+		}*/
 	}
 
 	ImGui::End();
@@ -689,78 +689,16 @@ void Application::Draw()
 
 	cb.World = XMMatrixIdentity();
 
-	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+	//_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+	D3D11_MAPPED_SUBRESOURCE mapped;
+	_pImmediateContext->Map(_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+	memcpy(mapped.pData, &cb, sizeof(cb));
+	_pImmediateContext->Unmap(_pConstantBuffer, 0);
 
 	_pImmediateContext->DrawIndexedInstanced(sphereIndices.size(), (UINT)NUM_OF_PARTICLES, 0, 0, 0);
 
 	ImGui();
 
-	_pSwapChain->Present(0, 0);
-}
-
-void Application::DrawMarchingCubes()
-{
-	float ClearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f }; // red,green,blue,alpha
-	_pImmediateContext->ClearRenderTargetView(_pRenderTargetView, ClearColor);
-	_pImmediateContext->ClearDepthStencilView(_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	_pImmediateContext->OMSetRenderTargets(1, &_pRenderTargetView, _depthStencilView);
-
-	UINT strides = sizeof(SimpleVertex);
-	UINT offsets = 0;
-
-	ID3D11Buffer* mcVB = sph->GetMarchingCubesVertexBuffer();
-	ID3D11Buffer* mcIB = sph->GetMarchingCubesIndexBuffer();
-	UINT mcIndexCount = sph->GetMarchingCubesIndexCount();
-
-	_pImmediateContext->IASetInputLayout(_pVertexLayout);
-
-	_pImmediateContext->IASetVertexBuffers(0, 1, &mcVB, &strides, &offsets);
-
-	_pImmediateContext->IASetIndexBuffer(mcIB, DXGI_FORMAT_R32_UINT, 0);
-
-	_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
-	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
-
-	ID3D11ShaderResourceView* particlePosSRV = sph->GetParticlePositionSRV();
-	_pImmediateContext->VSSetShaderResources(1, 1, &particlePosSRV);
-
-	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
-	_pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
-
-	_pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
-
-	ConstantBuffer cb;
-
-	XMFLOAT4X4 viewAsFloats = _camera->GetView();
-	XMFLOAT4X4 projectionAsFloats = _camera->GetProjection();
-
-	XMMATRIX view = XMLoadFloat4x4(&viewAsFloats);
-
-	XMMATRIX projection = XMLoadFloat4x4(&projectionAsFloats);
-
-	cb.View = XMMatrixTranspose(view);
-	cb.Projection = XMMatrixTranspose(projection);
-
-	cb.light = basicLight;
-	cb.EyePosW = _camera->GetPosition();
-
-	cb.surface.AmbientMtrl = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
-	cb.surface.DiffuseMtrl = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	cb.surface.SpecularMtrl = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
-
-	_pImmediateContext->PSSetShaderResources(0, 1, &_pTextureRV);
-	cb.HasTexture = 0.0f;
-
-	cb.World = XMMatrixIdentity();
-
-	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-
-	_pImmediateContext->DrawIndexed(mcIndexCount, 0, 0);
-
-
-	ImGui();
 	_pSwapChain->Present(1, 0);
 }

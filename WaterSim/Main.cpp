@@ -54,7 +54,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 
         theApp->Update();           // Camera
         theApp->Draw();             // Rendering
-       // theApp->DrawMarchingCubes();             // Rendering
     }
 
     // Cleanup

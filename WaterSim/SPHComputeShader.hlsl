@@ -25,14 +25,6 @@ cbuffer BitonicParams : register(b1)
     uint padding;
 };
 
-cbuffer RadixParams : register(b2)
-{
-    uint particleCount;
-    uint numGroups;
-    uint currentBit;
-    uint pad0;
-};
-
 // Particles Info
 RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
 
@@ -42,12 +34,6 @@ RWStructuredBuffer<float4> g_ParticlePositions : register(u7);
 StructuredBuffer<uint3> GridIndicesIn : register(t0);
 RWStructuredBuffer<uint3> GridIndices : register(u1); 
 RWStructuredBuffer<uint> GridOffsets : register(u2); 
-
-// Radix Sort 
-RWStructuredBuffer<uint> Histogram : register(u3);
-RWStructuredBuffer<uint> GroupPref : register(u4);
-RWStructuredBuffer<uint> Globals : register(u5);
-RWStructuredBuffer<uint> GroupBase : register(u6);
 
 static const float targetDensity = 50.0f;
 static const float stiffnessValue = 100.0f;
@@ -59,9 +45,6 @@ static const int ThreadCount = 256;
 static const uint hashK1 = 15823;
 static const uint hashK2 = 9737333;
 static const uint hashK3 = 440817757;
-
-#define RADIX_BITS 4                 
-#define RADIX (1 << RADIX_BITS)
 
 static const int3 offsets3D[27] =
 {
@@ -173,100 +156,6 @@ void BitonicSort(uint3 dispatchThreadID : SV_DispatchThreadID)
             GridIndices[i] = elemJ;
             GridIndices[ixj] = elemI;
         }
-    }
-}
-
-groupshared uint sHist[RADIX];
-
-// Radix histogram compute shader
-// Histogram tells us how many particles will go in each cell when we reorder them by using their bits
-// Bits are the Binary representation of the particle key, each key is a unique identifier for a particle
-// Its like a tally counter, which counts how many particles have a certain bit set
-// or a table that tells us how many particles have a certain key
-// We use this to reorder the particles in the grid so that they are grouped by their keys
-
-[numthreads(ThreadCount, 1, 1)]
-void RadixHistogram(uint3 dispatchThreadID : SV_DispatchThreadID, uint GI : SV_GroupIndex, uint3 GTid : SV_GroupThreadID, uint3 Gid : SV_GroupID)
-{
-    // Zero local histogram
-    if (GI < RADIX)
-        sHist[GI] = 0;
-    GroupMemoryBarrierWithGroupSync();
-
-    uint i = dispatchThreadID.x;
-    if (i < particleCount)
-    {
-        uint key = GridIndices[i].z;
-        uint digit = (key >> currentBit) & (RADIX - 1);
-        InterlockedAdd(sHist[digit], 1);
-    }
-    GroupMemoryBarrierWithGroupSync();
-
-    // Flush to global per-group histogram
-    if (GI < RADIX)
-    {
-        Histogram[Gid.x * RADIX + GI] = sHist[GI];
-    }
-}
-
-[numthreads(RADIX, 1, 1)]
-void RadixScan(uint3 DTid : SV_DispatchThreadID)
-{
-    uint d = DTid.x; 
-    uint running = 0;
-    for (uint g = 0; g < numGroups; ++g)
-    {
-        uint idx = g * RADIX + d;
-        uint count = Histogram[idx];
-        GroupPref[idx] = running; 
-        running += count;
-    }
-
-    Globals[d] = running; // DigitTotals[d]
-}
-
-[numthreads(RADIX, 1, 1)]
-void RadixPrepareOffsets(uint3 DTid : SV_DispatchThreadID)
-{
-    uint d = DTid.x;
-
-    // Compute DigitBase[d] via a simple serial loop in-thread
-    uint base = 0;
-    for (uint k = 0; k < d; ++k)
-        base += Globals[k];
-    Globals[RADIX + d] = base; // store DigitBase[d]
-
-    // Add base to per-group prefixes
-    for (uint g = 0; g < numGroups; ++g)
-    {
-        uint idx = g * RADIX + d;
-        GroupBase[idx] = base + GroupPref[idx];
-    }
-}
-
-groupshared uint sDigitOfs[RADIX];
-
-[numthreads(ThreadCount, 1, 1)]
-void RadixScatter(uint3 DTid : SV_DispatchThreadID, uint GI : SV_GroupIndex, uint3 Gid : SV_GroupID)
-{
-    if (GI < RADIX)
-        sDigitOfs[GI] = 0;
-    GroupMemoryBarrierWithGroupSync();
-
-    uint i = DTid.x;
-    if (i < particleCount)
-    {
-        uint key = GridIndices[i].z;
-        uint d = (key >> currentBit) & (RADIX - 1);
-
-        // local rank inside this threadgroup for this digit
-        uint localRank;
-        InterlockedAdd(sDigitOfs[d], 1, localRank);
-
-        // base for this group & digit
-        uint gb = GroupBase[Gid.x * RADIX + d];
-        uint dst = gb + localRank;
-        GridIndices[dst] = GridIndices[i];
     }
 }
 
