@@ -13,10 +13,6 @@ constexpr FLOAT SMOOTHING_RADIUS = 2.1f;
 constexpr UINT THREADS_PER_GROUPs = 256;
 
 constexpr int threadGroupCountX = (NUM_OF_PARTICLES + THREADS_PER_GROUPs - 1) / THREADS_PER_GROUPs;
-
-constexpr UINT RADIX_BITS = 4; 
-constexpr UINT RADIX = (1 << RADIX_BITS); 
-
 // DirectX
 #include <windows.h>
 #include <directxmath.h>

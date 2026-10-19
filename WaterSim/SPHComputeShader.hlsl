@@ -1,5 +1,10 @@
 #include "FluidMaths.hlsl"
 
+#define RADIX_BITS 4
+#define RADIX_SIZE 16
+
+groupshared uint LocalHistogram[RADIX_SIZE];
+
 struct ParticleAttributes
 {
     float3 position; // 12 bytes
@@ -17,25 +22,9 @@ cbuffer SimulationParams : register(b0)
     float minZ;
 };
 
-cbuffer BitonicParams : register(b1)
-{
-    uint numElements;
-    uint k;
-    uint j;
-    uint padding;
-};
-
-cbuffer MCGridParams : register(b2)
-{
-    int gridSizeX;
-    int gridSizeY;
-    int gridSizeZ;
-    float voxelSize;
-};
-
 cbuffer RadixParams : register(b3)
 {
-    uint elementCount;
+    uint numElements;
     uint bitShift;
     uint groupCount;
     uint radixPadding;
@@ -45,8 +34,6 @@ cbuffer RadixParams : register(b3)
 RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
 RWStructuredBuffer<float4> g_ParticlePositions : register(u7); 
 
-RWStructuredBuffer<float> Voxels : register(u3);
-
 // Spatial Grid 
 StructuredBuffer<uint3> GridIndicesIn : register(t0);
 RWStructuredBuffer<uint3> GridIndices : register(u1); 
@@ -54,8 +41,8 @@ RWStructuredBuffer<uint> GridOffsets : register(u2);
 
 // Radix Sort Buffers
 RWStructuredBuffer<uint3> RadixOutput : register(u4);
-RWStructuredBuffer<uint> RadixHistogram : register(u5);
-RWStructuredBuffer<uint> RadixPrefix : register(u6);
+RWStructuredBuffer<uint> RadixHistogramData : register(u5);
+RWStructuredBuffer<uint> RadixPrefixData : register(u6);
 
 static const float targetDensity = 50.0f;
 static const float stiffnessValue = 100.0f;
@@ -126,10 +113,10 @@ uint GetBits(uint value, uint bitOffset, uint numBits)
 [numthreads(ThreadCount, 1, 1)]
 void ClearGrid(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= (uint)numElements)
+    if (id.x >= (uint) numParticles)
         return;
 
-    GridOffsets[id.x] = numElements;
+    GridOffsets[id.x] = numParticles;
     GridIndices[id.x] = uint3(0, 0, 0);
 }
 
@@ -153,38 +140,89 @@ void AddParticlesToGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
 }
 
 
-
-
 // Bitonic sort compute shader
-[numthreads(ThreadCount, 1, 1)]
-void BitonicSort(uint3 dispatchThreadID : SV_DispatchThreadID)
+[numthreads(256, 1, 1)]
+void RadixHistogram(uint3 groupID : SV_GroupID,
+                    uint3 groupThreadID : SV_GroupThreadID,
+                    uint3 dispatchID : SV_DispatchThreadID)
 {
-    uint i = dispatchThreadID.x;
+    uint lane = groupThreadID.x;
+    uint group = groupID.x;
+
+    if (lane < RADIX_SIZE)
+        LocalHistogram[lane] = 0;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (dispatchID.x < numElements)
+    {
+        uint3 element = GridIndicesIn[dispatchID.x];
+        uint digit = (element.z >> bitShift) & 0xFu;
+        InterlockedAdd(LocalHistogram[digit], 1);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (lane < RADIX_SIZE)
+        RadixHistogramData[group * RADIX_SIZE + lane] =
+            LocalHistogram[lane];
+}
+
+
+// A single-thread global prefix pass.
+// Prefix[group * 16 + digit] is the starting output position
+// for that digit in that group.
+[numthreads(1, 1, 1)]
+void RadixPrefix(uint3 id : SV_DispatchThreadID)
+{
+    uint globalOffset = 0;
+
+    for (uint digit = 0; digit < RADIX_SIZE; ++digit)
+    {
+        uint digitOffset = globalOffset;
+
+        for (uint group = 0; group < groupCount; ++group)
+        {
+            uint index = group * RADIX_SIZE + digit;
+            RadixPrefixData[index] = digitOffset;
+            digitOffset += RadixHistogramData[index];
+        }
+
+        globalOffset = digitOffset;
+    }
+}
+
+//  Each element counts preceding elements
+// in its group that have the same current digit.
+[numthreads(256, 1, 1)]
+void RadixScatter(uint3 groupID : SV_GroupID,
+                  uint3 groupThreadID : SV_GroupThreadID,
+                  uint3 dispatchID : SV_DispatchThreadID)
+{
+    uint i = dispatchID.x;
+
     if (i >= numElements)
         return;
 
-    // Compute the partner index
-    uint ixj = i ^ j;
+    uint3 element = GridIndicesIn[i];
+    uint digit = (element.z >> bitShift) & 0xFu;
 
-    // Only process if i < ixj 
-    if (ixj > i && ixj < numElements)
+    uint groupStart = groupID.x * 256;
+    uint localRank = 0;
+
+    for (uint previous = groupStart; previous < i; ++previous)
     {
-        // Decide the sort direction for this bitonic block
-        bool ascending = ((i & k) == 0);
+        uint3 other = GridIndicesIn[previous];
+        uint otherDigit = (other.z >> bitShift) & 0xFu;
 
-        // Load the two elements. 
-        uint3 elemI = GridIndices[i];
-        uint3 elemJ = GridIndices[ixj];
-
-        // Compare keys 
-        if ((ascending && (elemI.z > elemJ.z)) ||
-    (!ascending && (elemI.z < elemJ.z)))
-        {
-            // Swap the two elements
-            GridIndices[i] = elemJ;
-            GridIndices[ixj] = elemI;
-        }
+        if (otherDigit == digit)
+            ++localRank;
     }
+
+    uint destination =
+        RadixPrefixData[groupID.x * RADIX_SIZE + digit] + localRank;
+
+    RadixOutput[destination] = element;
 }
 
 [numthreads(ThreadCount, 1, 1)]
@@ -192,7 +230,7 @@ void BuildGridOffsets(uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;
 
-    if (i >= (uint)numElements)
+    if (i >= (uint) numParticles)
         return;
 
     uint key = GridIndices[i].z;
@@ -429,39 +467,4 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     Partricles[dispatchThreadID.x].density = inputDensity;
     
     g_ParticlePositions[dispatchThreadID.x] = float4(inputPosition, 1.0f);
-}
-
-[numthreads(ThreadCount, 1, 1)]
-void BuildDensityGrid(uint3 id : SV_DispatchThreadID)
-{
-    if (id.x >= numParticles)
-        return;
-
-    float3 pos = Partricles[id.x].position;
-    int3 gridSize = int3(gridSizeX, gridSizeY, gridSizeZ);
-    
-    int3 baseCell = floor(pos / voxelSize);
-
-    for (int z = -1; z <= 1; z++)
-        for (int y = -1; y <= 1; y++)
-            for (int x = -1; x <= 1; x++)
-            {
-                int3 cell = baseCell + int3(x, y, z);
-
-                if (any(cell < 0) || any(cell >= gridSize))
-                    continue;
-
-                float3 voxelPos = (cell + 0.5) * voxelSize;
-                float dist = distance(voxelPos, pos);
-
-                if (dist < smoothingRadius)
-                {
-                    uint index =
-                cell.x +
-                cell.y * gridSize.x +
-                cell.z * gridSize.x * gridSize.y;
-
-                    Voxels[index] += 1.0f - (dist / smoothingRadius);
-                }
-            }
 }

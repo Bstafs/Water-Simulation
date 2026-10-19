@@ -28,14 +28,15 @@ SPH::~SPH()
 	if (FluidSimIntegrateShader) FluidSimIntegrateShader->Release();
 	if (SpatialGridClearShader) SpatialGridClearShader->Release();
 	if (SpatialGridAddParticleShader) SpatialGridAddParticleShader->Release();
-	if (BitonicSortingShader) BitonicSortingShader->Release();
 	if (FluidSimCalculateDensity) FluidSimCalculateDensity->Release();
 	if (FluidSimCalculatePressure) FluidSimCalculatePressure->Release();
+
 
 	if (inputBuffer) inputBuffer->Release();
 	if (outputBuffer) outputBuffer->Release();
 	if (outputResultBuffer) outputResultBuffer->Release();
 
+		 
 	if (inputViewIntegrateA) inputViewIntegrateA->Release();
 	if (outputUAVIntegrateA) outputUAVIntegrateA->Release();
 	if (inputViewIntegrateB) inputViewIntegrateB->Release();
@@ -47,6 +48,11 @@ SPH::~SPH()
 	if (outputUAVSpatialGridCountB) outputUAVSpatialGridCountB->Release();
 
 	if (SpatialGridConstantBuffer) SpatialGridConstantBuffer->Release();
+
+	if (RadixHistogramShader) RadixHistogramShader->Release();
+	if (RadixHistogramBuffer) RadixHistogramBuffer->Release();
+	if (RadixConstantBuffer) RadixConstantBuffer->Release();
+	if (RadixHistogramUAV) RadixHistogramUAV->Release();
 }
 
 void SPH::InitParticles()
@@ -86,20 +92,18 @@ void SPH::InitGPUResources()
 	// Shaders
 	SpatialGridClearShader = CreateComputeShader(L"SPHComputeShader.hlsl", "ClearGrid", device);
 	SpatialGridAddParticleShader = CreateComputeShader(L"SPHComputeShader.hlsl", "AddParticlesToGrid", device);
-
-	// Bitonic Sort
-	BitonicSortingShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BitonicSort", device);
+	RadixHistogramShader = CreateComputeShader(L"SPHComputeShader.hlsl", "RadixHistogram", device);
+	RadixPrefixShader =	CreateComputeShader(L"SPHComputeShader.hlsl","RadixPrefix", device);
+	RadixScatterShader =CreateComputeShader(L"SPHComputeShader.hlsl", "RadixScatter", device);
 
 	GridOffsetsShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BuildGridOffsets", device);
 	FluidSimCalculateDensity = CreateComputeShader(L"SPHComputeShader.hlsl", "CalculateDensity", device);
 	FluidSimCalculatePressure = CreateComputeShader(L"SPHComputeShader.hlsl", "CalculatePressure", device);
 	FluidSimIntegrateShader = CreateComputeShader(L"SPHComputeShader.hlsl", "CSMain", device);
-	MarchingCubesShader = CreateComputeShader(L"SPHComputeShader.hlsl", "BuildDensityGrid", device);
 
 	// Constant Buffers
 	SpatialGridConstantBuffer = CreateConstantBuffer(sizeof(SimulationParams), device, false);
-	BitonicSortConstantBuffer = CreateConstantBuffer(sizeof(BitonicParams), device, false);
-	MCConstantBuffer = CreateConstantBuffer(sizeof(MCGridParams), device, false);
+	RadixConstantBuffer = CreateConstantBuffer(sizeof(RadixParams), device, false);
 
 	// Structure Buffers
 	std::vector<ParticleAttributes> position(NUM_OF_PARTICLES);
@@ -227,25 +231,84 @@ void SPH::InitGPUResources()
 	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateA);
 	hr = device->CreateUnorderedAccessView(outputBuffer, &uavDesc, &outputUAVIntegrateB);
 
-	// Marching Cubes
+	// Radix
+	const UINT histogramElements = groupCount * RADIX_SIZE;
 
-	D3D11_BUFFER_DESC mcDesc = {};
-	mcDesc.ByteWidth = sizeof(float) * VOXEL_COUNT;
-	mcDesc.Usage = D3D11_USAGE_DEFAULT;
-	mcDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-	mcDesc.StructureByteStride = sizeof(float);
-	mcDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	// Radix Histogram Buffer
+	D3D11_BUFFER_DESC RadixBufferDesc = {};
+	RadixBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	RadixBufferDesc.ByteWidth = sizeof(UINT) * histogramElements;
+	RadixBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	RadixBufferDesc.StructureByteStride = sizeof(UINT);
+	RadixBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	RadixBufferDesc.CPUAccessFlags = 0;
+	hr = device->CreateBuffer(&RadixBufferDesc, nullptr, &RadixHistogramBuffer);
+	if (FAILED(hr)) return;
 
-	device->CreateBuffer(&mcDesc, nullptr, &voxelBuffer);
-	device->CreateUnorderedAccessView(voxelBuffer, nullptr, &voxelUAV);
-	device->CreateShaderResourceView(voxelBuffer, nullptr, &voxelSRV);
+	// Radix Histogram UAV
+	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDescRadix = {};
+	uavDescRadix.Buffer.FirstElement = 0;
+	uavDescRadix.Buffer.Flags = 0;
+	uavDescRadix.Format = DXGI_FORMAT_UNKNOWN;
+	uavDescRadix.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	uavDescRadix.Buffer.NumElements = histogramElements;
+	hr = device->CreateUnorderedAccessView(RadixHistogramBuffer, &uavDescRadix, &RadixHistogramUAV);
+	if (FAILED(hr)) return;
+
+
+	// Radix Prefix Buffer
+	D3D11_BUFFER_DESC prefixBufferDesc = {};
+	prefixBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	prefixBufferDesc.ByteWidth = sizeof(UINT) * histogramElements;
+	prefixBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	prefixBufferDesc.StructureByteStride = sizeof(UINT);
+	prefixBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	prefixBufferDesc.CPUAccessFlags = 0;
+	hr = device->CreateBuffer(&prefixBufferDesc, nullptr, &RadixPrefixBuffer);
+	if (FAILED(hr)) return;
+
+	hr = device->CreateUnorderedAccessView(
+		RadixPrefixBuffer, &uavDescRadix, &RadixPrefixUAV);
+	if (FAILED(hr)) return;
+
+	// Scratter Buffer
+	D3D11_BUFFER_DESC ScratchBufferDesc = {};
+	ScratchBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	ScratchBufferDesc.ByteWidth = NUM_OF_PARTICLES * sizeof(UINT) * 3;
+	ScratchBufferDesc.StructureByteStride = sizeof(UINT) * 3;
+	ScratchBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	ScratchBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	ScratchBufferDesc.CPUAccessFlags = 0;
+	hr = device->CreateBuffer(&ScratchBufferDesc, nullptr, &SpatialGridScratchBuffer);
+	if (FAILED(hr)) return;
+
+	// Scratter Buffer UAV
+	D3D11_UNORDERED_ACCESS_VIEW_DESC gridUAVDesc = {};
+	gridUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	gridUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	gridUAVDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+	hr = device->CreateUnorderedAccessView(SpatialGridScratchBuffer, &gridUAVDesc, &SpatialGridScratchUAV);
+	if (FAILED(hr)) return;
+
+	// Scratter Buffer SRV
+	D3D11_SHADER_RESOURCE_VIEW_DESC gridSRVDesc = {};
+	gridSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	gridSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	gridSRVDesc.Buffer.NumElements = NUM_OF_PARTICLES;
+	hr = device->CreateShaderResourceView(SpatialGridScratchBuffer, &gridSRVDesc, &SpatialGridScratchSRV);
+	if (FAILED(hr)) return;
+
 }
 
 void SPH::UpdateSpatialGridClear(float deltaTime)
 {
+	SimulationParams cb = {};
+	cb.numParticles = NUM_OF_PARTICLES;
+	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
+
 	// Bind compute shader and buffers (double buffer the grid)
 	deviceContext->CSSetShader(SpatialGridClearShader, nullptr, 0);
-
+	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
 	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridA, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountA, nullptr);
 
@@ -289,47 +352,103 @@ void SPH::UpdateAddParticlesToSpatialGrid(float deltaTime)
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
 }
 
-void SPH::UpdateBitonicSorting(float deltaTime)
+void SPH::UpdateRadixSorting(float deltaTime)
 {
-	BitonicParams  params = {};
+	RadixParams params = {};
 	params.numElements = NUM_OF_PARTICLES;
-	deviceContext->UpdateSubresource(BitonicSortConstantBuffer, 0, nullptr, &params, 0, 0);
+	params.groupCount = groupCount;
 
-	for (UINT k = 2; k <= NUM_OF_PARTICLES; k <<= 1)
+	ID3D11ShaderResourceView* inputSRV = outputSRVSpatialGridA;
+
+	for (UINT shift = 0; shift < 32; shift += RADIX_BITS)
 	{
-		params.k = k;
-		deviceContext->UpdateSubresource(BitonicSortConstantBuffer, 0, nullptr, &params, 0, 0);
+		params.bitShift = shift;
 
-		for (UINT j = k >> 1; j > 0; j >>= 1)
-		{
-			params.j = j;
-			deviceContext->UpdateSubresource(BitonicSortConstantBuffer, 0, nullptr, &params, 0, 0);
+		deviceContext->UpdateSubresource(
+			RadixConstantBuffer, 0, nullptr, &params, 0, 0);
 
-			// Bind compute shader and resources
-			deviceContext->CSSetShader(BitonicSortingShader, nullptr, 0);
-			deviceContext->CSSetConstantBuffers(1, 1, &BitonicSortConstantBuffer);
+		// 1. Histogram
+		deviceContext->CSSetShader(RadixHistogramShader, nullptr, 0);
+		deviceContext->CSSetConstantBuffers(
+			3, 1, &RadixConstantBuffer);
 
-			deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridA, nullptr);
+		deviceContext->CSSetShaderResources(0, 1, &inputSRV);
+		deviceContext->CSSetUnorderedAccessViews(
+			5, 1, &RadixHistogramUAV, nullptr);
 
-			// Dispatch compute shader
-			deviceContext->Dispatch(threadGroupCountX, 1, 1);
-			deviceContext->CSSetUnorderedAccessViews(1, 1, uavViewNull, nullptr);
-			deviceContext->CSSetShader(nullptr, nullptr, 0);
-		}
+		deviceContext->Dispatch(groupCount, 1, 1);
+
+		// Unbind resources before reusing slots.
+		ID3D11ShaderResourceView* nullSRV = nullptr;
+		ID3D11UnorderedAccessView* nullUAV = nullptr;
+
+		deviceContext->CSSetShaderResources(0, 1, &nullSRV);
+		deviceContext->CSSetUnorderedAccessViews(
+			5, 1, &nullUAV, nullptr);
+
+		// 2. Prefix
+		deviceContext->CSSetShader(RadixPrefixShader, nullptr, 0);
+		deviceContext->CSSetConstantBuffers(
+			3, 1, &RadixConstantBuffer);
+
+		deviceContext->CSSetUnorderedAccessViews(
+			5, 1, &RadixHistogramUAV, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(
+			6, 1, &RadixPrefixUAV, nullptr);
+
+		deviceContext->Dispatch(1, 1, 1);
+
+		deviceContext->CSSetUnorderedAccessViews(
+			5, 1, &nullUAV, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(
+			6, 1, &nullUAV, nullptr);
+
+		// 3. Scatter: alternate between scratch and buffer A.
+		const bool inputIsA = (shift % (2 * RADIX_BITS) == 0);
+
+		ID3D11UnorderedAccessView* outputUAV =
+			inputIsA ? SpatialGridScratchUAV
+			: outputUAVSpatialGridA;
+
+		ID3D11ShaderResourceView* scratchSRV =
+			SpatialGridScratchSRV;
+
+		deviceContext->CSSetShader(RadixScatterShader, nullptr, 0);
+		deviceContext->CSSetConstantBuffers(
+			3, 1, &RadixConstantBuffer);
+
+		deviceContext->CSSetShaderResources(0, 1, &inputSRV);
+		deviceContext->CSSetUnorderedAccessViews(
+			4, 1, &outputUAV, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(
+			6, 1, &RadixPrefixUAV, nullptr);
+
+		deviceContext->Dispatch(groupCount, 1, 1);
+
+		deviceContext->CSSetShaderResources(0, 1, &nullSRV);
+		deviceContext->CSSetUnorderedAccessViews(
+			4, 1, &nullUAV, nullptr);
+		deviceContext->CSSetUnorderedAccessViews(
+			6, 1, &nullUAV, nullptr);
+
+		// Select the buffer written by this pass.
+		inputSRV = inputIsA
+			? scratchSRV
+			: outputSRVSpatialGridA;
+
+		deviceContext->CSSetShader(nullptr, nullptr, 0);
 	}
 }
 
 void SPH::UpdateBuildGridOffsets(float deltaTime)
 {
-	BitonicParams cb = {};
-	cb.numElements = NUM_OF_PARTICLES;
-	deviceContext->UpdateSubresource(BitonicSortConstantBuffer, 0, nullptr, &cb, 0, 0);
+	SimulationParams cb = {};
+	cb.numParticles = NUM_OF_PARTICLES;
+	deviceContext->UpdateSubresource(SpatialGridConstantBuffer, 0, nullptr, &cb, 0, 0);
 
 	// Bind compute shader and resources
 	deviceContext->CSSetShader(GridOffsetsShader, nullptr, 0);
 	deviceContext->CSSetConstantBuffers(0, 1, &SpatialGridConstantBuffer);
-	deviceContext->CSSetConstantBuffers(1, 1, &BitonicSortConstantBuffer);
-
 
 	deviceContext->CSSetUnorderedAccessViews(1, 1, &outputUAVSpatialGridA, nullptr);
 	deviceContext->CSSetUnorderedAccessViews(2, 1, &outputUAVSpatialGridCountA, nullptr);
@@ -432,34 +551,12 @@ void SPH::UpdateIntegrateComputeShader(float deltaTime, float minX, float minZ)
 	deviceContext->CSSetShader(nullptr, nullptr, 0);
 }
 
-void SPH::UpdateMarchingCubes()
-{
-	MCGridParams cb = {};
-	cb.gridSizeX = gridSizeX;
-	cb.gridSizeY = gridSizeY;
-	cb.gridSizeZ = gridSizeZ;
-	cb.voxelSize = voxelSize;
-	deviceContext->UpdateSubresource(MCConstantBuffer, 0, nullptr, &cb, 0, 0);
-
-	deviceContext->CSSetShader(MarchingCubesShader, nullptr, 0);
-	deviceContext->CSSetConstantBuffers(2, 1, &MCConstantBuffer);
-
-	deviceContext->CSSetUnorderedAccessViews(0, 1, &outputUAVIntegrateA, nullptr);
-	deviceContext->CSSetUnorderedAccessViews(3, 1, &voxelUAV, nullptr);
-
-	deviceContext->Dispatch(threadGroupCountX, 1, 1);
-
-	deviceContext->CSSetUnorderedAccessViews(0, 1, uavViewNull, nullptr);
-	deviceContext->CSSetUnorderedAccessViews(3, 1, uavViewNull, nullptr);
-	deviceContext->CSSetShader(nullptr, nullptr, 0);
-}
-
 void SPH::Update(float deltaTime, float minX, float minZ)
 {
 	// SPH
 	UpdateSpatialGridClear(deltaTime);
 	UpdateAddParticlesToSpatialGrid(deltaTime);
-	UpdateBitonicSorting(deltaTime);
+	UpdateRadixSorting(deltaTime);
 	UpdateBuildGridOffsets(deltaTime);
 	UpdateParticleDensities(deltaTime);
 
@@ -470,6 +567,4 @@ void SPH::Update(float deltaTime, float minX, float minZ)
 		g_Annotation->EndEvent();
 
 	UpdateIntegrateComputeShader(deltaTime, minX, minZ);
-
-	UpdateMarchingCubes();
 }
