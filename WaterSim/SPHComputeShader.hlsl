@@ -398,7 +398,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
              
     float3 inputPosition = Partricles[dispatchThreadID.x].position;
     float3 inputVelocity = Partricles[dispatchThreadID.x].velocity;
-    float3 inputDensity = Partricles[dispatchThreadID.x].density;
+    float inputDensity = Partricles[dispatchThreadID.x].density;
     
     inputVelocity.y += -9.807f * deltaTime;
          

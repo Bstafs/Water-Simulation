@@ -103,9 +103,9 @@ void SPH::InitGPUResources()
 
 	// Structure Buffers
 	std::vector<ParticleAttributes> position(NUM_OF_PARTICLES);
-	for (int i = 0; i < particleList.size(); i++)
+	for (size_t i = 0; i < particleList.size(); ++i)
 	{
-		Particle particle = particleList[i];
+		const Particle& particle = particleList[i];
 
 		position[i].position =	    particle.position;
 		position[i].velocity =		particle.velocity;
@@ -236,7 +236,7 @@ void SPH::InitGPUResources()
 	mcDesc.StructureByteStride = sizeof(float);
 	mcDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
-	device->CreateBuffer(&desc, nullptr, &voxelBuffer);
+	device->CreateBuffer(&mcDesc, nullptr, &voxelBuffer);
 	device->CreateUnorderedAccessView(voxelBuffer, nullptr, &voxelUAV);
 	device->CreateShaderResourceView(voxelBuffer, nullptr, &voxelSRV);
 }
