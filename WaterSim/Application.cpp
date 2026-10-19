@@ -412,6 +412,13 @@ HRESULT Application::InitDevice()
 			return -1;
 		}
 	}
+	D3D_FEATURE_LEVEL level = _pd3dDevice->GetFeatureLevel();
+
+	char message[128];
+	sprintf_s(message, "D3D feature level: 0x%X\n",
+		static_cast<unsigned int>(level));
+
+	OutputDebugStringA(message);
 
 	// Create a render target view
 	ID3D11Texture2D* pBackBuffer = nullptr;

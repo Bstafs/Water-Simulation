@@ -179,5 +179,31 @@ private:
 	int VOXEL_COUNT = gridSizeX * gridSizeY * gridSizeZ;
 
 	ID3DUserDefinedAnnotation* g_Annotation = nullptr;
+
+
+	// RADIX 
+	static constexpr UINT RADIX_BITS = 4;
+	static constexpr UINT RADIX_SIZE = 1u << RADIX_BITS; // 16
+	static constexpr UINT RADIX_MASK = RADIX_SIZE - 1;   // 15
+	static constexpr UINT RADIX_THREADS = 256;
+
+	UINT groupCount =
+		(NUM_OF_PARTICLES + RADIX_THREADS - 1) / RADIX_THREADS;
+
+	ID3D11ComputeShader* RadixHistogramShader = nullptr;
+	ID3D11ComputeShader* RadixPrefixShader = nullptr;
+	ID3D11ComputeShader* RadixScatterShader = nullptr;
+
+	ID3D11Buffer* RadixConstantBuffer = nullptr;
+	ID3D11Buffer* RadixHistogramBuffer = nullptr;
+	ID3D11Buffer* RadixPrefixBuffer = nullptr;
+	ID3D11Buffer* SpatialGridScratchBuffer = nullptr;
+
+	ID3D11UnorderedAccessView* RadixHistogramUAV = nullptr;
+	ID3D11UnorderedAccessView* RadixPrefixUAV = nullptr;
+	ID3D11UnorderedAccessView* SpatialGridScratchUAV = nullptr;
+
+	ID3D11ShaderResourceView* SpatialGridScratchSRV = nullptr;
+
 };
 

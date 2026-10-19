@@ -33,6 +33,14 @@ cbuffer MCGridParams : register(b2)
     float voxelSize;
 };
 
+cbuffer RadixParams : register(b3)
+{
+    uint elementCount;
+    uint bitShift;
+    uint groupCount;
+    uint radixPadding;
+};
+
 // Particles Info
 RWStructuredBuffer<ParticleAttributes> Partricles : register(u0); // Output UAV
 RWStructuredBuffer<float4> g_ParticlePositions : register(u7); 
@@ -43,6 +51,11 @@ RWStructuredBuffer<float> Voxels : register(u3);
 StructuredBuffer<uint3> GridIndicesIn : register(t0);
 RWStructuredBuffer<uint3> GridIndices : register(u1); 
 RWStructuredBuffer<uint> GridOffsets : register(u2); 
+
+// Radix Sort Buffers
+RWStructuredBuffer<uint3> RadixOutput : register(u4);
+RWStructuredBuffer<uint> RadixHistogram : register(u5);
+RWStructuredBuffer<uint> RadixPrefix : register(u6);
 
 static const float targetDensity = 50.0f;
 static const float stiffnessValue = 100.0f;
@@ -111,10 +124,13 @@ uint GetBits(uint value, uint bitOffset, uint numBits)
 
 
 [numthreads(ThreadCount, 1, 1)]
-void ClearGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
+void ClearGrid(uint3 id : SV_DispatchThreadID)
 {
-    GridOffsets[dispatchThreadId.x] = 0;
-    GridIndices[dispatchThreadId.x] = uint3(0, 0, 0);
+    if (id.x >= (uint)numElements)
+        return;
+
+    GridOffsets[id.x] = numElements;
+    GridIndices[id.x] = uint3(0, 0, 0);
 }
 
 [numthreads(ThreadCount, 1, 1)]
@@ -135,6 +151,9 @@ void AddParticlesToGrid(uint3 dispatchThreadId : SV_DispatchThreadID)
             key // Reserved for key
         );
 }
+
+
+
 
 // Bitonic sort compute shader
 [numthreads(ThreadCount, 1, 1)]
@@ -169,19 +188,18 @@ void BitonicSort(uint3 dispatchThreadID : SV_DispatchThreadID)
 }
 
 [numthreads(ThreadCount, 1, 1)]
-void BuildGridOffsets(uint3 dispatchThreadID : SV_DispatchThreadID)
+void BuildGridOffsets(uint3 id : SV_DispatchThreadID)
 {
-    uint i = dispatchThreadID.x;
-    if (i >= numElements)
+    uint i = id.x;
+
+    if (i >= (uint)numElements)
         return;
 
-    uint currentHash = GridIndices[i].y;
-    uint previousHash = (i == 0) ? 0xFFFFFFFF : GridIndices[i - 1].y;
+    uint key = GridIndices[i].z;
 
-    if (i == 0 || currentHash != previousHash)
+    if (i == 0 || key != GridIndices[i - 1].z)
     {
-        uint cellKey = KeyFromHash(currentHash, numElements);
-        GridOffsets[cellKey] = i;
+        GridOffsets[key] = i;
     }
 }
 

@@ -33,19 +33,7 @@
     <ClCompile Include="Vector3.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Appearance.cpp">
-      <Filter>Entity</Filter>
-    </ClCompile>
-    <ClCompile Include="OBJLoader.cpp">
-      <Filter>Entity</Filter>
-    </ClCompile>
-    <ClCompile Include="Transform.cpp">
-      <Filter>Entity</Filter>
-    </ClCompile>
     <ClCompile Include="DDSTextureLoader.cpp">
-      <Filter>Entity</Filter>
-    </ClCompile>
-    <ClCompile Include="GameObject.cpp">
       <Filter>Entity</Filter>
     </ClCompile>
     <ClCompile Include="MarchingCubes.cpp">
@@ -104,19 +92,7 @@
     <ClInclude Include="Structures.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Appearance.h">
-      <Filter>Entity</Filter>
-    </ClInclude>
-    <ClInclude Include="OBJLoader.h">
-      <Filter>Entity</Filter>
-    </ClInclude>
-    <ClInclude Include="Transform.h">
-      <Filter>Entity</Filter>
-    </ClInclude>
     <ClInclude Include="DDSTextureLoader.h">
-      <Filter>Entity</Filter>
-    </ClInclude>
-    <ClInclude Include="GameObject.h">
       <Filter>Entity</Filter>
     </ClInclude>
     <ClInclude Include="MarchingCubes.h">
