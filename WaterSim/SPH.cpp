@@ -30,7 +30,14 @@ SPH::~SPH()
 	if (SpatialGridAddParticleShader) SpatialGridAddParticleShader->Release();
 	if (FluidSimCalculateDensity) FluidSimCalculateDensity->Release();
 	if (FluidSimCalculatePressure) FluidSimCalculatePressure->Release();
+	if (GridOffsetsShader) GridOffsetsShader->Release();
+	if (RadixHistogramShader) RadixHistogramShader->Release();
+	if (RadixScatterShader) RadixScatterShader->Release();
+	if (RadixPrefixShader) RadixPrefixShader->Release();
 
+	if (g_pParticlePositionBuffer) g_pParticlePositionBuffer->Release();
+	if (g_pParticlePositionSRV) g_pParticlePositionSRV->Release();
+	if (g_pParticlePositionUAV) g_pParticlePositionUAV->Release();
 
 	if (inputBuffer) inputBuffer->Release();
 	if (outputBuffer) outputBuffer->Release();
@@ -46,13 +53,32 @@ SPH::~SPH()
 	if (outputUAVSpatialGridCountA) outputUAVSpatialGridCountA->Release();
 	if (outputUAVSpatialGridB) outputUAVSpatialGridB->Release();
 	if (outputUAVSpatialGridCountB) outputUAVSpatialGridCountB->Release();
+	if (outputSRVSpatialGridA) outputSRVSpatialGridA->Release();
+	if (outputSRVSpatialGridB) outputSRVSpatialGridB->Release();
+
 
 	if (SpatialGridConstantBuffer) SpatialGridConstantBuffer->Release();
-
-	if (RadixHistogramShader) RadixHistogramShader->Release();
-	if (RadixHistogramBuffer) RadixHistogramBuffer->Release();
 	if (RadixConstantBuffer) RadixConstantBuffer->Release();
+
+	if (SpatialGridOutputBufferA) SpatialGridOutputBufferA->Release();
+	if (SpatialGridOutputBufferB) SpatialGridOutputBufferB->Release();
+	if (SpatialGridResultOutputBuffer) SpatialGridResultOutputBuffer->Release();
+
+	if (SpatialGridOutputBufferCount) SpatialGridOutputBufferCount->Release();
+	if (SpatialGridResultOutputBufferCount) SpatialGridResultOutputBufferCount->Release();
+
+
+
+	if (RadixHistogramBuffer) RadixHistogramBuffer->Release();
+	if (RadixPrefixBuffer) RadixPrefixBuffer->Release();
+	if (SpatialGridScratchBuffer) SpatialGridScratchBuffer->Release();
+
 	if (RadixHistogramUAV) RadixHistogramUAV->Release();
+	if (RadixPrefixUAV) RadixPrefixUAV->Release();
+
+
+	if (SpatialGridScratchUAV) SpatialGridScratchUAV->Release();
+	if (SpatialGridScratchSRV) SpatialGridScratchSRV->Release();
 }
 
 void SPH::InitParticles()

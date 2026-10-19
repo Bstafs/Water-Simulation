@@ -126,8 +126,10 @@ float4 PS(VS_OUTPUT input) : SV_Target
 
     if (HasTexture == 1.0f)
     {
-        finalColour.rgb = (textureColour.rgb * (ambient + diffuse)) + specular;
-        //finalColour.rgb = specular;
+        float4 textureColour = txDiffuse.Sample(samLinear, input.Tex);
+
+        finalColour.rgb =
+        textureColour.rgb * (ambient + diffuse) + specular;
     }
     else
     {
